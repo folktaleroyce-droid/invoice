@@ -15,6 +15,12 @@ export enum PaymentMethod {
   OTHER = 'Other',
 }
 
+export interface AdditionalChargeItem {
+  id: string;
+  description: string;
+  amount: number;
+}
+
 export interface InvoiceData {
   receiptNo: string;
   date: string;
@@ -25,6 +31,7 @@ export interface InvoiceData {
   nights: number;
   ratePerNight: number;
   roomCharge: number;
+  additionalChargeItems: AdditionalChargeItem[];
   additionalCharges: number;
   discount: number;
   subtotal: number;

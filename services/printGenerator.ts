@@ -8,6 +8,10 @@ export const printInvoice = (data: InvoiceData) => {
     maximumFractionDigits: 2,
   });
 
+  const additionalChargesRows = data.additionalChargeItems.map(item => `
+    <tr><td>${item.description || 'Additional Charge'}</td><td class="text-right">${currencyFormatter.format(item.amount)}</td></tr>
+  `).join('');
+
   const printContent = `
     <!DOCTYPE html>
     <html lang="en">
@@ -99,7 +103,7 @@ export const printInvoice = (data: InvoiceData) => {
 
         <table class="totals-table">
           <tbody>
-            <tr><td>Additional Charges</td><td class="text-right">${currencyFormatter.format(data.additionalCharges)}</td></tr>
+            ${additionalChargesRows}
             <tr><td>Discount</td><td class="text-right">-${currencyFormatter.format(data.discount)}</td></tr>
             <tr><td>Subtotal</td><td class="text-right">${currencyFormatter.format(data.subtotal)}</td></tr>
             <tr><td>Tax (${data.taxPercentage}%)</td><td class="text-right">${currencyFormatter.format(data.taxAmount)}</td></tr>

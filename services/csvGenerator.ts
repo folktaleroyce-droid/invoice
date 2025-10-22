@@ -15,6 +15,7 @@ export const generateInvoiceCSV = (data: InvoiceData) => {
         'Room Type', 'Nights', 
         `Rate per Night (${data.currency})`, 
         `Room Charge (${data.currency})`, 
+        'Additional Charges Details',
         `Additional Charges (${data.currency})`,
         `Discount (${data.currency})`, 
         `Subtotal (${data.currency})`, 
@@ -24,6 +25,10 @@ export const generateInvoiceCSV = (data: InvoiceData) => {
         'Amount in Words', 'Purpose of Payment', 'Payment Method', 'Received By', 'Designation',
         'Currency'
     ];
+    
+    const additionalChargesDetails = data.additionalChargeItems
+      .map(item => `${item.description || 'N/A'}: ${item.amount}`)
+      .join('; ');
 
     const rowData = [
         data.receiptNo,
@@ -35,6 +40,7 @@ export const generateInvoiceCSV = (data: InvoiceData) => {
         data.nights,
         data.ratePerNight,
         data.roomCharge,
+        additionalChargesDetails,
         data.additionalCharges,
         data.discount,
         data.subtotal,
@@ -54,7 +60,7 @@ export const generateInvoiceCSV = (data: InvoiceData) => {
         rowData.join(',')
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-t;' });
     const link = document.createElement('a');
     if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);

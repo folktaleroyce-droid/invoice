@@ -68,7 +68,7 @@ export const generateInvoicePDF = (data: InvoiceData) => {
     ["Number of Nights", data.nights, ''],
     ["Rate per Night", '', currencyFormatter.format(data.ratePerNight)],
     ["Room Charge", `${data.nights} night(s) @ ${currencyFormatter.format(data.ratePerNight)}`, currencyFormatter.format(data.roomCharge)],
-    ["Additional Charges", '', currencyFormatter.format(data.additionalCharges)],
+    ...data.additionalChargeItems.map(item => [item.description || 'Additional Charge', '', currencyFormatter.format(item.amount)]),
     ["Discount", '', `-${currencyFormatter.format(data.discount)}`],
     ["Subtotal", '', currencyFormatter.format(data.subtotal)],
     [`Tax (${data.taxPercentage}%)`, '', currencyFormatter.format(data.taxAmount)],

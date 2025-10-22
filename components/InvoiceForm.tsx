@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
-import { InvoiceData, RoomType, PaymentMethod } from '../types';
+import { InvoiceData, RoomType, PaymentMethod, AdditionalChargeItem } from '../types';
 import { convertAmountToWords } from '../utils/numberToWords';
 import { printInvoice } from '../services/printGenerator';
 import { generateInvoiceCSV } from '../services/csvGenerator';
@@ -28,7 +28,8 @@ const roomRatesUSD: Record<RoomType, number> = {
 // Centralized calculation function for a predictable state
 const calculateInvoiceTotals = (data: InvoiceData): InvoiceData => {
     const roomCharge = data.nights * data.ratePerNight;
-    const subtotal = roomCharge + data.additionalCharges - data.discount;
+    const additionalCharges = data.additionalChargeItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const subtotal = roomCharge + additionalCharges - data.discount;
     const taxAmount = subtotal * (data.taxPercentage / 100);
     const amountReceived = subtotal + taxAmount;
     const amountInWords = convertAmountToWords(amountReceived, data.currency);
@@ -36,6 +37,7 @@ const calculateInvoiceTotals = (data: InvoiceData): InvoiceData => {
     return {
         ...data,
         roomCharge,
+        additionalCharges,
         subtotal,
         taxAmount,
         amountReceived,
@@ -58,6 +60,7 @@ const generateNewInvoiceState = (): InvoiceData => {
     nights: 1,
     ratePerNight: roomRates[defaultRoomType],
     roomCharge: 0, // Placeholder
+    additionalChargeItems: [],
     additionalCharges: 0,
     discount: 0,
     subtotal: 0, // Placeholder
@@ -150,7 +153,7 @@ const InvoiceForm: React.FC = () => {
     setInvoiceData(prev => {
         let nextData = { ...prev };
 
-        const numericFields = ['nights', 'ratePerNight', 'additionalCharges', 'discount', 'taxPercentage'];
+        const numericFields = ['nights', 'ratePerNight', 'discount', 'taxPercentage'];
         if (numericFields.includes(name)) {
             (nextData as any)[name] = parseFloat(value) || 0;
         } else {
@@ -174,6 +177,28 @@ const InvoiceForm: React.FC = () => {
 
   const handleDateChange = (date: string) => {
     setInvoiceData(prev => calculateInvoiceTotals({ ...prev, date }));
+  };
+
+  const handleAddChargeItem = () => {
+    setInvoiceData(prev => {
+        const newItems = [...prev.additionalChargeItems, { id: `item-${Date.now()}`, description: '', amount: 0 }];
+        return calculateInvoiceTotals({ ...prev, additionalChargeItems: newItems });
+    });
+  };
+
+  const handleChargeItemChange = (index: number, field: 'description' | 'amount', value: string | number) => {
+    setInvoiceData(prev => {
+        const newItems = [...prev.additionalChargeItems];
+        newItems[index] = { ...newItems[index], [field]: field === 'amount' ? parseFloat(value as string) || 0 : value };
+        return calculateInvoiceTotals({ ...prev, additionalChargeItems: newItems });
+    });
+  };
+
+  const handleRemoveChargeItem = (id: string) => {
+    setInvoiceData(prev => {
+        const newItems = prev.additionalChargeItems.filter(item => item.id !== id);
+        return calculateInvoiceTotals({ ...prev, additionalChargeItems: newItems });
+    });
   };
 
   // Effect for auto-saving to localStorage
@@ -276,8 +301,55 @@ const InvoiceForm: React.FC = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <CalculatedField label="Room Charge" value={currencyFormatter.format(invoiceData.roomCharge)} />
-                <FormInput label={`Additional Charges (${invoiceData.currency})`} name="additionalCharges" type="number" value={invoiceData.additionalCharges} onChange={handleInputChange} />
                 <FormInput label={`Discount (${invoiceData.currency})`} name="discount" type="number" value={invoiceData.discount} onChange={handleInputChange} />
+            </div>
+
+            {/* Additional Charges Section */}
+            <div className="border-t pt-6 mt-6">
+                <h4 className="text-md font-semibold text-gray-700 mb-4">Additional Charges</h4>
+                <div className="space-y-4">
+                    {invoiceData.additionalChargeItems.map((item, index) => (
+                        <div key={item.id} className="grid grid-cols-12 gap-x-4 items-end">
+                            <div className="col-span-12 sm:col-span-6">
+                                <FormInput 
+                                    label={`Charge #${index + 1} Description`}
+                                    name={`description-${index}`}
+                                    value={item.description} 
+                                    onChange={(e) => handleChargeItemChange(index, 'description', e.target.value)}
+                                />
+                            </div>
+                            <div className="col-span-8 sm:col-span-4">
+                                <FormInput 
+                                    label="Amount"
+                                    name={`amount-${index}`}
+                                    type="number" 
+                                    value={item.amount}
+                                    onChange={(e) => handleChargeItemChange(index, 'amount', e.target.value)}
+                                />
+                            </div>
+                            <div className="col-span-4 sm:col-span-2">
+                                <button 
+                                    type="button" 
+                                    onClick={() => handleRemoveChargeItem(item.id)}
+                                    className="w-full text-red-600 hover:text-red-800 bg-red-100 hover:bg-red-200 rounded-md py-2 px-3 text-sm font-medium transition-colors"
+                                    aria-label={`Remove charge #${index + 1}`}
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <button 
+                    type="button" 
+                    onClick={handleAddChargeItem}
+                    className="mt-4 inline-flex items-center px-4 py-2 border border-dashed border-gray-400 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold"
+                >
+                    + Add Charge
+                </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <CalculatedField label="Total Additional Charges" value={currencyFormatter.format(invoiceData.additionalCharges)} />
                 <CalculatedField label="Subtotal" value={currencyFormatter.format(invoiceData.subtotal)} />
             </div>
         </div>
