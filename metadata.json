@@ -1,0 +1,5 @@
+{
+  "name": "Tidè Hotels and Resorts Invoice Generator",
+  "description": "A web application to generate and print hotel invoices for Tidè Hotels and Resorts. It features a responsive form with real-time calculations for charges, taxes, and totals, and generates a printable PDF receipt.",
+  "requestFramePermissions": []
+}
