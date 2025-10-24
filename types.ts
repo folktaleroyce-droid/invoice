@@ -61,3 +61,31 @@ export interface InvoiceData {
   designation: string;
   currency: 'NGN' | 'USD';
 }
+
+// New additions for Walk-in Guest Feature
+export enum WalkInService {
+  RESTAURANT = 'Restaurant',
+  BAR = 'Bar',
+  GYM = 'Gym',
+  SWIMMING_POOL = 'Swimming Pool',
+  OTHER = 'Other',
+}
+
+export interface WalkInChargeItem {
+  id: string;
+  date: string;
+  service: WalkInService;
+  otherServiceDescription?: string;
+  amount: number;
+}
+
+export interface WalkInTransaction {
+  id: string;
+  transactionDate: string;
+  charges: WalkInChargeItem[];
+  currency: 'NGN' | 'USD';
+  subtotal: number;
+  amountPaid: number;
+  balance: number;
+  cashier: Staff | string;
+}

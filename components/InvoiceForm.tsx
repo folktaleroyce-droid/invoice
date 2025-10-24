@@ -4,6 +4,7 @@ import { convertAmountToWords } from '../utils/numberToWords';
 import { printInvoice } from '../services/printGenerator';
 import { generateInvoiceCSV } from '../services/csvGenerator';
 import DatePicker from './DatePicker';
+import WalkInGuestModal from './WalkInGuestModal';
 
 const roomRates: Record<RoomType, number> = {
     [RoomType.STANDARD]: 150000,
@@ -141,6 +142,7 @@ const InvoiceForm: React.FC = () => {
   const [isGenerated, setIsGenerated] = useState<boolean>(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [emailError, setEmailError] = useState<string>('');
+  const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
 
   const saveTimerRef = useRef<number | null>(null);
   const statusTimerRef = useRef<number | null>(null);
@@ -298,166 +300,179 @@ const InvoiceForm: React.FC = () => {
   });
 
   return (
-    <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold text-tide-dark mb-6 border-b pb-4">Create New Invoice</h2>
-      {isGenerated && (
-        <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded-md" role="alert">
-          <p className="font-bold">Success!</p>
-          <p>The print dialog should have opened. You can print or save as PDF from there.</p>
-        </div>
-      )}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormInput label="Receipt No" name="receiptNo" value={invoiceData.receiptNo} onChange={handleInputChange} required />
-            <DatePicker label="Date" name="date" value={invoiceData.date} onChange={(date) => handleDateChange('date', date)} required />
-        </div>
-        <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Guest Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormInput label="Guest Name (Received From)" name="guestName" value={invoiceData.guestName} onChange={handleInputChange} required />
-                <FormInput label="Guest Email" name="guestEmail" type="email" value={invoiceData.guestEmail} onChange={handleInputChange} required error={emailError} />
-                <FormInput label="Phone/Contact" name="phoneContact" type="tel" value={invoiceData.phoneContact} onChange={handleInputChange} required />
-                <FormInput label="Room Number" name="roomNumber" value={invoiceData.roomNumber} onChange={handleInputChange} required />
-            </div>
-        </div>
-        <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Stay & Charges Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-                <DatePicker label="Arrival Date" name="arrivalDate" value={invoiceData.arrivalDate} onChange={(date) => handleDateChange('arrivalDate', date)} required />
-                <DatePicker label="Departure Date" name="departureDate" value={invoiceData.departureDate} onChange={(date) => handleDateChange('departureDate', date)} required />
-                <FormSelect label="Currency" name="currency" value={invoiceData.currency} onChange={handleInputChange} options={['NGN', 'USD']} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                <FormSelect label="Room Type" name="roomType" value={invoiceData.roomType} onChange={handleInputChange} options={Object.values(RoomType)} required />
-                <FormInput label="Nights" name="nights" type="number" value={invoiceData.nights} onChange={handleInputChange} required/>
-                <FormInput label={`Rate per Night (${invoiceData.currency})`} name="ratePerNight" type="number" value={invoiceData.ratePerNight} onChange={handleInputChange} required/>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <CalculatedField label="Room Charge" value={currencyFormatter.format(invoiceData.roomCharge)} />
-                <FormInput label={`Discount (${invoiceData.currency})`} name="discount" type="number" value={invoiceData.discount} onChange={handleInputChange} />
-            </div>
+    <>
+      <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg max-w-4xl mx-auto">
+        <h2 className="text-2xl font-bold text-tide-dark mb-6 border-b pb-4">Create New Invoice</h2>
+        {isGenerated && (
+          <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded-md" role="alert">
+            <p className="font-bold">Success!</p>
+            <p>The print dialog should have opened. You can print or save as PDF from there.</p>
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormInput label="Receipt No" name="receiptNo" value={invoiceData.receiptNo} onChange={handleInputChange} required />
+              <DatePicker label="Date" name="date" value={invoiceData.date} onChange={(date) => handleDateChange('date', date)} required />
+          </div>
+          <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Guest Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormInput label="Guest Name (Received From)" name="guestName" value={invoiceData.guestName} onChange={handleInputChange} required />
+                  <FormInput label="Guest Email" name="guestEmail" type="email" value={invoiceData.guestEmail} onChange={handleInputChange} required error={emailError} />
+                  <FormInput label="Phone/Contact" name="phoneContact" type="tel" value={invoiceData.phoneContact} onChange={handleInputChange} required />
+                  <FormInput label="Room Number" name="roomNumber" value={invoiceData.roomNumber} onChange={handleInputChange} required />
+              </div>
+          </div>
+          <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Stay & Charges Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                  <DatePicker label="Arrival Date" name="arrivalDate" value={invoiceData.arrivalDate} onChange={(date) => handleDateChange('arrivalDate', date)} required />
+                  <DatePicker label="Departure Date" name="departureDate" value={invoiceData.departureDate} onChange={(date) => handleDateChange('departureDate', date)} required />
+                  <FormSelect label="Currency" name="currency" value={invoiceData.currency} onChange={handleInputChange} options={['NGN', 'USD']} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                  <FormSelect label="Room Type" name="roomType" value={invoiceData.roomType} onChange={handleInputChange} options={Object.values(RoomType)} required />
+                  <FormInput label="Nights" name="nights" type="number" value={invoiceData.nights} onChange={handleInputChange} required/>
+                  <FormInput label={`Rate per Night (${invoiceData.currency})`} name="ratePerNight" type="number" value={invoiceData.ratePerNight} onChange={handleInputChange} required/>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <CalculatedField label="Room Charge" value={currencyFormatter.format(invoiceData.roomCharge)} />
+                  <FormInput label={`Discount (${invoiceData.currency})`} name="discount" type="number" value={invoiceData.discount} onChange={handleInputChange} />
+              </div>
 
-            <div className="border-t pt-6 mt-6">
-                <h4 className="text-md font-semibold text-gray-700 mb-4">Additional Charges</h4>
-                <div className="space-y-4">
-                    {invoiceData.additionalChargeItems.map((item, index) => (
-                        <div key={item.id} className="grid grid-cols-12 gap-x-4 items-end">
-                            <div className="col-span-12 sm:col-span-5">
-                                <FormInput 
-                                    label={`Charge #${index + 1} Description`}
-                                    name={`description-${index}`}
-                                    value={item.description} 
-                                    onChange={(e) => handleChargeItemChange(index, 'description', e.target.value)}
-                                    required
-                                />
-                            </div>
-                             <div className="col-span-6 sm:col-span-3">
-                                <DatePicker
-                                    label="Charge Date"
-                                    name={`chargeDate-${index}`}
-                                    value={item.date}
-                                    onChange={(date) => handleChargeItemDateChange(index, date)}
-                                    required
-                                />
-                            </div>
-                            <div className="col-span-6 sm:col-span-2">
-                                <FormInput 
-                                    label="Amount"
-                                    name={`amount-${index}`}
-                                    type="number" 
-                                    value={item.amount}
-                                    onChange={(e) => handleChargeItemChange(index, 'amount', e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="col-span-12 sm:col-span-2">
-                                <button 
-                                    type="button" 
-                                    onClick={() => handleRemoveChargeItem(item.id)}
-                                    className="w-full text-red-600 hover:text-red-800 bg-red-100 hover:bg-red-200 rounded-md py-2 px-3 text-sm font-medium transition-colors"
-                                    aria-label={`Remove charge #${index + 1}`}
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <button 
+              <div className="border-t pt-6 mt-6">
+                  <h4 className="text-md font-semibold text-gray-700 mb-4">Additional Charges</h4>
+                  <div className="space-y-4">
+                      {invoiceData.additionalChargeItems.map((item, index) => (
+                          <div key={item.id} className="grid grid-cols-12 gap-x-4 items-end">
+                              <div className="col-span-12 sm:col-span-5">
+                                  <FormInput 
+                                      label={`Charge #${index + 1} Description`}
+                                      name={`description-${index}`}
+                                      value={item.description} 
+                                      onChange={(e) => handleChargeItemChange(index, 'description', e.target.value)}
+                                      required
+                                  />
+                              </div>
+                               <div className="col-span-6 sm:col-span-3">
+                                  <DatePicker
+                                      label="Charge Date"
+                                      name={`chargeDate-${index}`}
+                                      value={item.date}
+                                      onChange={(date) => handleChargeItemDateChange(index, date)}
+                                      required
+                                  />
+                              </div>
+                              <div className="col-span-6 sm:col-span-2">
+                                  <FormInput 
+                                      label="Amount"
+                                      name={`amount-${index}`}
+                                      type="number" 
+                                      value={item.amount}
+                                      onChange={(e) => handleChargeItemChange(index, 'amount', e.target.value)}
+                                      required
+                                  />
+                              </div>
+                              <div className="col-span-12 sm:col-span-2">
+                                  <button 
+                                      type="button" 
+                                      onClick={() => handleRemoveChargeItem(item.id)}
+                                      className="w-full text-red-600 hover:text-red-800 bg-red-100 hover:bg-red-200 rounded-md py-2 px-3 text-sm font-medium transition-colors"
+                                      aria-label={`Remove charge #${index + 1}`}
+                                  >
+                                      Remove
+                                  </button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+                  <button 
+                      type="button" 
+                      onClick={handleAddChargeItem}
+                      className="mt-4 inline-flex items-center px-4 py-2 border border-dashed border-gray-400 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold"
+                  >
+                      + Add Charge
+                  </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <CalculatedField label="Total Additional Charges" value={currencyFormatter.format(invoiceData.additionalCharges)} />
+                  <CalculatedField label="Subtotal" value={currencyFormatter.format(invoiceData.subtotal)} />
+              </div>
+          </div>
+          <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Tax & Final Amount</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                  <FormInput label="Tax (%)" name="taxPercentage" type="number" value={invoiceData.taxPercentage} onChange={handleInputChange} />
+                  <CalculatedField label="Tax Amount" value={currencyFormatter.format(invoiceData.taxAmount)} />
+                  <CalculatedField label="Total Amount Due" value={currencyFormatter.format(invoiceData.totalAmountDue)} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <FormInput label={`Amount Received (${invoiceData.currency})`} name="amountReceived" type="number" value={invoiceData.amountReceived} onChange={handleInputChange} required />
+                  <CalculatedField label="Balance" value={currencyFormatter.format(invoiceData.balance)} />
+              </div>
+              <div className="mt-6">
+                  <CalculatedField label="Amount in Words (for Amount Received)" value={invoiceData.amountInWords} />
+              </div>
+          </div>
+          <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="paymentPurpose" className="block text-sm font-medium text-gray-700">Purpose of Payment / Notes</label>
+                    <textarea id="paymentPurpose" name="paymentPurpose" value={invoiceData.paymentPurpose} onChange={handleInputChange} rows={3} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm" required />
+                  </div>
+                  <FormSelect label="Payment Method" name="paymentMethod" value={invoiceData.paymentMethod} onChange={handleInputChange} options={Object.values(PaymentMethod)} required />
+                  <FormSelect label="Received By" name="receivedBy" value={invoiceData.receivedBy} onChange={handleInputChange} options={Object.values(Staff)} required>
+                    <option value="" disabled>Select Staff</option>
+                  </FormSelect>
+                  <FormInput label="Designation" name="designation" value={invoiceData.designation} onChange={handleInputChange} required />
+              </div>
+          </div>
+          <div className="border-t pt-6 flex flex-wrap justify-between items-center gap-4">
+              <div className="text-left">
+                  <p className="text-sm text-gray-500 transition-opacity duration-300 h-5" aria-live="polite">
+                      {saveStatus === 'saving' && 'Saving...'}
+                      {saveStatus === 'saved' && <span className="text-green-600 font-medium">✓ All changes saved</span>}
+                  </p>
+              </div>
+               <div className="flex flex-wrap justify-end gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsWalkInModalOpen(true)}
+                    className="inline-flex justify-center py-3 px-8 border border-tide-dark shadow-sm text-sm font-medium rounded-md text-tide-dark bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold transition-colors"
+                  >
+                    Walk-In Charge
+                  </button>
+                  <button 
                     type="button" 
-                    onClick={handleAddChargeItem}
-                    className="mt-4 inline-flex items-center px-4 py-2 border border-dashed border-gray-400 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold"
-                >
-                    + Add Charge
-                </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <CalculatedField label="Total Additional Charges" value={currencyFormatter.format(invoiceData.additionalCharges)} />
-                <CalculatedField label="Subtotal" value={currencyFormatter.format(invoiceData.subtotal)} />
-            </div>
-        </div>
-        <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Tax & Final Amount</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-                <FormInput label="Tax (%)" name="taxPercentage" type="number" value={invoiceData.taxPercentage} onChange={handleInputChange} />
-                <CalculatedField label="Tax Amount" value={currencyFormatter.format(invoiceData.taxAmount)} />
-                <CalculatedField label="Total Amount Due" value={currencyFormatter.format(invoiceData.totalAmountDue)} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <FormInput label={`Amount Received (${invoiceData.currency})`} name="amountReceived" type="number" value={invoiceData.amountReceived} onChange={handleInputChange} required />
-                <CalculatedField label="Balance" value={currencyFormatter.format(invoiceData.balance)} />
-            </div>
-            <div className="mt-6">
-                <CalculatedField label="Amount in Words (for Amount Received)" value={invoiceData.amountInWords} />
-            </div>
-        </div>
-        <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="paymentPurpose" className="block text-sm font-medium text-gray-700">Purpose of Payment / Notes</label>
-                  <textarea id="paymentPurpose" name="paymentPurpose" value={invoiceData.paymentPurpose} onChange={handleInputChange} rows={3} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm" required />
-                </div>
-                <FormSelect label="Payment Method" name="paymentMethod" value={invoiceData.paymentMethod} onChange={handleInputChange} options={Object.values(PaymentMethod)} required />
-                <FormSelect label="Received By" name="receivedBy" value={invoiceData.receivedBy} onChange={handleInputChange} options={Object.values(Staff)} required>
-                  <option value="" disabled>Select Staff</option>
-                </FormSelect>
-                <FormInput label="Designation" name="designation" value={invoiceData.designation} onChange={handleInputChange} required />
-            </div>
-        </div>
-        <div className="border-t pt-6 flex flex-wrap justify-between items-center gap-4">
-            <div className="text-left">
-                <p className="text-sm text-gray-500 transition-opacity duration-300 h-5" aria-live="polite">
-                    {saveStatus === 'saving' && 'Saving...'}
-                    {saveStatus === 'saved' && <span className="text-green-600 font-medium">✓ All changes saved</span>}
-                </p>
-            </div>
-             <div className="flex flex-wrap justify-end gap-4">
-                <button 
-                  type="button" 
-                  onClick={handleNewInvoice}
-                  className="inline-flex justify-center py-3 px-8 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold transition-colors"
-                >
-                    New Invoice
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => generateInvoiceCSV(invoiceData)}
-                  className="inline-flex justify-center py-3 px-8 border border-transparent shadow-sm text-sm font-medium rounded-md text-tide-dark bg-tide-gold hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold transition-colors"
-                >
-                    Download Excel (CSV)
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={!!emailError}
-                  className="inline-flex justify-center py-3 px-8 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                    Generate & Print Receipt
-                </button>
-            </div>
-        </div>
-      </form>
-    </div>
+                    onClick={handleNewInvoice}
+                    className="inline-flex justify-center py-3 px-8 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold transition-colors"
+                  >
+                      New Invoice
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => generateInvoiceCSV(invoiceData)}
+                    className="inline-flex justify-center py-3 px-8 border border-transparent shadow-sm text-sm font-medium rounded-md text-tide-dark bg-tide-gold hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold transition-colors"
+                  >
+                      Download Excel (CSV)
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={!!emailError}
+                    className="inline-flex justify-center py-3 px-8 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                      Generate & Print Receipt
+                  </button>
+              </div>
+          </div>
+        </form>
+      </div>
+      <WalkInGuestModal 
+        isOpen={isWalkInModalOpen}
+        onClose={() => setIsWalkInModalOpen(false)}
+      />
+    </>
   );
 };
 
