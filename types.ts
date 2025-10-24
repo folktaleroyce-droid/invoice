@@ -1,3 +1,6 @@
+// FIX: Removed an incorrect circular import of `WalkInService` and `Staff`.
+// These types are defined within this same file and should not be imported.
+
 export enum RoomType {
   STANDARD = 'Standard',
   DOUBLE = 'Double',
@@ -88,4 +91,5 @@ export interface WalkInTransaction {
   amountPaid: number;
   balance: number;
   cashier: Staff | string;
+  paymentMethod: PaymentMethod;
 }

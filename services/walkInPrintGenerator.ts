@@ -60,6 +60,7 @@ export const printWalkInReceipt = (data: WalkInTransaction) => {
           <div><span>Date:</span> <span>${data.transactionDate}</span></div>
           <div><span>Guest:</span> <span>Walk in Guest</span></div>
           <div><span>Cashier:</span> <span>${data.cashier}</span></div>
+          <div><span>Payment Method:</span> <span>${data.paymentMethod}</span></div>
         </div>
 
         <table>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { WalkInService, Staff, WalkInTransaction, WalkInChargeItem } from '../types';
+import { WalkInService, Staff, WalkInTransaction, WalkInChargeItem, PaymentMethod } from '../types';
 import { printWalkInReceipt } from '../services/walkInPrintGenerator';
 import { generateWalkInCSV } from '../services/walkInCsvGenerator';
 import DatePicker from './DatePicker';
@@ -23,6 +23,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) 
   const [currency, setCurrency] = useState<'NGN' | 'USD'>('NGN');
   const [amountPaid, setAmountPaid] = useState<number | ''>('');
   const [cashier, setCashier] = useState<Staff | ''>('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
   const [error, setError] = useState('');
 
   // Derived state with useMemo for performance
@@ -53,6 +54,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) 
     setCurrency('NGN');
     setAmountPaid('');
     setCashier('');
+    setPaymentMethod(PaymentMethod.CASH);
     setError('');
   };
 
@@ -114,6 +116,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) 
       amountPaid: typeof amountPaid === 'number' ? amountPaid : 0,
       balance,
       cashier,
+      paymentMethod,
     };
   };
 
@@ -210,12 +213,18 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) 
 
             {/* Summary & Payment */}
             <div className="mt-4 border-t pt-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
                     <div>
                          <label className="block text-sm font-medium text-gray-700">Currency</label>
                          <select value={currency} onChange={e => setCurrency(e.target.value as 'NGN' | 'USD')} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md">
                             <option value="NGN">Naira (NGN)</option>
                             <option value="USD">Dollar (USD)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Payment Method</label>
+                        <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as PaymentMethod)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md">
+                            {Object.values(PaymentMethod).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
                     <div>
