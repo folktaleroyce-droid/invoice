@@ -15,10 +15,21 @@ export enum PaymentMethod {
   OTHER = 'Other',
 }
 
+export enum Staff {
+  GOODNESS = 'Goodness',
+  FAITH = 'Faith',
+  SANDRA = 'Sandra',
+  BENJAMIN = 'Benjamin',
+  DAVID = 'David',
+  MARGRET = 'Margret',
+}
+
+
 export interface AdditionalChargeItem {
   id: string;
   description: string;
   amount: number;
+  date: string;
 }
 
 export interface InvoiceData {
@@ -27,6 +38,9 @@ export interface InvoiceData {
   guestName: string;
   guestEmail: string;
   phoneContact: string;
+  roomNumber: string;
+  arrivalDate: string;
+  departureDate: string;
   roomType: RoomType;
   nights: number;
   ratePerNight: number;
@@ -37,7 +51,9 @@ export interface InvoiceData {
   subtotal: number;
   taxPercentage: number;
   taxAmount: number;
+  totalAmountDue: number;
   amountReceived: number;
+  balance: number;
   amountInWords: string;
   paymentPurpose: string;
   paymentMethod: PaymentMethod;

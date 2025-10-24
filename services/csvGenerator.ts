@@ -12,6 +12,7 @@ const escapeCsvCell = (cell: any): string => {
 export const generateInvoiceCSV = (data: InvoiceData) => {
     const headers = [
         'Receipt No', 'Date', 'Guest Name', 'Guest Email', 'Phone/Contact',
+        'Room Number', 'Arrival Date', 'Departure Date',
         'Room Type', 'Nights', 
         `Rate per Night (${data.currency})`, 
         `Room Charge (${data.currency})`, 
@@ -21,13 +22,15 @@ export const generateInvoiceCSV = (data: InvoiceData) => {
         `Subtotal (${data.currency})`, 
         'Tax (%)', 
         `Tax Amount (${data.currency})`, 
+        `Total Amount Due (${data.currency})`,
         `Amount Received (${data.currency})`,
+        `Balance (${data.currency})`,
         'Amount in Words', 'Purpose of Payment', 'Payment Method', 'Received By', 'Designation',
         'Currency'
     ];
     
     const additionalChargesDetails = data.additionalChargeItems
-      .map(item => `${item.description || 'N/A'}: ${item.amount}`)
+      .map(item => `${item.description || 'N/A'} on ${item.date}: ${item.amount}`)
       .join('; ');
 
     const rowData = [
@@ -36,6 +39,9 @@ export const generateInvoiceCSV = (data: InvoiceData) => {
         data.guestName,
         data.guestEmail,
         data.phoneContact,
+        data.roomNumber,
+        data.arrivalDate,
+        data.departureDate,
         data.roomType,
         data.nights,
         data.ratePerNight,
@@ -46,7 +52,9 @@ export const generateInvoiceCSV = (data: InvoiceData) => {
         data.subtotal,
         data.taxPercentage,
         data.taxAmount,
+        data.totalAmountDue,
         data.amountReceived,
+        data.balance,
         data.amountInWords,
         data.paymentPurpose,
         data.paymentMethod,

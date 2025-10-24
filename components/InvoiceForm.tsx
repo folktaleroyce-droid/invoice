@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
-import { InvoiceData, RoomType, PaymentMethod, AdditionalChargeItem } from '../types';
+import { InvoiceData, RoomType, PaymentMethod, AdditionalChargeItem, Staff } from '../types';
 import { convertAmountToWords } from '../utils/numberToWords';
 import { printInvoice } from '../services/printGenerator';
 import { generateInvoiceCSV } from '../services/csvGenerator';
@@ -31,8 +31,9 @@ const calculateInvoiceTotals = (data: InvoiceData): InvoiceData => {
     const additionalCharges = data.additionalChargeItems.reduce((sum, item) => sum + (item.amount || 0), 0);
     const subtotal = roomCharge + additionalCharges - data.discount;
     const taxAmount = subtotal * (data.taxPercentage / 100);
-    const amountReceived = subtotal + taxAmount;
-    const amountInWords = convertAmountToWords(amountReceived, data.currency);
+    const totalAmountDue = subtotal + taxAmount;
+    const balance = totalAmountDue - data.amountReceived;
+    const amountInWords = convertAmountToWords(data.amountReceived, data.currency);
 
     return {
         ...data,
@@ -40,7 +41,8 @@ const calculateInvoiceTotals = (data: InvoiceData): InvoiceData => {
         additionalCharges,
         subtotal,
         taxAmount,
-        amountReceived,
+        totalAmountDue,
+        balance,
         amountInWords,
     };
 };
@@ -49,25 +51,31 @@ const calculateInvoiceTotals = (data: InvoiceData): InvoiceData => {
 // Function to generate a fresh, fully calculated invoice state
 const generateNewInvoiceState = (): InvoiceData => {
   const defaultRoomType = RoomType.STANDARD;
+  const today = new Date().toISOString().split('T')[0];
   
   const initialState: InvoiceData = {
     receiptNo: `TH${Date.now().toString().slice(-6)}`,
-    date: new Date().toISOString().split('T')[0],
+    date: today,
     guestName: '',
     guestEmail: '',
     phoneContact: '',
+    roomNumber: '',
+    arrivalDate: today,
+    departureDate: today,
     roomType: defaultRoomType,
     nights: 1,
     ratePerNight: roomRates[defaultRoomType],
-    roomCharge: 0, // Placeholder
+    roomCharge: 0,
     additionalChargeItems: [],
     additionalCharges: 0,
     discount: 0,
-    subtotal: 0, // Placeholder
+    subtotal: 0,
     taxPercentage: 7.5,
-    taxAmount: 0, // Placeholder
-    amountReceived: 0, // Placeholder
-    amountInWords: '', // Placeholder
+    taxAmount: 0,
+    totalAmountDue: 0,
+    amountReceived: 0,
+    balance: 0,
+    amountInWords: '',
     paymentPurpose: 'Hotel Accommodation',
     paymentMethod: PaymentMethod.POS,
     receivedBy: '',
@@ -98,11 +106,12 @@ const FormInput: React.FC<{ label: string; name: string; type?: string; value: s
   </div>
 );
 
-const FormSelect: React.FC<{ label: string; name: string; value: string; onChange: (e: ChangeEvent<HTMLSelectElement>) => void; options: string[]; }> =
-({ label, name, value, onChange, options }) => (
+const FormSelect: React.FC<{ label: string; name: string; value: string; onChange: (e: ChangeEvent<HTMLSelectElement>) => void; options: string[]; required?: boolean; children?: React.ReactNode; }> =
+({ label, name, value, onChange, options, required = false, children }) => (
     <div>
         <label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label>
-        <select id={name} name={name} value={value} onChange={onChange} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md">
+        <select id={name} name={name} value={value} onChange={onChange} required={required} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md">
+            {children}
             {options.map(option => <option key={option} value={option}>{option}</option>)}
         </select>
     </div>
@@ -120,12 +129,11 @@ const InvoiceForm: React.FC = () => {
     try {
       const savedData = localStorage.getItem('savedInvoiceData');
       if (savedData) {
-        // Ensure saved data is also run through calculation to add any new fields
         return calculateInvoiceTotals(JSON.parse(savedData));
       }
     } catch (error) {
       console.error("Failed to load or parse saved invoice data:", error);
-      localStorage.removeItem('savedInvoiceData'); // Clear corrupted data
+      localStorage.removeItem('savedInvoiceData');
     }
     return generateNewInvoiceState();
   });
@@ -142,7 +150,6 @@ const InvoiceForm: React.FC = () => {
 
     if (name === 'guestEmail') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      // Show error only if the field is not empty and the format is wrong
       if (!emailRegex.test(value) && value) {
         setEmailError('Please enter a valid email address.');
       } else {
@@ -153,7 +160,7 @@ const InvoiceForm: React.FC = () => {
     setInvoiceData(prev => {
         let nextData = { ...prev };
 
-        const numericFields = ['nights', 'ratePerNight', 'discount', 'taxPercentage'];
+        const numericFields = ['nights', 'ratePerNight', 'discount', 'taxPercentage', 'amountReceived'];
         if (numericFields.includes(name)) {
             (nextData as any)[name] = parseFloat(value) || 0;
         } else {
@@ -175,13 +182,13 @@ const InvoiceForm: React.FC = () => {
     });
   };
 
-  const handleDateChange = (date: string) => {
-    setInvoiceData(prev => calculateInvoiceTotals({ ...prev, date }));
+  const handleDateChange = (name: string, date: string) => {
+    setInvoiceData(prev => calculateInvoiceTotals({ ...prev, [name]: date }));
   };
 
   const handleAddChargeItem = () => {
     setInvoiceData(prev => {
-        const newItems = [...prev.additionalChargeItems, { id: `item-${Date.now()}`, description: '', amount: 0 }];
+        const newItems = [...prev.additionalChargeItems, { id: `item-${Date.now()}`, description: '', amount: 0, date: new Date().toISOString().split('T')[0] }];
         return calculateInvoiceTotals({ ...prev, additionalChargeItems: newItems });
     });
   };
@@ -193,6 +200,14 @@ const InvoiceForm: React.FC = () => {
         return calculateInvoiceTotals({ ...prev, additionalChargeItems: newItems });
     });
   };
+  
+  const handleChargeItemDateChange = (index: number, date: string) => {
+     setInvoiceData(prev => {
+        const newItems = [...prev.additionalChargeItems];
+        newItems[index] = { ...newItems[index], date };
+        return calculateInvoiceTotals({ ...prev, additionalChargeItems: newItems });
+    });
+  };
 
   const handleRemoveChargeItem = (id: string) => {
     setInvoiceData(prev => {
@@ -201,7 +216,6 @@ const InvoiceForm: React.FC = () => {
     });
   };
 
-  // Effect for auto-saving to localStorage
   useEffect(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
@@ -215,13 +229,13 @@ const InvoiceForm: React.FC = () => {
 
             statusTimerRef.current = window.setTimeout(() => {
                 setSaveStatus('idle');
-            }, 2000); // Show 'saved' for 2 seconds
+            }, 2000);
 
         } catch (error) {
             console.error("Failed to save invoice data:", error);
             setSaveStatus('idle');
         }
-    }, 1000); // Debounce save for 1 second
+    }, 1000);
 
     return () => {
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -232,10 +246,34 @@ const InvoiceForm: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (emailError) {
-      alert("Please fix the errors before submitting.");
+
+    const requiredFields: { key: keyof InvoiceData; label: string }[] = [
+      { key: 'guestName', label: 'Guest Name' },
+      { key: 'guestEmail', label: 'Guest Email' },
+      { key: 'phoneContact', label: 'Phone/Contact' },
+      { key: 'roomNumber', label: 'Room Number' },
+      { key: 'receivedBy', label: 'Received By' },
+      { key: 'designation', label: 'Designation' },
+      { key: 'paymentPurpose', label: 'Purpose of Payment' },
+    ];
+    
+    for (const field of requiredFields) {
+      if (!invoiceData[field.key]) {
+        alert(`The field "${field.label}" is required.`);
+        return;
+      }
+    }
+
+    if (invoiceData.nights <= 0) {
+      alert("Number of nights must be at least 1.");
       return;
     }
+
+    if (emailError) {
+      alert("Please fix the email address format.");
+      return;
+    }
+
     printInvoice(invoiceData);
     setIsGenerated(true);
     setTimeout(() => setIsGenerated(false), 5000);
@@ -243,14 +281,9 @@ const InvoiceForm: React.FC = () => {
   
   const handleNewInvoice = () => {
     if (window.confirm("Are you sure you want to start a new invoice? All current data will be cleared.")) {
-      // 1. Cancel any pending auto-save timers to prevent race conditions
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
-      
-      // 2. Clear the saved data from browser storage
       localStorage.removeItem('savedInvoiceData');
-      
-      // 3. Reset all component state slices to their initial values
       setInvoiceData(generateNewInvoiceState());
       setIsGenerated(false);
       setSaveStatus('idle');
@@ -274,28 +307,28 @@ const InvoiceForm: React.FC = () => {
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Section 1: Basic Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormInput label="Receipt No" name="receiptNo" value={invoiceData.receiptNo} onChange={handleInputChange} required />
-            <DatePicker label="Date" name="date" value={invoiceData.date} onChange={handleDateChange} required />
+            <DatePicker label="Date" name="date" value={invoiceData.date} onChange={(date) => handleDateChange('date', date)} required />
         </div>
-        {/* Section 2: Guest Details */}
         <div className="border-t pt-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Guest Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormInput label="Guest Name (Received From)" name="guestName" value={invoiceData.guestName} onChange={handleInputChange} required />
                 <FormInput label="Guest Email" name="guestEmail" type="email" value={invoiceData.guestEmail} onChange={handleInputChange} required error={emailError} />
-                <FormInput label="Phone/Contact" name="phoneContact" type="tel" value={invoiceData.phoneContact} onChange={handleInputChange} />
+                <FormInput label="Phone/Contact" name="phoneContact" type="tel" value={invoiceData.phoneContact} onChange={handleInputChange} required />
+                <FormInput label="Room Number" name="roomNumber" value={invoiceData.roomNumber} onChange={handleInputChange} required />
             </div>
         </div>
-         {/* Section 3: Room & Charges */}
         <div className="border-t pt-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Stay & Charges Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                <DatePicker label="Arrival Date" name="arrivalDate" value={invoiceData.arrivalDate} onChange={(date) => handleDateChange('arrivalDate', date)} required />
+                <DatePicker label="Departure Date" name="departureDate" value={invoiceData.departureDate} onChange={(date) => handleDateChange('departureDate', date)} required />
                 <FormSelect label="Currency" name="currency" value={invoiceData.currency} onChange={handleInputChange} options={['NGN', 'USD']} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                <FormSelect label="Room Type" name="roomType" value={invoiceData.roomType} onChange={handleInputChange} options={Object.values(RoomType)} />
+                <FormSelect label="Room Type" name="roomType" value={invoiceData.roomType} onChange={handleInputChange} options={Object.values(RoomType)} required />
                 <FormInput label="Nights" name="nights" type="number" value={invoiceData.nights} onChange={handleInputChange} required/>
                 <FormInput label={`Rate per Night (${invoiceData.currency})`} name="ratePerNight" type="number" value={invoiceData.ratePerNight} onChange={handleInputChange} required/>
             </div>
@@ -304,30 +337,40 @@ const InvoiceForm: React.FC = () => {
                 <FormInput label={`Discount (${invoiceData.currency})`} name="discount" type="number" value={invoiceData.discount} onChange={handleInputChange} />
             </div>
 
-            {/* Additional Charges Section */}
             <div className="border-t pt-6 mt-6">
                 <h4 className="text-md font-semibold text-gray-700 mb-4">Additional Charges</h4>
                 <div className="space-y-4">
                     {invoiceData.additionalChargeItems.map((item, index) => (
                         <div key={item.id} className="grid grid-cols-12 gap-x-4 items-end">
-                            <div className="col-span-12 sm:col-span-6">
+                            <div className="col-span-12 sm:col-span-5">
                                 <FormInput 
                                     label={`Charge #${index + 1} Description`}
                                     name={`description-${index}`}
                                     value={item.description} 
                                     onChange={(e) => handleChargeItemChange(index, 'description', e.target.value)}
+                                    required
                                 />
                             </div>
-                            <div className="col-span-8 sm:col-span-4">
+                             <div className="col-span-6 sm:col-span-3">
+                                <DatePicker
+                                    label="Charge Date"
+                                    name={`chargeDate-${index}`}
+                                    value={item.date}
+                                    onChange={(date) => handleChargeItemDateChange(index, date)}
+                                    required
+                                />
+                            </div>
+                            <div className="col-span-6 sm:col-span-2">
                                 <FormInput 
                                     label="Amount"
                                     name={`amount-${index}`}
                                     type="number" 
                                     value={item.amount}
                                     onChange={(e) => handleChargeItemChange(index, 'amount', e.target.value)}
+                                    required
                                 />
                             </div>
-                            <div className="col-span-4 sm:col-span-2">
+                            <div className="col-span-12 sm:col-span-2">
                                 <button 
                                     type="button" 
                                     onClick={() => handleRemoveChargeItem(item.id)}
@@ -353,32 +396,35 @@ const InvoiceForm: React.FC = () => {
                 <CalculatedField label="Subtotal" value={currencyFormatter.format(invoiceData.subtotal)} />
             </div>
         </div>
-        {/* Section 4: Tax & Total */}
         <div className="border-t pt-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Tax & Final Amount</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                 <FormInput label="Tax (%)" name="taxPercentage" type="number" value={invoiceData.taxPercentage} onChange={handleInputChange} />
                 <CalculatedField label="Tax Amount" value={currencyFormatter.format(invoiceData.taxAmount)} />
-                <CalculatedField label="Amount Received" value={currencyFormatter.format(invoiceData.amountReceived)} />
+                <CalculatedField label="Total Amount Due" value={currencyFormatter.format(invoiceData.totalAmountDue)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <FormInput label={`Amount Received (${invoiceData.currency})`} name="amountReceived" type="number" value={invoiceData.amountReceived} onChange={handleInputChange} required />
+                <CalculatedField label="Balance" value={currencyFormatter.format(invoiceData.balance)} />
             </div>
             <div className="mt-6">
-                <CalculatedField label="Amount in Words" value={invoiceData.amountInWords} />
+                <CalculatedField label="Amount in Words (for Amount Received)" value={invoiceData.amountInWords} />
             </div>
         </div>
-        {/* Section 5: Payment Details */}
         <div className="border-t pt-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="paymentPurpose" className="block text-sm font-medium text-gray-700">Purpose of Payment / Notes</label>
-                  <textarea id="paymentPurpose" name="paymentPurpose" value={invoiceData.paymentPurpose} onChange={handleInputChange} rows={3} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm" />
+                  <textarea id="paymentPurpose" name="paymentPurpose" value={invoiceData.paymentPurpose} onChange={handleInputChange} rows={3} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm" required />
                 </div>
-                <FormSelect label="Payment Method" name="paymentMethod" value={invoiceData.paymentMethod} onChange={handleInputChange} options={Object.values(PaymentMethod)} />
-                <FormInput label="Received By" name="receivedBy" value={invoiceData.receivedBy} onChange={handleInputChange} required />
+                <FormSelect label="Payment Method" name="paymentMethod" value={invoiceData.paymentMethod} onChange={handleInputChange} options={Object.values(PaymentMethod)} required />
+                <FormSelect label="Received By" name="receivedBy" value={invoiceData.receivedBy} onChange={handleInputChange} options={Object.values(Staff)} required>
+                  <option value="" disabled>Select Staff</option>
+                </FormSelect>
                 <FormInput label="Designation" name="designation" value={invoiceData.designation} onChange={handleInputChange} required />
             </div>
         </div>
-        {/* Submit Button */}
         <div className="border-t pt-6 flex flex-wrap justify-between items-center gap-4">
             <div className="text-left">
                 <p className="text-sm text-gray-500 transition-opacity duration-300 h-5" aria-live="polite">
