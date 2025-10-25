@@ -52,8 +52,10 @@ export const printWalkInReceipt = (data: WalkInTransaction) => {
     <body>
       <div class="receipt-container">
         <div class="header">
-          <h1>TIDÈ HOTELS</h1>
-          <p>Walk-In Guest Receipt</p>
+          <h1>TIDÈ HOTELS AND RESORTS</h1>
+          <p>Hospitality with Excellence</p>
+          <p>38 S.O Williams Street, off Anthony Enahoro Street, Utako Abuja Nigeria</p>
+          <p style="margin-top: 8px; font-weight: bold;">Walk-In Guest Receipt</p>
         </div>
         <div class="info-section">
           <div><span>Receipt No:</span> <span>${data.id}</span></div>
