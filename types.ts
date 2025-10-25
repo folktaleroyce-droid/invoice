@@ -88,6 +88,7 @@ export interface WalkInTransaction {
   charges: WalkInChargeItem[];
   currency: 'NGN' | 'USD';
   subtotal: number;
+  discount: number;
   amountPaid: number;
   balance: number;
   cashier: Staff | string;

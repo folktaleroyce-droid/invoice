@@ -83,6 +83,10 @@ export const printWalkInReceipt = (data: WalkInTransaction) => {
               <td class="text-right">${currencyFormatter.format(data.subtotal)}</td>
             </tr>
             <tr>
+              <td>Discount:</td>
+              <td class="text-right">-${currencyFormatter.format(data.discount)}</td>
+            </tr>
+            <tr>
               <td>Amount Paid:</td>
               <td class="text-right">${currencyFormatter.format(data.amountPaid)}</td>
             </tr>

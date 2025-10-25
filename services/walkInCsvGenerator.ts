@@ -12,7 +12,7 @@ export const generateWalkInCSV = (data: WalkInTransaction) => {
     const headers = [
         'Transaction ID', 'Transaction Date', 'Currency', 'Cashier', 'Payment Method',
         'Charge Date', 'Service', 'Service Description', 'Amount',
-        'Transaction Subtotal', 'Transaction Amount Paid', 'Transaction Balance'
+        'Transaction Subtotal', 'Transaction Discount', 'Transaction Amount Paid', 'Transaction Balance'
     ];
     
     const rows = data.charges.map(charge => {
@@ -30,6 +30,7 @@ export const generateWalkInCSV = (data: WalkInTransaction) => {
             serviceDescription,
             charge.amount,
             data.subtotal,
+            data.discount,
             data.amountPaid,
             data.balance,
         ].map(escapeCsvCell);

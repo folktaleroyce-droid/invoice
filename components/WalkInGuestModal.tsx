@@ -21,6 +21,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) 
   // Transaction-level state
   const [charges, setCharges] = useState<WalkInChargeItem[]>([]);
   const [currency, setCurrency] = useState<'NGN' | 'USD'>('NGN');
+  const [discount, setDiscount] = useState<number | ''>('');
   const [amountPaid, setAmountPaid] = useState<number | ''>('');
   const [cashier, setCashier] = useState<Staff | ''>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
@@ -33,8 +34,9 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) 
 
   const balance = useMemo(() => {
     const paid = typeof amountPaid === 'number' ? amountPaid : 0;
-    return subtotal - paid;
-  }, [subtotal, amountPaid]);
+    const disc = typeof discount === 'number' ? discount : 0;
+    return (subtotal - disc) - paid;
+  }, [subtotal, amountPaid, discount]);
 
   const currencyFormatter = useMemo(() => new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -52,6 +54,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) 
     });
     setCharges([]);
     setCurrency('NGN');
+    setDiscount('');
     setAmountPaid('');
     setCashier('');
     setPaymentMethod(PaymentMethod.CASH);
@@ -113,6 +116,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) 
       charges,
       currency,
       subtotal,
+      discount: typeof discount === 'number' ? discount : 0,
       amountPaid: typeof amountPaid === 'number' ? amountPaid : 0,
       balance,
       cashier,
@@ -239,6 +243,10 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) 
                     <div className="flex justify-between items-center text-md font-semibold text-gray-800">
                         <span>Subtotal:</span>
                         <span>{currencyFormatter.format(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium text-gray-700">Discount:</label>
+                        <input type="number" value={discount} onChange={e => setDiscount(e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-32 text-right px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm"/>
                     </div>
                      <div className="flex justify-between items-center">
                         <label className="text-sm font-medium text-gray-700">Amount Paid:</label>
