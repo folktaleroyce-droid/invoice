@@ -1,10 +1,25 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import InvoiceForm from './components/InvoiceForm';
+import WelcomeScreen from './components/WelcomeScreen';
 
 const App: React.FC = () => {
-  // The key management and reset handler have been moved into InvoiceForm
-  // for a more self-contained component.
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Set a timer to hide the welcome screen after a short duration
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 3000); // Welcome screen will be visible for 3 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Conditionally render the WelcomeScreen or the main application
+  if (isLoading) {
+    return <WelcomeScreen />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 text-tide-dark font-sans">
       <Header />
