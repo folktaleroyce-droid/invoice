@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import { InvoiceData, RoomType, PaymentMethod, AdditionalChargeItem, RecordedTransaction } from '../types';
 import { convertAmountToWords } from '../utils/numberToWords';
@@ -127,7 +128,7 @@ const CalculatedField: React.FC<{ label: string; value: string; }> = ({ label, v
 );
 
 interface InvoiceFormProps {
-  onInvoiceGenerated: (record: RecordedTransaction) => void;
+  onInvoiceGenerated: (record: RecordedTransaction) => Promise<void>;
   currentUser: string;
 }
 

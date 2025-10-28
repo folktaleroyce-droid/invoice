@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import InvoiceForm from './components/InvoiceForm';
 import WelcomeScreen from './components/WelcomeScreen';
 import TransactionHistory from './components/TransactionHistory';
 import { RecordedTransaction } from './types';
-import { loadUserTransactionHistory, addTransaction } from './utils/transactionHistory';
+import { fetchUserTransactionHistory, saveTransaction } from './utils/transactionHistory';
 import LoginScreen from './components/LoginScreen';
 
 const App: React.FC = () => {
@@ -30,20 +31,26 @@ const App: React.FC = () => {
 
   // Effect to load user's history when they log in, or clear it when they log out.
   useEffect(() => {
-    if (currentUser) {
-      setHistory(loadUserTransactionHistory(currentUser));
-    } else {
-      setHistory([]); // Clear history on logout
-    }
+    const loadHistory = async () => {
+      if (currentUser) {
+        const userHistory = await fetchUserTransactionHistory(currentUser);
+        setHistory(userHistory);
+      } else {
+        setHistory([]); // Clear history on logout
+      }
+    };
+
+    loadHistory();
   }, [currentUser]);
 
-  const addTransactionToHistory = (record: RecordedTransaction) => {
-    // Simulate saving the transaction to the master "database"
-    addTransaction(record);
+  const addTransactionToHistory = async (record: RecordedTransaction) => {
+    // Save the new transaction to our simulated cloud storage
+    await saveTransaction(record);
 
     // Refresh the user's transaction view from the source of truth
     if (currentUser) {
-      setHistory(loadUserTransactionHistory(currentUser));
+      const updatedHistory = await fetchUserTransactionHistory(currentUser);
+      setHistory(updatedHistory);
     }
   };
   

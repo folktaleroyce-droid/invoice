@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { WalkInService, WalkInTransaction, WalkInChargeItem, PaymentMethod, RecordedTransaction } from '../types';
 import { printWalkInReceipt } from '../services/walkInPrintGenerator';
@@ -7,7 +8,7 @@ import DatePicker from './DatePicker';
 interface WalkInGuestModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onTransactionGenerated: (record: RecordedTransaction) => void;
+  onTransactionGenerated: (record: RecordedTransaction) => Promise<void>;
   currentUser: string;
 }
 
