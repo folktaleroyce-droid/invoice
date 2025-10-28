@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
 
-// List of authorized staff names
-const authorizedUsers = [
-  'Faith', 'Goodness', 'Benjamin', 'Sandra', 'David', 
-  'Ifeanyi', 'Margret', 'Miriam', 'Francis'
-];
+// New, secure credentials for authorized staff
+const authorizedCredentials = {
+  'Faith': 'F@i7h#92X!',
+  'Goodness': 'G00d*N3ss$4',
+  'Benjamin': 'B3nJ&9m_84',
+  'Sandra': 'S@ndR4!51%',
+  'David': 'D@v1D#73Q',
+  'Ifeanyi': '1F3@yN!88*',
+  'Margret': 'M@rG7eT_42',
+  'Miriam': 'M1r!@m#97W',
+  'Francis': 'Fr@nC1$62!'
+};
 
 interface LoginScreenProps {
   onLogin: (name: string) => void;
@@ -25,15 +32,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       setError('Please enter both name and password.');
       return;
     }
-
-    // Check if user is in the authorized list (case-sensitive check)
-    const isAuthorized = authorizedUsers.includes(trimmedName);
     
-    // Check if the password matches the required format: @Name2025
-    const expectedPassword = `@${trimmedName}2025`;
-    const isPasswordCorrect = trimmedPassword === expectedPassword;
+    // Check if the provided name and password match the authorized credentials
+    const expectedPassword = authorizedCredentials[trimmedName as keyof typeof authorizedCredentials];
+    const isCredentialsCorrect = expectedPassword && trimmedPassword === expectedPassword;
 
-    if (isAuthorized && isPasswordCorrect) {
+    if (isCredentialsCorrect) {
       onLogin(trimmedName);
     } else {
       setError('You are not authorized. Please contact Admin for account approval/update.');
