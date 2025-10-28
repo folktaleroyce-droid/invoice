@@ -30,7 +30,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     const trimmedPassword = password.trim();
 
     if (!trimmedName || !trimmedPassword) {
-      setError('Please enter both name and password.');
+      setError('Please enter both username and password.');
       return;
     }
     
@@ -52,7 +52,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         <h2 className="text-xl font-semibold text-tide-dark mb-6">Invoice Generator</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="name" className="sr-only">Your Name</label>
+            <label htmlFor="name" className="sr-only">Username</label>
             <input
               type="text"
               id="name"
@@ -61,7 +61,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 setName(e.target.value);
                 if (error) setError('');
               }}
-              placeholder="Enter your full name"
+              placeholder="Enter your username"
               className={`w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 sm:text-sm ${error ? 'border-red-500 ring-red-500' : 'border-gray-300 focus:ring-tide-gold focus:border-tide-gold'}`}
               aria-invalid={!!error}
               aria-describedby="login-error"
