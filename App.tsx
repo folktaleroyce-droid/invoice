@@ -10,7 +10,8 @@ import LoginScreen from './components/LoginScreen';
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [history, setHistory] = useState<RecordedTransaction[]>([]);
-  const [currentUser, setCurrentUser] = useState<string | null>(() => sessionStorage.getItem('currentUser'));
+  // Use volatile state for the current user; session ends on refresh.
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
 
   useEffect(() => {
     // Set a timer to hide the welcome screen after a short duration
@@ -34,8 +35,11 @@ const App: React.FC = () => {
   };
   
   const handleLogin = (name: string) => {
-    sessionStorage.setItem('currentUser', name);
     setCurrentUser(name);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
   };
 
   // Conditionally render the WelcomeScreen, LoginScreen or the main application
@@ -49,7 +53,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 text-tide-dark font-sans">
-      <Header />
+      <Header currentUser={currentUser} onLogout={handleLogout} />
       <main className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
         <InvoiceForm onInvoiceGenerated={addTransactionToHistory} currentUser={currentUser} />
         <TransactionHistory history={history} />
@@ -61,5 +65,4 @@ const App: React.FC = () => {
   );
 };
 
-// FIX: An export assignment cannot have modifiers. Removed duplicate `export`.
 export default App;
