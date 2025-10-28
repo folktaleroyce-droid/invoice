@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { WalkInService, Staff, WalkInTransaction, WalkInChargeItem, PaymentMethod } from '../types';
+import { WalkInService, Staff, WalkInTransaction, WalkInChargeItem, PaymentMethod, RecordedTransaction } from '../types';
 import { printWalkInReceipt } from '../services/walkInPrintGenerator';
 import { generateWalkInCSV } from '../services/walkInCsvGenerator';
 import DatePicker from './DatePicker';
@@ -7,9 +7,10 @@ import DatePicker from './DatePicker';
 interface WalkInGuestModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onTransactionGenerated: (record: RecordedTransaction) => void;
 }
 
-const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) => {
+const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, onTransactionGenerated }) => {
   // Form state for a single new charge
   const [newCharge, setNewCharge] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -124,19 +125,20 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) 
     };
   };
 
-  const saveTransaction = (transaction: WalkInTransaction) => {
-    try {
-      const existing = JSON.parse(localStorage.getItem('walkInTransactions') || '[]');
-      localStorage.setItem('walkInTransactions', JSON.stringify([...existing, transaction]));
-    } catch (e) {
-      console.error('Failed to save walk-in transaction:', e);
-      alert('There was an error saving the transaction record.');
-    }
-  };
-
   const handleGenerate = (action: 'print' | 'csv') => {
     const transaction = validateAndCreateTransaction();
     if (transaction) {
+      const record: RecordedTransaction = {
+        id: transaction.id,
+        type: 'Walk-In',
+        date: transaction.transactionDate,
+        guestName: 'Walk-In Guest',
+        amount: (transaction.subtotal - transaction.discount),
+        currency: transaction.currency,
+        data: { ...transaction },
+      };
+      onTransactionGenerated(record);
+
       if (action === 'print') {
         printWalkInReceipt(transaction);
         alert('Receipt generated for printing!');
@@ -144,7 +146,6 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose }) 
         generateWalkInCSV(transaction);
         alert('CSV record downloaded!');
       }
-      saveTransaction(transaction);
       handleClose();
     }
   };

@@ -94,3 +94,13 @@ export interface WalkInTransaction {
   cashier: Staff | string;
   paymentMethod: PaymentMethod;
 }
+
+export interface RecordedTransaction {
+  id: string; // receiptNo from InvoiceData or id from WalkInTransaction
+  type: 'Hotel Stay' | 'Walk-In';
+  date: string;
+  guestName: string; // guestName or "Walk-In Guest"
+  amount: number; // totalAmountDue or (subtotal - discount)
+  currency: 'NGN' | 'USD';
+  data: InvoiceData | WalkInTransaction;
+}

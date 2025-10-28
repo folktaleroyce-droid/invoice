@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
-import { InvoiceData, RoomType, PaymentMethod, AdditionalChargeItem, Staff } from '../types';
+import { InvoiceData, RoomType, PaymentMethod, AdditionalChargeItem, Staff, RecordedTransaction } from '../types';
 import { convertAmountToWords } from '../utils/numberToWords';
 import { printInvoice } from '../services/printGenerator';
 import { generateInvoiceCSV } from '../services/csvGenerator';
@@ -125,7 +125,11 @@ const CalculatedField: React.FC<{ label: string; value: string; }> = ({ label, v
     </div>
 );
 
-const InvoiceForm: React.FC = () => {
+interface InvoiceFormProps {
+  onInvoiceGenerated: (record: RecordedTransaction) => void;
+}
+
+const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated }) => {
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(() => {
     try {
       const savedData = localStorage.getItem('savedInvoiceData');
@@ -275,6 +279,17 @@ const InvoiceForm: React.FC = () => {
       alert("Please fix the email address format.");
       return;
     }
+
+    const record: RecordedTransaction = {
+      id: invoiceData.receiptNo,
+      type: 'Hotel Stay',
+      date: invoiceData.date,
+      guestName: invoiceData.guestName,
+      amount: invoiceData.totalAmountDue,
+      currency: invoiceData.currency,
+      data: { ...invoiceData },
+    };
+    onInvoiceGenerated(record);
 
     printInvoice(invoiceData);
     setIsGenerated(true);
@@ -471,6 +486,7 @@ const InvoiceForm: React.FC = () => {
       <WalkInGuestModal 
         isOpen={isWalkInModalOpen}
         onClose={() => setIsWalkInModalOpen(false)}
+        onTransactionGenerated={onInvoiceGenerated}
       />
     </>
   );
