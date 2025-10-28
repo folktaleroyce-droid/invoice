@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { WalkInService, Staff, WalkInTransaction, WalkInChargeItem, PaymentMethod, RecordedTransaction } from '../types';
+import { WalkInService, WalkInTransaction, WalkInChargeItem, PaymentMethod, RecordedTransaction } from '../types';
 import { printWalkInReceipt } from '../services/walkInPrintGenerator';
 import { generateWalkInCSV } from '../services/walkInCsvGenerator';
 import DatePicker from './DatePicker';
@@ -8,9 +8,10 @@ interface WalkInGuestModalProps {
   isOpen: boolean;
   onClose: () => void;
   onTransactionGenerated: (record: RecordedTransaction) => void;
+  currentUser: string;
 }
 
-const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, onTransactionGenerated }) => {
+const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, onTransactionGenerated, currentUser }) => {
   // Form state for a single new charge
   const [newCharge, setNewCharge] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -24,7 +25,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
   const [currency, setCurrency] = useState<'NGN' | 'USD'>('NGN');
   const [discount, setDiscount] = useState<number | ''>('');
   const [amountPaid, setAmountPaid] = useState<number | ''>('');
-  const [cashier, setCashier] = useState<Staff | ''>('');
+  const [cashier, setCashier] = useState<string>(currentUser);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
   const [error, setError] = useState('');
 
@@ -57,7 +58,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
     setCurrency('NGN');
     setDiscount('');
     setAmountPaid('');
-    setCashier('');
+    setCashier(currentUser);
     setPaymentMethod(PaymentMethod.CASH);
     setError('');
   };
@@ -233,11 +234,8 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Cashier</label>
-                        <select value={cashier} onChange={e => setCashier(e.target.value as Staff)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md">
-                            <option value="" disabled>Select Staff</option>
-                            {Object.values(Staff).map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <label className="block text-sm font-medium text-gray-700">Cashier (User)</label>
+                        <input type="text" value={cashier} readOnly disabled className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm cursor-not-allowed"/>
                     </div>
                 </div>
                  <div className="mt-4 p-4 bg-gray-100 rounded-lg space-y-2">

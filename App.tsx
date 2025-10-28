@@ -5,10 +5,12 @@ import WelcomeScreen from './components/WelcomeScreen';
 import TransactionHistory from './components/TransactionHistory';
 import { RecordedTransaction } from './types';
 import { loadTransactionHistory, saveTransactionHistory } from './utils/transactionHistory';
+import LoginScreen from './components/LoginScreen';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [history, setHistory] = useState<RecordedTransaction[]>([]);
+  const [currentUser, setCurrentUser] = useState<string | null>(() => sessionStorage.getItem('currentUser'));
 
   useEffect(() => {
     // Set a timer to hide the welcome screen after a short duration
@@ -30,17 +32,26 @@ const App: React.FC = () => {
       return newHistory;
     });
   };
+  
+  const handleLogin = (name: string) => {
+    sessionStorage.setItem('currentUser', name);
+    setCurrentUser(name);
+  };
 
-  // Conditionally render the WelcomeScreen or the main application
+  // Conditionally render the WelcomeScreen, LoginScreen or the main application
   if (isLoading) {
     return <WelcomeScreen />;
+  }
+
+  if (!currentUser) {
+    return <LoginScreen onLogin={handleLogin} />;
   }
 
   return (
     <div className="min-h-screen bg-gray-50 text-tide-dark font-sans">
       <Header />
       <main className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-        <InvoiceForm onInvoiceGenerated={addTransactionToHistory} />
+        <InvoiceForm onInvoiceGenerated={addTransactionToHistory} currentUser={currentUser} />
         <TransactionHistory history={history} />
       </main>
       <footer className="text-center py-4 text-gray-500 text-sm">

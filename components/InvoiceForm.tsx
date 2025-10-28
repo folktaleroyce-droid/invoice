@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
-import { InvoiceData, RoomType, PaymentMethod, AdditionalChargeItem, Staff, RecordedTransaction } from '../types';
+import { InvoiceData, RoomType, PaymentMethod, AdditionalChargeItem, RecordedTransaction } from '../types';
 import { convertAmountToWords } from '../utils/numberToWords';
 import { printInvoice } from '../services/printGenerator';
 import { generateInvoiceCSV } from '../services/csvGenerator';
@@ -50,7 +50,7 @@ const calculateInvoiceTotals = (data: InvoiceData): InvoiceData => {
 
 
 // Function to generate a fresh, fully calculated invoice state
-const generateNewInvoiceState = (): InvoiceData => {
+const generateNewInvoiceState = (currentUser: string): InvoiceData => {
   const defaultRoomType = RoomType.STANDARD;
   const today = new Date().toISOString().split('T')[0];
   
@@ -79,7 +79,7 @@ const generateNewInvoiceState = (): InvoiceData => {
     amountInWords: '',
     paymentPurpose: 'Hotel Accommodation',
     paymentMethod: PaymentMethod.POS,
-    receivedBy: '',
+    receivedBy: currentUser,
     designation: '',
     currency: 'NGN',
   };
@@ -88,8 +88,8 @@ const generateNewInvoiceState = (): InvoiceData => {
 };
 
 // Sub-components for better structure
-const FormInput: React.FC<{ label: string; name: string; type?: string; value: string | number; onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void; required?: boolean; error?: string; }> = 
-({ label, name, type = 'text', value, onChange, required = false, error }) => (
+const FormInput: React.FC<{ label: string; name: string; type?: string; value: string | number; onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void; required?: boolean; error?: string; disabled?: boolean; }> = 
+({ label, name, type = 'text', value, onChange, required = false, error, disabled = false }) => (
   <div>
     <label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label>
     <input 
@@ -99,7 +99,8 @@ const FormInput: React.FC<{ label: string; name: string; type?: string; value: s
       value={value} 
       onChange={onChange} 
       required={required} 
-      className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold sm:text-sm ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-tide-gold'}`}
+      disabled={disabled}
+      className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold sm:text-sm ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'} ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-tide-gold'}`}
       aria-invalid={!!error}
       aria-describedby={error ? `${name}-error` : undefined}
     />
@@ -127,20 +128,24 @@ const CalculatedField: React.FC<{ label: string; value: string; }> = ({ label, v
 
 interface InvoiceFormProps {
   onInvoiceGenerated: (record: RecordedTransaction) => void;
+  currentUser: string;
 }
 
-const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated }) => {
+const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUser }) => {
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(() => {
     try {
       const savedData = localStorage.getItem('savedInvoiceData');
       if (savedData) {
-        return calculateInvoiceTotals(JSON.parse(savedData));
+        const parsedData = JSON.parse(savedData);
+        // Ensure the current user is set as the one receiving
+        parsedData.receivedBy = currentUser;
+        return calculateInvoiceTotals(parsedData);
       }
     } catch (error) {
       console.error("Failed to load or parse saved invoice data:", error);
       localStorage.removeItem('savedInvoiceData');
     }
-    return generateNewInvoiceState();
+    return generateNewInvoiceState(currentUser);
   });
 
   const [isGenerated, setIsGenerated] = useState<boolean>(false);
@@ -301,7 +306,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated }) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
       localStorage.removeItem('savedInvoiceData');
-      setInvoiceData(generateNewInvoiceState());
+      setInvoiceData(generateNewInvoiceState(currentUser));
       setIsGenerated(false);
       setSaveStatus('idle');
       setEmailError('');
@@ -437,9 +442,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated }) => {
                     <textarea id="paymentPurpose" name="paymentPurpose" value={invoiceData.paymentPurpose} onChange={handleInputChange} rows={3} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm" required />
                   </div>
                   <FormSelect label="Payment Method" name="paymentMethod" value={invoiceData.paymentMethod} onChange={handleInputChange} options={Object.values(PaymentMethod)} required />
-                  <FormSelect label="Received By" name="receivedBy" value={invoiceData.receivedBy} onChange={handleInputChange} options={Object.values(Staff)} required>
-                    <option value="" disabled>Select Staff</option>
-                  </FormSelect>
+                  <FormInput label="Received By (User)" name="receivedBy" value={invoiceData.receivedBy} onChange={() => {}} required disabled />
                   <FormInput label="Designation" name="designation" value={invoiceData.designation} onChange={handleInputChange} required />
               </div>
           </div>
@@ -487,6 +490,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated }) => {
         isOpen={isWalkInModalOpen}
         onClose={() => setIsWalkInModalOpen(false)}
         onTransactionGenerated={onInvoiceGenerated}
+        currentUser={currentUser}
       />
     </>
   );

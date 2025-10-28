@@ -18,15 +18,7 @@ export enum PaymentMethod {
   OTHER = 'Other',
 }
 
-export enum Staff {
-  GOODNESS = 'Goodness',
-  FAITH = 'Faith',
-  SANDRA = 'Sandra',
-  BENJAMIN = 'Benjamin',
-  DAVID = 'David',
-  MARGRET = 'Margret',
-}
-
+// The Staff enum is removed as authentication is now handled by a predefined list in the LoginScreen.
 
 export interface AdditionalChargeItem {
   id: string;
@@ -91,7 +83,7 @@ export interface WalkInTransaction {
   discount: number;
   amountPaid: number;
   balance: number;
-  cashier: Staff | string;
+  cashier: string;
   paymentMethod: PaymentMethod;
 }
 
