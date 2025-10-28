@@ -14,6 +14,12 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check for a remembered user on initial load
+    const rememberedUser = localStorage.getItem('rememberedUser');
+    if (rememberedUser) {
+      setCurrentUser(rememberedUser);
+    }
+
     // Set a timer to hide the welcome screen after a short duration
     const timer = setTimeout(() => {
       setIsLoading(false);
@@ -41,12 +47,18 @@ const App: React.FC = () => {
     }
   };
   
-  const handleLogin = (name: string) => {
+  const handleLogin = (name: string, rememberMe: boolean) => {
     setCurrentUser(name);
+    if (rememberMe) {
+      localStorage.setItem('rememberedUser', name);
+    } else {
+      localStorage.removeItem('rememberedUser');
+    }
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
+    localStorage.removeItem('rememberedUser'); // Clear remembered user on logout
   };
 
   // Conditionally render the WelcomeScreen, LoginScreen or the main application

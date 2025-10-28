@@ -14,7 +14,7 @@ const authorizedCredentials = {
 };
 
 interface LoginScreenProps {
-  onLogin: (name: string) => void;
+  onLogin: (name: string, rememberMe: boolean) => void;
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
@@ -22,6 +22,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +39,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     const isCredentialsCorrect = expectedPassword && trimmedPassword === expectedPassword;
 
     if (isCredentialsCorrect) {
-      onLogin(trimmedName);
+      onLogin(trimmedName, rememberMe);
     } else {
       setError('You are not authorized. Please contact Admin for account approval/update.');
     }
@@ -99,6 +100,19 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 </svg>
               )}
             </button>
+          </div>
+          <div className="flex items-center text-left">
+            <input
+              id="remember-me"
+              name="remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 text-tide-gold focus:ring-tide-gold border-gray-300 rounded"
+            />
+            <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+              Remember me
+            </label>
           </div>
           {error && <p id="login-error" className="mt-2 text-xs text-red-600">{error}</p>}
           <button
