@@ -3,8 +3,8 @@ import Header from './components/Header';
 import InvoiceForm from './components/InvoiceForm';
 import WelcomeScreen from './components/WelcomeScreen';
 import TransactionHistory from './components/TransactionHistory';
-import { RecordedTransaction, InvoiceData, WalkInTransaction } from './types';
-import { loadTransactionHistory, saveTransactionHistory } from './utils/transactionHistory';
+import { RecordedTransaction } from './types';
+import { loadUserTransactionHistory, addTransaction } from './utils/transactionHistory';
 import LoginScreen from './components/LoginScreen';
 
 const App: React.FC = () => {
@@ -19,19 +19,26 @@ const App: React.FC = () => {
       setIsLoading(false);
     }, 3000); // Welcome screen will be visible for 3 seconds
 
-    setHistory(loadTransactionHistory());
-
     return () => clearTimeout(timer);
   }, []);
 
+  // Effect to load user's history when they log in, or clear it when they log out.
+  useEffect(() => {
+    if (currentUser) {
+      setHistory(loadUserTransactionHistory(currentUser));
+    } else {
+      setHistory([]); // Clear history on logout
+    }
+  }, [currentUser]);
+
   const addTransactionToHistory = (record: RecordedTransaction) => {
-    setHistory(prevHistory => {
-      const newHistory = [record, ...prevHistory.filter(r => r.id !== record.id)];
-      // Sort by date descending to ensure the newest is always on top
-      newHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      saveTransactionHistory(newHistory);
-      return newHistory;
-    });
+    // Simulate saving the transaction to the master "database"
+    addTransaction(record);
+
+    // Refresh the user's transaction view from the source of truth
+    if (currentUser) {
+      setHistory(loadUserTransactionHistory(currentUser));
+    }
   };
   
   const handleLogin = (name: string) => {
@@ -51,22 +58,14 @@ const App: React.FC = () => {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
-  const filteredHistory = history.filter(record => {
-    if (record.type === 'Hotel Stay') {
-      return (record.data as InvoiceData).receivedBy === currentUser;
-    }
-    if (record.type === 'Walk-In') {
-      return (record.data as WalkInTransaction).cashier === currentUser;
-    }
-    return false;
-  });
-
+  // The 'history' state now contains only the current user's transactions,
+  // so no further client-side filtering is needed.
   return (
     <div className="min-h-screen bg-gray-50 text-tide-dark font-sans">
       <Header currentUser={currentUser} onLogout={handleLogout} />
       <main className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
         <InvoiceForm onInvoiceGenerated={addTransactionToHistory} currentUser={currentUser} />
-        <TransactionHistory history={filteredHistory} />
+        <TransactionHistory history={history} />
       </main>
       <footer className="text-center py-4 text-gray-500 text-sm">
         <p>&copy; {new Date().getFullYear()} Tidè Hotels and Resorts. All rights reserved.</p>
