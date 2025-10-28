@@ -3,7 +3,7 @@ import Header from './components/Header';
 import InvoiceForm from './components/InvoiceForm';
 import WelcomeScreen from './components/WelcomeScreen';
 import TransactionHistory from './components/TransactionHistory';
-import { RecordedTransaction } from './types';
+import { RecordedTransaction, InvoiceData, WalkInTransaction } from './types';
 import { loadTransactionHistory, saveTransactionHistory } from './utils/transactionHistory';
 import LoginScreen from './components/LoginScreen';
 
@@ -51,12 +51,22 @@ const App: React.FC = () => {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
+  const filteredHistory = history.filter(record => {
+    if (record.type === 'Hotel Stay') {
+      return (record.data as InvoiceData).receivedBy === currentUser;
+    }
+    if (record.type === 'Walk-In') {
+      return (record.data as WalkInTransaction).cashier === currentUser;
+    }
+    return false;
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 text-tide-dark font-sans">
       <Header currentUser={currentUser} onLogout={handleLogout} />
       <main className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
         <InvoiceForm onInvoiceGenerated={addTransactionToHistory} currentUser={currentUser} />
-        <TransactionHistory history={history} />
+        <TransactionHistory history={filteredHistory} />
       </main>
       <footer className="text-center py-4 text-gray-500 text-sm">
         <p>&copy; {new Date().getFullYear()} Tidè Hotels and Resorts. All rights reserved.</p>
