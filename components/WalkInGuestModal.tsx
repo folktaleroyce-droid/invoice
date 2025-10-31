@@ -12,10 +12,18 @@ interface WalkInGuestModalProps {
   currentUser: string;
 }
 
+const getTodayLocalString = (): string => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = (today.getMonth() + 1).toString().padStart(2, '0');
+  const day = today.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, onTransactionGenerated, currentUser }) => {
   // Form state for a single new charge
   const [newCharge, setNewCharge] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalString(),
     service: WalkInService.RESTAURANT,
     otherServiceDescription: '',
     amount: '' as number | '',
@@ -50,7 +58,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
 
   const handleReset = () => {
     setNewCharge({
-      date: new Date().toISOString().split('T')[0],
+      date: getTodayLocalString(),
       service: WalkInService.RESTAURANT,
       otherServiceDescription: '',
       amount: '',
@@ -90,7 +98,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
 
     setCharges(prev => [...prev, chargeToAdd]);
     setNewCharge({
-      date: new Date().toISOString().split('T')[0],
+      date: getTodayLocalString(),
       service: WalkInService.RESTAURANT,
       otherServiceDescription: '',
       amount: '',
@@ -115,7 +123,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
     
     return {
       id: `WI-${Date.now()}`,
-      transactionDate: new Date().toISOString().split('T')[0],
+      transactionDate: getTodayLocalString(),
       charges,
       currency,
       subtotal,

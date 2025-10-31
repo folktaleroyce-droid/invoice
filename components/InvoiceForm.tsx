@@ -49,11 +49,18 @@ const calculateInvoiceTotals = (data: InvoiceData): InvoiceData => {
     };
 };
 
+const getTodayLocalString = (): string => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = (today.getMonth() + 1).toString().padStart(2, '0');
+  const day = today.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 // Function to generate a fresh, fully calculated invoice state
 const generateNewInvoiceState = (currentUser: string): InvoiceData => {
   const defaultRoomType = RoomType.STANDARD;
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayLocalString();
   
   const initialState: InvoiceData = {
     receiptNo: `TH${Date.now().toString().slice(-6)}`,
@@ -200,7 +207,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
 
   const handleAddChargeItem = () => {
     setInvoiceData(prev => {
-        const newItems = [...prev.additionalChargeItems, { id: `item-${Date.now()}`, description: '', amount: 0, date: new Date().toISOString().split('T')[0] }];
+        const newItems = [...prev.additionalChargeItems, { id: `item-${Date.now()}`, description: '', amount: 0, date: getTodayLocalString() }];
         return calculateInvoiceTotals({ ...prev, additionalChargeItems: newItems });
     });
   };

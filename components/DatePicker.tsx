@@ -23,8 +23,14 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, name, r
         defaultDate: value,
         onChange: (selectedDates: Date[]) => {
           if (selectedDates[0]) {
-            // Format date to a 'YYYY-MM-DD' string to match the required state format
-            const dateString = selectedDates[0].toISOString().split('T')[0];
+            // FIX: Use local date parts to prevent timezone shifts.
+            // new Date().toISOString() converts the date to UTC, which can
+            // result in the previous day depending on the user's timezone.
+            const date = selectedDates[0];
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const dateString = `${year}-${month}-${day}`;
             onChange(dateString);
           }
         },
