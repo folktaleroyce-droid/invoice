@@ -80,7 +80,7 @@ export const generateInvoicePDF = (data: InvoiceData) => {
   const tableColumn = ["Date", "Description", "Details", `Amount (${data.currency})`];
   const tableRows = [
     [data.arrivalDate, "Room Charge", `${data.roomType}, ${data.nights} night(s) @ ${currencyFormatter.format(data.ratePerNight)}`, currencyFormatter.format(data.roomCharge)],
-    ...data.additionalChargeItems.map(item => [item.date, item.description || 'Additional Charge', '', currencyFormatter.format(item.amount)]),
+    ...data.additionalChargeItems.map(item => [item.date, `${item.description || 'Additional Charge'} (${item.paymentMethod})`, '', currencyFormatter.format(item.amount)]),
   ];
   
   doc.autoTable({

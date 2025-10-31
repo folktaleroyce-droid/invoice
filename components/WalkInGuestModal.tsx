@@ -27,6 +27,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
     service: WalkInService.RESTAURANT,
     otherServiceDescription: '',
     amount: '' as number | '',
+    paymentMethod: PaymentMethod.CASH,
   });
 
   // Transaction-level state
@@ -62,6 +63,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
       service: WalkInService.RESTAURANT,
       otherServiceDescription: '',
       amount: '',
+      paymentMethod: PaymentMethod.CASH,
     });
     setCharges([]);
     setCurrency('NGN');
@@ -93,6 +95,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
       date: newCharge.date,
       service: newCharge.service,
       amount: newCharge.amount as number,
+      paymentMethod: newCharge.paymentMethod,
       ...(newCharge.service === WalkInService.OTHER && { otherServiceDescription: newCharge.otherServiceDescription.trim() }),
     };
 
@@ -102,6 +105,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
       service: WalkInService.RESTAURANT,
       otherServiceDescription: '',
       amount: '',
+      paymentMethod: newCharge.paymentMethod, // Retain last used payment method for convenience
     });
   };
 
@@ -162,7 +166,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" aria-modal="true" role="dialog">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 relative flex flex-col" style={{ maxHeight: '90vh' }}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6 relative flex flex-col" style={{ maxHeight: '90vh' }}>
         <button onClick={handleClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" aria-label="Close">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
@@ -171,16 +175,22 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
         <div className="overflow-y-auto flex-grow pr-2">
             {/* Add Charge Form */}
             <div className="grid grid-cols-12 gap-4 items-end p-1">
-                <div className="col-span-12 sm:col-span-3">
+                <div className="col-span-12 sm:col-span-2">
                     <DatePicker label="Date" name="newChargeDate" value={newCharge.date} onChange={date => setNewCharge(p => ({...p, date}))} />
                 </div>
-                <div className="col-span-12 sm:col-span-4">
+                <div className="col-span-12 sm:col-span-3">
                     <label className="block text-sm font-medium text-gray-700">Service</label>
                     <select value={newCharge.service} onChange={e => setNewCharge(p => ({...p, service: e.target.value as WalkInService}))} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md">
                         {Object.values(WalkInService).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
                 <div className="col-span-12 sm:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700">Payment</label>
+                    <select value={newCharge.paymentMethod} onChange={e => setNewCharge(p => ({...p, paymentMethod: e.target.value as PaymentMethod}))} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md">
+                        {Object.values(PaymentMethod).map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                </div>
+                <div className="col-span-12 sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700">Amount</label>
                     <input type="number" value={newCharge.amount} onChange={e => setNewCharge(p => ({...p, amount: e.target.value === '' ? '' : parseFloat(e.target.value)}))} min="0" className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm"/>
                 </div>
@@ -206,6 +216,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
                             <thead className="bg-gray-100"><tr>
                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
                                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
                             </tr></thead>
@@ -214,6 +225,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
                                     <tr key={charge.id}>
                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{charge.date}</td>
                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{charge.service === WalkInService.OTHER ? charge.otherServiceDescription : charge.service}</td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{charge.paymentMethod}</td>
                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 text-right">{currencyFormatter.format(charge.amount)}</td>
                                         <td className="px-4 py-2 whitespace-nowrap text-center">
                                             <button onClick={() => handleRemoveCharge(charge.id)} className="text-red-600 hover:text-red-800 text-xs">Remove</button>
@@ -237,7 +249,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Payment Method</label>
+                        <label className="block text-sm font-medium text-gray-700">Overall Payment Method</label>
                         <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as PaymentMethod)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md">
                             {Object.values(PaymentMethod).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>

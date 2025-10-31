@@ -25,6 +25,7 @@ export interface AdditionalChargeItem {
   description: string;
   amount: number;
   date: string;
+  paymentMethod: PaymentMethod;
 }
 
 export interface InvoiceData {
@@ -72,6 +73,7 @@ export interface WalkInChargeItem {
   service: WalkInService;
   otherServiceDescription?: string;
   amount: number;
+  paymentMethod: PaymentMethod;
 }
 
 export interface WalkInTransaction {

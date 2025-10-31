@@ -17,7 +17,7 @@ export const printInvoice = (data: InvoiceData) => {
     ${data.additionalChargeItems.map(item => `
       <tr>
         <td>${item.date}</td>
-        <td>${item.description || 'Additional Charge'}</td>
+        <td>${item.description || 'Additional Charge'}<br><small style="font-style: italic; color: #555;">(${item.paymentMethod})</small></td>
         <td class="text-right">${currencyFormatter.format(item.amount)}</td>
       </tr>
     `).join('')}

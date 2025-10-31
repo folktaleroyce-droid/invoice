@@ -207,12 +207,12 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
 
   const handleAddChargeItem = () => {
     setInvoiceData(prev => {
-        const newItems = [...prev.additionalChargeItems, { id: `item-${Date.now()}`, description: '', amount: 0, date: getTodayLocalString() }];
+        const newItems = [...prev.additionalChargeItems, { id: `item-${Date.now()}`, description: '', amount: 0, date: getTodayLocalString(), paymentMethod: prev.paymentMethod }];
         return calculateInvoiceTotals({ ...prev, additionalChargeItems: newItems });
     });
   };
 
-  const handleChargeItemChange = (index: number, field: 'description' | 'amount', value: string | number) => {
+  const handleChargeItemChange = (index: number, field: 'description' | 'amount' | 'paymentMethod', value: string | number) => {
     setInvoiceData(prev => {
         const newItems = [...prev.additionalChargeItems];
         newItems[index] = { ...newItems[index], [field]: field === 'amount' ? parseFloat(value as string) || 0 : value };
@@ -373,24 +373,34 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
                   <div className="space-y-4">
                       {invoiceData.additionalChargeItems.map((item, index) => (
                           <div key={item.id} className="grid grid-cols-12 gap-x-4 items-end">
-                              <div className="col-span-12 sm:col-span-5">
+                              <div className="col-span-12 sm:col-span-4">
                                   <FormInput 
-                                      label={`Charge #${index + 1} Description`}
+                                      label={`Description #${index + 1}`}
                                       name={`description-${index}`}
                                       value={item.description} 
                                       onChange={(e) => handleChargeItemChange(index, 'description', e.target.value)}
                                       required
                                   />
                               </div>
-                               <div className="col-span-6 sm:col-span-3">
+                               <div className="col-span-6 sm:col-span-2">
                                   <DatePicker
-                                      label="Charge Date"
+                                      label="Date"
                                       name={`chargeDate-${index}`}
                                       value={item.date}
                                       onChange={(date) => handleChargeItemDateChange(index, date)}
                                       required
                                   />
                               </div>
+                               <div className="col-span-6 sm:col-span-2">
+                                    <FormSelect
+                                        label="Payment"
+                                        name={`paymentMethod-${index}`}
+                                        value={item.paymentMethod}
+                                        onChange={(e) => handleChargeItemChange(index, 'paymentMethod', e.target.value as PaymentMethod)}
+                                        options={Object.values(PaymentMethod)}
+                                        required
+                                    />
+                                </div>
                               <div className="col-span-6 sm:col-span-2">
                                   <FormInput 
                                       label="Amount"

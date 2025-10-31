@@ -15,7 +15,7 @@ export const printWalkInReceipt = (data: WalkInTransaction) => {
     return `
       <tr>
         <td>${charge.date}</td>
-        <td>${serviceName}</td>
+        <td>${serviceName}<br><small style="font-style: italic; color: #555;">(${charge.paymentMethod})</small></td>
         <td class="text-right">${currencyFormatter.format(charge.amount)}</td>
       </tr>
     `;
@@ -37,7 +37,7 @@ export const printWalkInReceipt = (data: WalkInTransaction) => {
         .info-section { padding-bottom: 8px; font-size: 10pt; }
         .info-section div { display: flex; justify-content: space-between; margin-bottom: 4px; }
         table { width: 100%; border-collapse: collapse; font-size: 10pt; margin: 15px 0; }
-        th, td { padding: 4px 2px; text-align: left; }
+        th, td { padding: 4px 2px; text-align: left; vertical-align: top; }
         th { border-bottom: 1px dashed #000; }
         .text-right { text-align: right; }
         .summary-table { width: 100%; margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; }

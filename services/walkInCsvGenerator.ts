@@ -10,8 +10,8 @@ const escapeCsvCell = (cell: any): string => {
 
 export const generateWalkInCSV = (data: WalkInTransaction) => {
     const headers = [
-        'Transaction ID', 'Transaction Date', 'Currency', 'Cashier', 'Payment Method',
-        'Charge Date', 'Service', 'Service Description', 'Amount',
+        'Transaction ID', 'Transaction Date', 'Currency', 'Cashier', 'Transaction Payment Method',
+        'Charge Date', 'Service', 'Service Description', 'Charge Payment Method', 'Amount',
         'Transaction Subtotal', 'Transaction Discount', 'Transaction Amount Paid', 'Transaction Balance'
     ];
     
@@ -28,6 +28,7 @@ export const generateWalkInCSV = (data: WalkInTransaction) => {
             charge.date,
             serviceName,
             serviceDescription,
+            charge.paymentMethod,
             charge.amount,
             data.subtotal,
             data.discount,

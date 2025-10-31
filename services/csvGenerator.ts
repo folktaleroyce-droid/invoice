@@ -30,7 +30,7 @@ export const generateInvoiceCSV = (data: InvoiceData) => {
     ];
     
     const additionalChargesDetails = data.additionalChargeItems
-      .map(item => `${item.description || 'N/A'} on ${item.date}: ${item.amount}`)
+      .map(item => `${item.description || 'N/A'} (${item.paymentMethod}) on ${item.date}: ${item.amount}`)
       .join('; ');
 
     const rowData = [
