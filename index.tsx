@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, ChangeEvent, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 
@@ -13,13 +12,13 @@ declare const flatpickr: any;
 // START: types.ts
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 export enum RoomType {
-  STANDARD = 'Standard',
-  DOUBLE = 'Double',
-  DOUBLE_EXECUTIVE = 'Double Executive',
-  STUDIO = 'Studio',
-  AURA_STUDIO = 'Aura Studio (Studio Executive)',
-  SERENITY_SUITES = 'Serenity Suites (Junior Suite)',
-  ILE_IFE_SUITE = 'Ile-Ife Suite (Presidential Suite)',
+  SOJOURN_ROOM = 'The Sojourn Room (Standard)',
+  TRANQUIL_ROOM = 'The Tranquil Room (Double)',
+  HARMONY_STUDIO = 'The Harmony Studio (Double Deluxe/Superior Executive)',
+  SERENITY_STUDIO = 'The Serenity Studio (Studio, Executive Room)',
+  NARRATIVE_SUITE = 'The Narrative Suite (One Bedroom Business Suite)',
+  ODYSSEY_SUITE = 'The Odyssey Suite (One Bedroom Executive Suite)',
+  TIDE_SIGNATURE_SUITE = 'The Tidé Signature Suite (One Bedroom Presidential Suite)',
 }
 
 export enum PaymentMethod {
@@ -37,18 +36,27 @@ export interface AdditionalChargeItem {
   paymentMethod: PaymentMethod;
 }
 
+export interface BookingItem {
+  id: string;
+  roomType: RoomType;
+  quantity: number;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  ratePerNight: number;
+  subtotal: number;
+}
+
 export interface InvoiceData {
   receiptNo: string;
   date: string;
   guestName: string;
   guestEmail: string;
   phoneContact: string;
-  roomNumber: string;
-  arrivalDate: string;
-  departureDate: string;
-  roomType: RoomType;
-  nights: number;
-  ratePerNight: number;
+  roomNumber: string; // "Multiple" or specific numbers can be entered here
+  
+  bookings: BookingItem[]; // Replaces single booking fields
+
   roomCharge: number;
   additionalChargeItems: AdditionalChargeItem[];
   additionalCharges: number;
@@ -114,7 +122,7 @@ export interface RecordedTransaction {
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// START: utils/numberToWords.ts
+// START: UTILITY FUNCTIONS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 const ONES = [
   '', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
@@ -213,8 +221,45 @@ function convertAmountToWords(amount: number, currency: 'NGN' | 'USD'): string {
     }
     return formatCurrencyAmountInWords(amount, 'Naira', 'Kobo');
 }
+
+const formatDateForDisplay = (dateString: string): string => {
+  if (!dateString) return '';
+  try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      // Adjust for timezone offset to prevent date changes
+      const adjustedDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+      const day = adjustedDate.getDate();
+      const month = adjustedDate.toLocaleString('default', { month: 'short' });
+
+      let suffix = 'th';
+      if (day % 10 === 1 && day !== 11) suffix = 'st';
+      else if (day % 10 === 2 && day !== 12) suffix = 'nd';
+      else if (day % 10 === 3 && day !== 13) suffix = 'rd';
+
+      return `${day}${suffix} ${month}`;
+  } catch (e) {
+      return dateString;
+  }
+};
+
+const calculateNights = (checkIn: string, checkOut: string): number => {
+    if (!checkIn || !checkOut) return 0;
+    try {
+        const startDate = new Date(checkIn);
+        const endDate = new Date(checkOut);
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || endDate <= startDate) {
+            return 0;
+        }
+        const diffTime = endDate.getTime() - startDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays > 0 ? diffDays : 0;
+    } catch (e) {
+        return 0;
+    }
+};
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// END: utils/numberToWords.ts
+// END: UTILITY FUNCTIONS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -279,43 +324,68 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   doc.text(data.phoneContact, 60, 82);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Room Number:', 14, 89);
+  doc.text('Room Number(s):', 14, 89);
   doc.setFont('helvetica', 'normal');
   doc.text(data.roomNumber, 60, 89);
   
+  doc.line(14, 95, 196, 95);
+
+  // Booking Table
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('Arrival Date:', 100, 89);
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.arrivalDate, 125, 89);
+  doc.text('Bookings', 14, 102);
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('Departure Date:', 14, 96);
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.departureDate, 60, 96);
-
-  doc.line(14, 102, 196, 102);
-
-  // Invoice Table
-  const tableColumn = ["Date", "Description", "Details", `Amount (${data.currency})`];
-  const tableRows = [
-    [data.arrivalDate, "Room Charge", `${data.roomType}, ${data.nights} night(s) @ ${currencyFormatter.format(data.ratePerNight)}`, currencyFormatter.format(data.roomCharge)],
-    ...data.additionalChargeItems.map(item => [item.date, `${item.description || 'Additional Charge'} (${item.paymentMethod})`, '', currencyFormatter.format(item.amount)]),
-  ];
+  const bookingTableColumn = ["S/N", "Room Type", "Qty", "Duration", "Check-In", "Check-Out", "Nights", `Rate/Night`, `Subtotal`];
+  const bookingTableRows = data.bookings.map((booking, index) => [
+      index + 1,
+      booking.roomType,
+      booking.quantity,
+      `${booking.nights} night${booking.nights > 1 ? 's' : ''}`,
+      formatDateForDisplay(booking.checkIn),
+      formatDateForDisplay(booking.checkOut),
+      booking.nights,
+      currencyFormatter.format(booking.ratePerNight),
+      currencyFormatter.format(booking.subtotal)
+  ]);
   
   doc.autoTable({
     startY: 106,
-    head: [tableColumn],
-    body: tableRows,
+    head: [bookingTableColumn],
+    body: bookingTableRows,
     theme: 'grid',
-    headStyles: { fillColor: '#2c3e50' },
-    styles: { font: 'helvetica', fontSize: 10 },
+    headStyles: { fillColor: '#2c3e50', fontSize: 8 },
+    styles: { font: 'helvetica', fontSize: 8 },
     columnStyles: {
-        3: { halign: 'right' }
+        2: { halign: 'center' },
+        6: { halign: 'center' },
+        7: { halign: 'right' },
+        8: { halign: 'right' }
     }
   });
 
+  let finalY = doc.autoTable.previous.finalY;
+
+  // Additional Charges Table
+  if (data.additionalChargeItems.length > 0) {
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Additional Charges', 14, finalY + 10);
+      const chargesColumn = ["Date", "Description", "Payment Method", `Amount (${data.currency})`];
+      const chargesRows = data.additionalChargeItems.map(item => [item.date, item.description, item.paymentMethod, currencyFormatter.format(item.amount)]);
+      doc.autoTable({
+        startY: finalY + 14,
+        head: [chargesColumn],
+        body: chargesRows,
+        theme: 'grid',
+        headStyles: { fillColor: '#2c3e50' },
+        styles: { font: 'helvetica', fontSize: 10 },
+        columnStyles: { 3: { halign: 'right' } }
+      });
+      finalY = doc.autoTable.previous.finalY;
+  }
+
+
   // Totals
-  const finalY = doc.autoTable.previous.finalY;
   let currentY = finalY;
 
   // Tax Note
@@ -487,22 +557,27 @@ const printInvoice = (data: InvoiceData) => {
     maximumFractionDigits: 2,
   });
 
-  const chargesRows = `
+  const bookingRows = data.bookings.map((booking, index) => `
     <tr>
-      <td>${data.arrivalDate}</td>
-      <td>Room Charge</td>
-      <td>${data.roomType}, ${data.nights} night(s) @ ${currencyFormatter.format(data.ratePerNight)}</td>
-      <td class="text-right">${currencyFormatter.format(data.roomCharge)}</td>
+      <td>${index + 1}</td>
+      <td>${booking.roomType}</td>
+      <td>${booking.quantity}</td>
+      <td>${booking.nights} night${booking.nights > 1 ? 's' : ''}</td>
+      <td>${formatDateForDisplay(booking.checkIn)}</td>
+      <td>${formatDateForDisplay(booking.checkOut)}</td>
+      <td>${booking.nights}</td>
+      <td class="text-right">${currencyFormatter.format(booking.ratePerNight)}</td>
+      <td class="text-right">${currencyFormatter.format(booking.subtotal)}</td>
     </tr>
-    ${data.additionalChargeItems.map(item => `
-      <tr>
-        <td>${item.date}</td>
-        <td>${item.description || 'Additional Charge'} (${item.paymentMethod})</td>
-        <td></td>
-        <td class="text-right">${currencyFormatter.format(item.amount)}</td>
-      </tr>
-    `).join('')}
-  `;
+  `).join('');
+
+  const additionalChargesRows = data.additionalChargeItems.map(item => `
+    <tr>
+      <td>${item.date}</td>
+      <td colspan="7">${item.description || 'Additional Charge'} (${item.paymentMethod})</td>
+      <td class="text-right">${currencyFormatter.format(item.amount)}</td>
+    </tr>
+  `).join('');
 
   const bankDetailsSection = data.balance > 0 ? `
     <div class="payment-details">
@@ -541,7 +616,7 @@ const printInvoice = (data: InvoiceData) => {
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
         body { font-family: 'Roboto', sans-serif; font-size: 10pt; color: #2c3e50; line-height: 1.6; }
-        .receipt-container { width: 800px; margin: auto; padding: 40px; background: #fff; }
+        .receipt-container { width: 900px; margin: auto; padding: 40px; background: #fff; }
         .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #c4a66a; padding-bottom: 10px; }
         .header h1 { margin: 0; font-size: 24pt; color: #c4a66a; font-weight: 700; }
         .header p { margin: 5px 0 0 0; font-size: 9pt; }
@@ -551,10 +626,11 @@ const printInvoice = (data: InvoiceData) => {
         .guest-info table { width: 100%; }
         .guest-info td { padding: 4px 0; }
         .guest-info td:first-child { font-weight: 700; width: 130px; }
-        .charges-table { width: 100%; border-collapse: collapse; font-size: 10pt; margin-bottom: 5px; }
-        .charges-table th, .charges-table td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        .charges-table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 5px; }
+        .charges-table th, .charges-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
         .charges-table th { background-color: #2c3e50; color: #fff; font-weight: 700; }
         .text-right { text-align: right; }
+        .table-title { font-size: 12pt; font-weight: 700; margin: 20px 0 10px 0; color: #2c3e50; }
         .summary-section { display: flex; justify-content: flex-end; margin-top: 15px; }
         .summary-table { width: 350px; }
         .summary-table td { padding: 5px 10px; }
@@ -590,23 +666,28 @@ const printInvoice = (data: InvoiceData) => {
             <tr><td>Received From (Guest):</td><td>${data.guestName}</td></tr>
             <tr><td>Email:</td><td>${data.guestEmail}</td></tr>
             <tr><td>Phone/Contact:</td><td>${data.phoneContact}</td></tr>
-            <tr><td>Room Number:</td><td>${data.roomNumber}</td></tr>
-            <tr><td>Arrival Date:</td><td>${data.arrivalDate}</td></tr>
-            <tr><td>Departure Date:</td><td>${data.departureDate}</td></tr>
+            <tr><td>Room Number(s):</td><td>${data.roomNumber}</td></tr>
           </table>
         </div>
 
+        <h3 class="table-title">Bookings</h3>
         <table class="charges-table">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Description</th>
-              <th>Details</th>
-              <th class="text-right">Amount (${data.currency})</th>
+              <th>S/N</th>
+              <th>Room Type</th>
+              <th>Qty</th>
+              <th>Duration</th>
+              <th>Check-In</th>
+              <th>Check-Out</th>
+              <th>Nights</th>
+              <th class="text-right">Rate/Night</th>
+              <th class="text-right">Subtotal (${data.currency})</th>
             </tr>
           </thead>
           <tbody>
-            ${chargesRows}
+            ${bookingRows}
+            ${additionalChargesRows}
           </tbody>
         </table>
 
@@ -816,12 +897,10 @@ const escapeCsvCell = (cell: any): string => {
 
 const generateInvoiceCSV = (data: InvoiceData) => {
     const headers = [
-        'Receipt No', 'Date', 'Guest Name', 'Guest Email', 'Phone/Contact',
-        'Room Number', 'Arrival Date', 'Departure Date',
-        'Room Type', 'Nights', 
-        `Rate per Night (${data.currency})`, 
-        `Room Charge (${data.currency})`, 
+        'Receipt No', 'Date', 'Guest Name', 'Guest Email', 'Phone/Contact', 'Room Number(s)',
+        'Booking Details',
         'Additional Charges Details',
+        `Room Charge (${data.currency})`,
         `Additional Charges (${data.currency})`,
         `Discount (${data.currency})`,
         'Festive Discount Name',
@@ -836,14 +915,18 @@ const generateInvoiceCSV = (data: InvoiceData) => {
         'Currency'
     ];
     
+    const bookingDetails = data.bookings.map(b => 
+        `{Room Type: ${b.roomType}; Qty: ${b.quantity}; Nights: ${b.nights}; Rate: ${b.ratePerNight}; CheckIn: ${b.checkIn}; CheckOut: ${b.checkOut}}`
+    ).join(' | ');
+
     const additionalChargesDetails = data.additionalChargeItems
       .map(item => `${item.description || 'N/A'} (${item.paymentMethod}) on ${item.date}: ${item.amount}`)
       .join('; ');
 
     const rowData = [
-        data.receiptNo, data.date, data.guestName, data.guestEmail, data.phoneContact,
-        data.roomNumber, data.arrivalDate, data.departureDate, data.roomType, data.nights,
-        data.ratePerNight, data.roomCharge, additionalChargesDetails, data.additionalCharges,
+        data.receiptNo, data.date, data.guestName, data.guestEmail, data.phoneContact, data.roomNumber,
+        bookingDetails, additionalChargesDetails,
+        data.roomCharge, data.additionalCharges,
         data.discount, 
         data.festiveDiscountName || '',
         data.festiveDiscountAmount || 0,
@@ -915,7 +998,7 @@ const generateHistoryCSV = (history: RecordedTransaction[]) => {
     const headers = [
         'ID', 'Type', 'Issue Date', 'Guest Name', 'Amount Due', 'Currency',
         'Guest Email', 'Phone', 'Room No', 'Arrival Date', 'Departure Date',
-        'Nights', 'Room Type', 'Walk-In Services',
+        'Total Room Nights', 'Room Types', 'Walk-In Services',
         'Subtotal', 'Discount', 'Festive Discount Name', 'Festive Discount Amount', 'Tax', 'Amount Paid', 'Balance',
         'Payment Method', 'Cashier/Received By', 'Designation'
     ];
@@ -923,10 +1006,16 @@ const generateHistoryCSV = (history: RecordedTransaction[]) => {
     const rows = history.map(record => {
         if (record.type === 'Hotel Stay') {
             const data = record.data as InvoiceData;
+            const earliestCheckIn = data.bookings.length ? data.bookings.reduce((min, b) => b.checkIn < min ? b.checkIn : min, data.bookings[0].checkIn) : '';
+            const latestCheckOut = data.bookings.length ? data.bookings.reduce((max, b) => b.checkOut > max ? b.checkOut : max, data.bookings[0].checkOut) : '';
+            const totalRoomNights = data.bookings.reduce((sum, b) => sum + (b.nights * b.quantity), 0);
+            const roomTypes = [...new Set(data.bookings.map(b => b.roomType))].join(', ');
+
             return [
                 data.receiptNo, record.type, data.date, data.guestName, data.totalAmountDue, data.currency,
-                data.guestEmail, data.phoneContact, data.roomNumber, data.arrivalDate, data.departureDate,
-                data.nights, data.roomType, '',
+                data.guestEmail, data.phoneContact, data.roomNumber, 
+                earliestCheckIn, latestCheckOut,
+                totalRoomNights, roomTypes, '',
                 data.subtotal, data.discount,
                 data.festiveDiscountName || '',
                 data.festiveDiscountAmount || 0,
@@ -1035,7 +1124,7 @@ const saveTransaction = async (newRecord: RecordedTransaction) => {
 interface DatePickerProps {
   value: string;
   onChange: (date: string) => void;
-  label: string;
+  label?: string;
   name: string;
   required?: boolean;
 }
@@ -1077,7 +1166,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, name, r
 
   return (
     <div>
-      <label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label>
+      {label && <label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label>}
       <input
         ref={inputRef}
         id={name}
@@ -1086,7 +1175,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, name, r
         placeholder="YYYY-MM-DD"
         required={required}
         readOnly
-        className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm"
+        className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm text-gray-900 font-medium"
       />
     </div>
   );
@@ -1359,7 +1448,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ history }) => {
   const handleClearFilter = () => { setStartDate(''); setEndDate(''); };
 
   return (
-    <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg max-w-4xl mx-auto">
+    <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg max-w-7xl mx-auto">
       <div className="mb-6 border-b pb-4">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
           <h2 className="text-2xl font-bold text-tide-dark">Transaction History</h2>
@@ -1392,27 +1481,44 @@ const FormSelect: React.FC<{ label: string; name: string; value: string; onChang
 const CalculatedField: React.FC<{ label: string; value: string; }> = ({ label, value }) => (<div><p className="block text-sm font-medium text-gray-700">{label}</p><p className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-md shadow-sm sm:text-sm text-gray-800 font-semibold">{value}</p></div>);
 
 const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUser }) => {
-  const roomRates: Record<RoomType, number> = { [RoomType.STANDARD]: 150000, [RoomType.DOUBLE]: 187500, [RoomType.DOUBLE_EXECUTIVE]: 210000, [RoomType.STUDIO]: 300000, [RoomType.AURA_STUDIO]: 375000, [RoomType.SERENITY_SUITES]: 397500, [RoomType.ILE_IFE_SUITE]: 450000 };
-  const roomRatesUSD: Record<RoomType, number> = { [RoomType.STANDARD]: 100, [RoomType.DOUBLE]: 125, [RoomType.DOUBLE_EXECUTIVE]: 140, [RoomType.STUDIO]: 200, [RoomType.AURA_STUDIO]: 250, [RoomType.SERENITY_SUITES]: 265, [RoomType.ILE_IFE_SUITE]: 300 };
+  const roomRates: Record<RoomType, number> = {
+    [RoomType.SOJOURN_ROOM]: 150000,
+    [RoomType.TRANQUIL_ROOM]: 187500,
+    [RoomType.HARMONY_STUDIO]: 210000,
+    [RoomType.SERENITY_STUDIO]: 300000,
+    [RoomType.NARRATIVE_SUITE]: 375000,
+    [RoomType.ODYSSEY_SUITE]: 397500,
+    [RoomType.TIDE_SIGNATURE_SUITE]: 450000
+  };
+  const roomRatesUSD: Record<RoomType, number> = {
+    [RoomType.SOJOURN_ROOM]: 100,
+    [RoomType.TRANQUIL_ROOM]: 125,
+    [RoomType.HARMONY_STUDIO]: 140,
+    [RoomType.SERENITY_STUDIO]: 200,
+    [RoomType.NARRATIVE_SUITE]: 250,
+    [RoomType.ODYSSEY_SUITE]: 265,
+    [RoomType.TIDE_SIGNATURE_SUITE]: 300
+  };
 
   const amountInWordsCache = useRef({ amount: -1, currency: '', words: '' });
 
   const calculateInvoiceTotals = (data: InvoiceData): InvoiceData => {
-    const roomCharge = data.nights * data.ratePerNight;
+    const updatedBookings = data.bookings.map(booking => {
+        const nights = calculateNights(booking.checkIn, booking.checkOut);
+        const subtotal = booking.quantity * nights * booking.ratePerNight;
+        return { ...booking, nights, subtotal };
+    });
+
+    const roomCharge = updatedBookings.reduce((sum, item) => sum + (item.subtotal || 0), 0);
     const additionalCharges = data.additionalChargeItems.reduce((sum, item) => sum + (item.amount || 0), 0);
     const festiveDiscountAmount = data.festiveDiscountAmount || 0;
     const discount = data.discount || 0;
 
     const subtotal = roomCharge + additionalCharges;
-    
-    // Tax is inclusive, so we calculate the amount of tax contained within the subtotal.
     const taxAmount = (subtotal / (1 + data.taxPercentage / 100)) * (data.taxPercentage / 100);
-    
     const totalAmountDue = subtotal - discount - festiveDiscountAmount;
-    
     const balance = totalAmountDue - data.amountReceived;
     
-    // Performance optimization: Cache the expensive number-to-words conversion.
     let amountInWords;
     if (data.amountReceived === amountInWordsCache.current.amount && data.currency === amountInWordsCache.current.currency) {
         amountInWords = amountInWordsCache.current.words;
@@ -1421,16 +1527,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
         amountInWordsCache.current = { amount: data.amountReceived, currency: data.currency, words: amountInWords };
     }
 
-    return { 
-        ...data, 
-        roomCharge, 
-        additionalCharges, 
-        subtotal, 
-        taxAmount, 
-        totalAmountDue, 
-        balance, 
-        amountInWords 
-    };
+    return { ...data, bookings: updatedBookings, roomCharge, additionalCharges, subtotal, taxAmount, totalAmountDue, balance, amountInWords };
   };
 
   const getTodayLocalString = (): string => {
@@ -1442,9 +1539,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
   };
 
   const generateNewInvoiceState = (currentUser: string): InvoiceData => {
-    const defaultRoomType = RoomType.STANDARD;
     const today = getTodayLocalString();
-    const initialState: InvoiceData = { receiptNo: `TH${Date.now().toString().slice(-6)}`, date: today, guestName: '', guestEmail: '', phoneContact: '', roomNumber: '', arrivalDate: today, departureDate: today, roomType: defaultRoomType, nights: 1, ratePerNight: roomRates[defaultRoomType], roomCharge: 0, additionalChargeItems: [], additionalCharges: 0, discount: 0, festiveDiscountName: '', festiveDiscountAmount: 0, subtotal: 0, taxPercentage: 7.5, taxAmount: 0, totalAmountDue: 0, amountReceived: 0, balance: 0, amountInWords: '', paymentPurpose: 'Hotel Accommodation', paymentMethod: PaymentMethod.POS, receivedBy: currentUser, designation: '', currency: 'NGN' };
+    const defaultRoomType = RoomType.SOJOURN_ROOM;
+    const defaultBooking: BookingItem = { id: `booking-${Date.now()}`, roomType: defaultRoomType, quantity: 1, checkIn: today, checkOut: today, nights: 0, ratePerNight: roomRates[defaultRoomType], subtotal: 0 };
+    const initialState: InvoiceData = { receiptNo: `TH${Date.now().toString().slice(-6)}`, date: today, guestName: '', guestEmail: '', phoneContact: '', roomNumber: '', bookings: [defaultBooking], roomCharge: 0, additionalChargeItems: [], additionalCharges: 0, discount: 0, festiveDiscountName: '', festiveDiscountAmount: 0, subtotal: 0, taxPercentage: 7.5, taxAmount: 0, totalAmountDue: 0, amountReceived: 0, balance: 0, amountInWords: '', paymentPurpose: 'Hotel Accommodation', paymentMethod: PaymentMethod.POS, receivedBy: currentUser, designation: '', currency: 'NGN' };
     return calculateInvoiceTotals(initialState);
   };
 
@@ -1455,6 +1553,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
         const parsedData = JSON.parse(savedData);
         parsedData.receivedBy = currentUser;
         parsedData.taxPercentage = 7.5;
+        // Ensure bookings is an array
+        if (!Array.isArray(parsedData.bookings)) {
+            parsedData.bookings = [];
+        }
         return calculateInvoiceTotals(parsedData);
       }
     } catch (error) { console.error("Failed to load or parse saved invoice data:", error); localStorage.removeItem('savedInvoiceData'); }
@@ -1474,16 +1576,56 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
     if (name === 'guestEmail') { /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || !value ? setEmailError('') : setEmailError('Please enter a valid email address.'); }
     setInvoiceData(prev => {
         let nextData = { ...prev };
-        const numericFields = ['nights', 'ratePerNight', 'discount', 'taxPercentage', 'amountReceived', 'festiveDiscountAmount'];
+        const numericFields = ['discount', 'taxPercentage', 'amountReceived', 'festiveDiscountAmount'];
         if (numericFields.includes(name)) { (nextData as any)[name] = parseFloat(value) || 0; } else { (nextData as any)[name] = value; }
-        if (name === 'roomType' || name === 'currency') {
-            const newRoomType = name === 'roomType' ? value as RoomType : nextData.roomType;
-            const newCurrency = name === 'currency' ? value as 'NGN' | 'USD' : nextData.currency;
-            nextData.ratePerNight = newCurrency === 'USD' ? roomRatesUSD[newRoomType] : roomRates[newRoomType];
+        if (name === 'currency') {
+            const newCurrency = value as 'NGN' | 'USD';
+            nextData.bookings = nextData.bookings.map(booking => ({ ...booking, ratePerNight: newCurrency === 'USD' ? roomRatesUSD[booking.roomType] : roomRates[booking.roomType] }));
         }
         return calculateInvoiceTotals(nextData);
     });
   };
+
+  const handleBookingChange = (index: number, field: keyof BookingItem, value: string | number) => {
+      setInvoiceData(prev => {
+          const newBookings = [...prev.bookings];
+          const bookingToUpdate = { ...newBookings[index] };
+          (bookingToUpdate as any)[field] = value;
+          
+          if (field === 'roomType') {
+              const newRoomType = value as RoomType;
+              bookingToUpdate.ratePerNight = prev.currency === 'USD' ? roomRatesUSD[newRoomType] : roomRates[newRoomType];
+          }
+
+          if (field === 'quantity') {
+            bookingToUpdate.quantity = Math.max(0, Number(value));
+          }
+
+          newBookings[index] = bookingToUpdate;
+          return calculateInvoiceTotals({ ...prev, bookings: newBookings });
+      });
+  };
+
+  const handleAddBooking = () => {
+      setInvoiceData(prev => {
+          const today = getTodayLocalString();
+          const defaultRoomType = RoomType.SOJOURN_ROOM;
+          const newBooking: BookingItem = {
+              id: `booking-${Date.now()}`, roomType: defaultRoomType, quantity: 1, checkIn: today, checkOut: today,
+              nights: 0, ratePerNight: prev.currency === 'USD' ? roomRatesUSD[defaultRoomType] : roomRates[defaultRoomType], subtotal: 0
+          };
+          return calculateInvoiceTotals({ ...prev, bookings: [...prev.bookings, newBooking] });
+      });
+  };
+
+  const handleRemoveBooking = (id: string) => {
+      setInvoiceData(prev => {
+          if (prev.bookings.length <= 1) return prev;
+          const newBookings = prev.bookings.filter(b => b.id !== id);
+          return calculateInvoiceTotals({ ...prev, bookings: newBookings });
+      });
+  };
+
 
   const handleDateChange = (name: string, date: string) => { setInvoiceData(prev => calculateInvoiceTotals({ ...prev, [name]: date })); };
   const handleAddChargeItem = () => { setInvoiceData(prev => calculateInvoiceTotals({ ...prev, additionalChargeItems: [...prev.additionalChargeItems, { id: `item-${Date.now()}`, description: '', amount: 0, date: getTodayLocalString(), paymentMethod: prev.paymentMethod }] })); };
@@ -1495,22 +1637,17 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
   
-    // Debounce the save operation to be more responsive.
     saveTimerRef.current = window.setTimeout(() => {
       try {
         localStorage.setItem('savedInvoiceData', JSON.stringify(invoiceData));
-        setSaveStatus('saved'); // Indicate save was successful.
-        // Reset status back to idle after a shorter delay.
-        statusTimerRef.current = window.setTimeout(() => {
-          setSaveStatus('idle');
-        }, 1500);
+        setSaveStatus('saved');
+        statusTimerRef.current = window.setTimeout(() => { setSaveStatus('idle'); }, 1500);
       } catch (error) {
         console.error("Failed to save invoice data:", error);
-        setSaveStatus('idle'); // Reset on error.
+        setSaveStatus('idle');
       }
-    }, 750); // Shorter debounce time for a more responsive feel.
+    }, 750);
   
-    // Cleanup function to clear timers.
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
@@ -1518,9 +1655,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
   }, [invoiceData]);
 
   const validateForm = () => {
-    const requiredFields: { key: keyof InvoiceData; label: string }[] = [ { key: 'guestName', label: 'Guest Name' }, { key: 'guestEmail', label: 'Guest Email' }, { key: 'phoneContact', label: 'Phone/Contact' }, { key: 'roomNumber', label: 'Room Number' }, { key: 'receivedBy', label: 'Received By' }, { key: 'designation', label: 'Designation' }, { key: 'paymentPurpose', label: 'Purpose of Payment' } ];
+    const requiredFields: { key: keyof InvoiceData; label: string }[] = [ { key: 'guestName', label: 'Guest Name' }, { key: 'guestEmail', label: 'Guest Email' }, { key: 'phoneContact', label: 'Phone/Contact' }, { key: 'roomNumber', label: 'Room Number(s)' }, { key: 'receivedBy', label: 'Received By' }, { key: 'designation', label: 'Designation' }, { key: 'paymentPurpose', label: 'Purpose of Payment' } ];
     for (const field of requiredFields) { if (!invoiceData[field.key]) { alert(`The field "${field.label}" is required.`); return false; } }
-    if (invoiceData.nights <= 0) { alert("Number of nights must be at least 1."); return false; }
+    if (invoiceData.bookings.length === 0) { alert("At least one booking is required."); return false; }
+    for (const booking of invoiceData.bookings) { if (booking.nights <= 0) { alert(`A booking for "${booking.roomType}" has an invalid date range or zero nights.`); return false; } }
     if (emailError) { alert("Please fix the email address format."); return false; }
     return true;
   };
@@ -1559,23 +1697,61 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
   
   return (
     <>
-      <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg max-w-4xl mx-auto">
+      <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg max-w-7xl mx-auto">
         <h2 className="text-2xl font-bold text-tide-dark mb-6 border-b pb-4">Create New Invoice</h2>
         {isGenerated && (<div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded-md" role="alert"><p className="font-bold">Success!</p><p>The print dialog should have opened. You can print or save as PDF from there.</p></div>)}
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><FormInput label="Receipt No" name="receiptNo" value={invoiceData.receiptNo} onChange={handleInputChange} required /><DatePicker label="Date" name="date" value={invoiceData.date} onChange={(date) => handleDateChange('date', date)} required /></div>
-          <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Guest Information</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><FormInput label="Guest Name (Received From)" name="guestName" value={invoiceData.guestName} onChange={handleInputChange} required /><FormInput label="Guest Email" name="guestEmail" type="email" value={invoiceData.guestEmail} onChange={handleInputChange} required error={emailError} /><FormInput label="Phone/Contact" name="phoneContact" type="tel" value={invoiceData.phoneContact} onChange={handleInputChange} required /><FormInput label="Room Number" name="roomNumber" value={invoiceData.roomNumber} onChange={handleInputChange} required /></div></div>
-          <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Stay & Charges Details</h3><div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center"><DatePicker label="Arrival Date" name="arrivalDate" value={invoiceData.arrivalDate} onChange={(date) => handleDateChange('arrivalDate', date)} required /><DatePicker label="Departure Date" name="departureDate" value={invoiceData.departureDate} onChange={(date) => handleDateChange('departureDate', date)} required /><FormSelect label="Currency" name="currency" value={invoiceData.currency} onChange={handleInputChange} options={['NGN', 'USD']} /></div><div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6"><FormSelect label="Room Type" name="roomType" value={invoiceData.roomType} onChange={handleInputChange} options={Object.values(RoomType)} required /><FormInput label="Nights" name="nights" type="number" value={invoiceData.nights} onChange={handleInputChange} required/><FormInput label={`Rate per Night (${invoiceData.currency})`} name="ratePerNight" type="number" value={invoiceData.ratePerNight} onChange={handleInputChange} required/></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  <CalculatedField label="Room Charge" value={currencyFormatter.format(invoiceData.roomCharge)} />
-                  <FormInput label={`Discount (${invoiceData.currency})`} name="discount" type="number" value={invoiceData.discount} onChange={handleInputChange} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                  <FormInput label="Festive Season Discount Name" name="festiveDiscountName" type="text" value={invoiceData.festiveDiscountName || ''} onChange={handleInputChange} placeholder="e.g., Holiday Special" />
-                  <FormInput label={`Festive Discount Amount (${invoiceData.currency})`} name="festiveDiscountAmount" type="number" value={invoiceData.festiveDiscountAmount || ''} onChange={handleInputChange} />
-              </div>
-              <div className="border-t pt-6 mt-6"><h4 className="text-md font-semibold text-gray-700 mb-4">Additional Charges</h4><div className="space-y-4">{invoiceData.additionalChargeItems.map((item, index) => (<div key={item.id} className="grid grid-cols-12 gap-x-4 items-end"><div className="col-span-12 sm:col-span-4"><FormInput label={`Description #${index + 1}`} name={`description-${index}`} value={item.description} onChange={(e) => handleChargeItemChange(index, 'description', e.target.value)} required /></div><div className="col-span-6 sm:col-span-2"><DatePicker label="Date" name={`chargeDate-${index}`} value={item.date} onChange={(date) => handleChargeItemDateChange(index, date)} required /></div><div className="col-span-6 sm:col-span-2"><FormSelect label="Payment" name={`paymentMethod-${index}`} value={item.paymentMethod} onChange={(e) => handleChargeItemChange(index, 'paymentMethod', e.target.value as PaymentMethod)} options={Object.values(PaymentMethod)} required /></div><div className="col-span-6 sm:col-span-2"><FormInput label="Amount" name={`amount-${index}`} type="number" value={item.amount} onChange={(e) => handleChargeItemChange(index, 'amount', e.target.value)} required/></div><div className="col-span-6 sm:col-span-2 flex items-center"><button type="button" onClick={() => handleRemoveChargeItem(item.id)} className="text-red-600 hover:text-red-800 text-sm font-medium p-2 rounded-full hover:bg-red-50" aria-label={`Remove item ${index+1}`}>Remove</button></div></div>))}</div><button type="button" onClick={handleAddChargeItem} className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">+ Add Charge</button></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <FormInput label="Receipt No" name="receiptNo" value={invoiceData.receiptNo} onChange={handleInputChange} required />
+            <DatePicker label="Date" name="date" value={invoiceData.date} onChange={(date) => handleDateChange('date', date)} required />
+            <FormSelect label="Currency" name="currency" value={invoiceData.currency} onChange={handleInputChange} options={['NGN', 'USD']} />
           </div>
+          <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Guest Information</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><FormInput label="Guest Name (or Company)" name="guestName" value={invoiceData.guestName} onChange={handleInputChange} required /><FormInput label="Guest Email" name="guestEmail" type="email" value={invoiceData.guestEmail} onChange={handleInputChange} required error={emailError} /><FormInput label="Phone/Contact" name="phoneContact" type="tel" value={invoiceData.phoneContact} onChange={handleInputChange} required /><FormInput label="Room Number(s) (e.g. 101, 102)" name="roomNumber" value={invoiceData.roomNumber} onChange={handleInputChange} required /></div></div>
+          
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Bookings</h3>
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room Type</th>
+                            <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+                            <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-In</th>
+                            <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-Out</th>
+                            <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nights</th>
+                            <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate/Night</th>
+                            <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                            <th className="px-2 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {invoiceData.bookings.map((booking, index) => (
+                            <tr key={booking.id}>
+                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '200px'}}><select name={`roomType-${index}`} value={booking.roomType} onChange={(e) => handleBookingChange(index, 'roomType', e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md font-semibold text-gray-800">{Object.values(RoomType).map(option => <option key={option} value={option}>{option}</option>)}</select></td>
+                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '80px'}}><input type="number" name={`quantity-${index}`} value={booking.quantity} onChange={(e) => handleBookingChange(index, 'quantity', e.target.value)} className="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-tide-gold sm:text-sm border-gray-300 text-gray-900 font-medium text-center" /></td>
+                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '150px'}}><DatePicker name={`checkIn-${index}`} value={booking.checkIn} onChange={(date) => handleBookingChange(index, 'checkIn', date)} /></td>
+                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '150px'}}><DatePicker name={`checkOut-${index}`} value={booking.checkOut} onChange={(date) => handleBookingChange(index, 'checkOut', date)} /></td>
+                                <td className="px-2 py-2 whitespace-nowrap"><p className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-md sm:text-sm text-center font-bold text-gray-900">{booking.nights}</p></td>
+                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '150px'}}><input type="number" name={`ratePerNight-${index}`} value={booking.ratePerNight} onChange={(e) => handleBookingChange(index, 'ratePerNight', e.target.value)} className="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-tide-gold sm:text-sm border-gray-300 text-gray-900 font-medium text-right" /></td>
+                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '150px'}}><p className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-md sm:text-sm text-right font-bold text-gray-900">{currencyFormatter.format(booking.subtotal)}</p></td>
+                                <td className="px-2 py-2 whitespace-nowrap text-center"><button type="button" onClick={() => handleRemoveBooking(booking.id)} disabled={invoiceData.bookings.length <= 1} className="text-red-600 hover:text-red-800 disabled:text-gray-300 disabled:cursor-not-allowed text-sm font-medium p-2 rounded-full hover:bg-red-50" aria-label={`Remove booking ${index+1}`}>✕</button></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" onClick={handleAddBooking} className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">+ Add Booking</button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <CalculatedField label="Total Room Charge" value={currencyFormatter.format(invoiceData.roomCharge)} />
+                <FormInput label={`Discount (${invoiceData.currency})`} name="discount" type="number" value={invoiceData.discount} onChange={handleInputChange} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                <FormInput label="Festive Season Discount Name" name="festiveDiscountName" type="text" value={invoiceData.festiveDiscountName || ''} onChange={handleInputChange} placeholder="e.g., Holiday Special" />
+                <FormInput label={`Festive Discount Amount (${invoiceData.currency})`} name="festiveDiscountAmount" type="number" value={invoiceData.festiveDiscountAmount || ''} onChange={handleInputChange} />
+            </div>
+            <div className="border-t pt-6 mt-6"><h4 className="text-md font-semibold text-gray-700 mb-4">Additional Charges</h4><div className="space-y-4">{invoiceData.additionalChargeItems.map((item, index) => (<div key={item.id} className="grid grid-cols-12 gap-x-4 items-end"><div className="col-span-12 sm:col-span-4"><FormInput label={`Description #${index + 1}`} name={`description-${index}`} value={item.description} onChange={(e) => handleChargeItemChange(index, 'description', e.target.value)} required /></div><div className="col-span-6 sm:col-span-2"><DatePicker label="Date" name={`chargeDate-${index}`} value={item.date} onChange={(date) => handleChargeItemDateChange(index, date)} required /></div><div className="col-span-6 sm:col-span-2"><FormSelect label="Payment" name={`paymentMethod-${index}`} value={item.paymentMethod} onChange={(e) => handleChargeItemChange(index, 'paymentMethod', e.target.value as PaymentMethod)} options={Object.values(PaymentMethod)} required /></div><div className="col-span-6 sm:col-span-2"><FormInput label="Amount" name={`amount-${index}`} type="number" value={item.amount} onChange={(e) => handleChargeItemChange(index, 'amount', e.target.value)} required/></div><div className="col-span-6 sm:col-span-2 flex items-center"><button type="button" onClick={() => handleRemoveChargeItem(item.id)} className="text-red-600 hover:text-red-800 text-sm font-medium p-2 rounded-full hover:bg-red-50" aria-label={`Remove item ${index+1}`}>Remove</button></div></div>))}</div><button type="button" onClick={handleAddChargeItem} className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">+ Add Charge</button></div>
+          </div>
+          
           <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Summary & Payment</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div className="space-y-4 p-4 bg-gray-50 rounded-lg"><CalculatedField label="Additional Charges" value={currencyFormatter.format(invoiceData.additionalCharges)} /><CalculatedField label="Subtotal" value={currencyFormatter.format(invoiceData.subtotal)} /><CalculatedField label="Tax (7.5% included)" value={currencyFormatter.format(invoiceData.taxAmount)} /><div className="border-t pt-2 mt-2"><CalculatedField label="TOTAL AMOUNT DUE" value={currencyFormatter.format(invoiceData.totalAmountDue)} /></div></div><div className="space-y-4"><FormInput label={`Amount Received (${invoiceData.currency})`} name="amountReceived" type="number" value={invoiceData.amountReceived} onChange={handleInputChange} required /><CalculatedField label="BALANCE" value={currencyFormatter.format(invoiceData.balance)} /><p className="text-xs text-gray-600 font-medium bg-gray-100 p-2 rounded-md">Amount in Words: {invoiceData.amountInWords}</p></div></div></div>
           <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Confirmation Details</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><FormInput label="Purpose of Payment" name="paymentPurpose" value={invoiceData.paymentPurpose} onChange={handleInputChange} required /><FormSelect label="Payment Method" name="paymentMethod" value={invoiceData.paymentMethod} onChange={handleInputChange} options={Object.values(PaymentMethod)} required /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"><FormInput label="Received By (User)" name="receivedBy" value={invoiceData.receivedBy} onChange={handleInputChange} required disabled /><FormInput label="Designation" name="designation" value={invoiceData.designation} onChange={handleInputChange} required /></div></div>
           <div className="border-t pt-6 flex flex-wrap gap-4 items-center justify-between"><div className="flex flex-wrap gap-4"><button type="submit" className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Generate & Print Receipt</button><button type="button" onClick={handleEmailReceipt} disabled={emailStatus === 'sending' || !!emailError} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold disabled:bg-gray-200 disabled:cursor-not-allowed">{emailStatus === 'sending' ? 'Sending...' : 'Email Receipt'}</button><button type="button" onClick={() => generateInvoiceCSV(invoiceData)} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Download Excel (CSV)</button></div><div className="flex flex-wrap gap-4"><button type="button" onClick={() => setIsWalkInModalOpen(true)} className="inline-flex justify-center py-2 px-6 border border-dashed border-tide-gold text-sm font-medium rounded-md text-tide-gold bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Walk-in Guest</button><button type="button" onClick={handleNewInvoice} className="text-sm font-medium text-gray-600 hover:text-red-600">New Invoice</button></div></div>
