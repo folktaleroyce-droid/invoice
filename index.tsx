@@ -522,20 +522,20 @@ const generateInvoicePDF = (data: InvoiceData) => {
   doc.save(`TideHotels_Receipt_${data.receiptNo}.pdf`);
 };
 
-const emailInvoicePDF = async (data: InvoiceData): Promise<{success: boolean, message: string}> => {
-    if (!data.guestEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.guestEmail)) {
-        return { success: false, message: 'Guest email is invalid or missing.' };
+const emailInvoicePDF = async (data: InvoiceData, recipient: string): Promise<{success: boolean, message: string}> => {
+    if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+        return { success: false, message: 'The provided email is invalid or missing.' };
     }
 
     try {
         const doc = createInvoiceDoc(data);
         const pdfBlob = doc.output('blob');
-        console.log(`Simulating sending email with PDF attachment to: ${data.guestEmail}`);
+        console.log(`Simulating sending email with PDF attachment to: ${recipient}`);
         console.log('PDF Blob size:', pdfBlob.size);
         
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        return { success: true, message: `Invoice successfully sent to ${data.guestEmail}.` };
+        return { success: true, message: `Invoice successfully sent to ${recipient}.` };
     } catch (error) {
         console.error('Error generating or emailing PDF:', error);
         return { success: false, message: 'A system error occurred while trying to email the invoice.' };
@@ -1470,6 +1470,57 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ history }) => {
 };
 
 
+// --- EmailModal Component ---
+const EmailModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onSend: () => void;
+  email: string;
+  setEmail: (email: string) => void;
+  emailStatus: 'idle' | 'sending' | 'sent' | 'error';
+}> = ({ isOpen, onClose, onSend, email, setEmail, emailStatus }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" aria-modal="true" role="dialog">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" aria-label="Close"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        <h3 className="text-lg font-bold text-tide-dark mb-4">Send Receipt via Email</h3>
+        <p className="text-sm text-gray-600 mb-4">Please confirm or enter the recipient's email address below.</p>
+        <div>
+            <label htmlFor="recipient-email" className="block text-sm font-medium text-gray-700">Recipient Email</label>
+            <input
+                type="email"
+                id="recipient-email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm"
+                autoFocus
+            />
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+            <button
+                type="button"
+                onClick={onClose}
+                className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold"
+            >
+                Cancel
+            </button>
+            <button
+                type="button"
+                onClick={onSend}
+                disabled={emailStatus === 'sending'}
+                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-tide-dark hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+                {emailStatus === 'sending' ? 'Sending...' : 'Send Email'}
+            </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 // --- InvoiceForm Component ---
 interface InvoiceFormProps {
   onInvoiceGenerated: (record: RecordedTransaction) => Promise<void>;
@@ -1568,6 +1619,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [emailError, setEmailError] = useState<string>('');
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState('');
   const saveTimerRef = useRef<number | null>(null);
   const statusTimerRef = useRef<number | null>(null);
 
@@ -1673,13 +1726,33 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
     setTimeout(() => setIsGenerated(false), 5000);
   };
 
-  const handleEmailReceipt = async () => {
+  const handleOpenEmailModal = () => {
     if (!validateForm()) return;
+    setRecipientEmail(invoiceData.guestEmail);
+    setEmailStatus('idle'); 
+    setIsEmailModalOpen(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!recipientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+        alert("Please enter a valid recipient email address.");
+        return;
+    }
+
     setEmailStatus('sending');
     const record: RecordedTransaction = { id: invoiceData.receiptNo, type: 'Hotel Stay', date: invoiceData.date, guestName: invoiceData.guestName, amount: invoiceData.totalAmountDue, currency: invoiceData.currency, data: { ...invoiceData } };
     await onInvoiceGenerated(record);
-    const result = await emailInvoicePDF(invoiceData);
-    if (result.success) { setEmailStatus('sent'); alert(result.message); } else { setEmailStatus('error'); alert(`Error: ${result.message}`); }
+    
+    const result = await emailInvoicePDF(invoiceData, recipientEmail);
+    
+    if (result.success) {
+        setEmailStatus('sent');
+        alert(result.message);
+        setIsEmailModalOpen(false);
+    } else {
+        setEmailStatus('error');
+        alert(`Error: ${result.message}`);
+    }
     setTimeout(() => setEmailStatus('idle'), 4000);
   };
   
@@ -1754,10 +1827,18 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
           
           <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Summary & Payment</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div className="space-y-4 p-4 bg-gray-50 rounded-lg"><CalculatedField label="Additional Charges" value={currencyFormatter.format(invoiceData.additionalCharges)} /><CalculatedField label="Subtotal" value={currencyFormatter.format(invoiceData.subtotal)} /><CalculatedField label="Tax (7.5% included)" value={currencyFormatter.format(invoiceData.taxAmount)} /><div className="border-t pt-2 mt-2"><CalculatedField label="TOTAL AMOUNT DUE" value={currencyFormatter.format(invoiceData.totalAmountDue)} /></div></div><div className="space-y-4"><FormInput label={`Amount Received (${invoiceData.currency})`} name="amountReceived" type="number" value={invoiceData.amountReceived} onChange={handleInputChange} required /><CalculatedField label="BALANCE" value={currencyFormatter.format(invoiceData.balance)} /><p className="text-xs text-gray-600 font-medium bg-gray-100 p-2 rounded-md">Amount in Words: {invoiceData.amountInWords}</p></div></div></div>
           <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Confirmation Details</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><FormInput label="Purpose of Payment" name="paymentPurpose" value={invoiceData.paymentPurpose} onChange={handleInputChange} required /><FormSelect label="Payment Method" name="paymentMethod" value={invoiceData.paymentMethod} onChange={handleInputChange} options={Object.values(PaymentMethod)} required /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"><FormInput label="Received By (User)" name="receivedBy" value={invoiceData.receivedBy} onChange={handleInputChange} required disabled /><FormInput label="Designation" name="designation" value={invoiceData.designation} onChange={handleInputChange} required /></div></div>
-          <div className="border-t pt-6 flex flex-wrap gap-4 items-center justify-between"><div className="flex flex-wrap gap-4"><button type="submit" className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Generate & Print Receipt</button><button type="button" onClick={handleEmailReceipt} disabled={emailStatus === 'sending' || !!emailError} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold disabled:bg-gray-200 disabled:cursor-not-allowed">{emailStatus === 'sending' ? 'Sending...' : 'Email Receipt'}</button><button type="button" onClick={() => generateInvoiceCSV(invoiceData)} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Download Excel (CSV)</button></div><div className="flex flex-wrap gap-4"><button type="button" onClick={() => setIsWalkInModalOpen(true)} className="inline-flex justify-center py-2 px-6 border border-dashed border-tide-gold text-sm font-medium rounded-md text-tide-gold bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Walk-in Guest</button><button type="button" onClick={handleNewInvoice} className="text-sm font-medium text-gray-600 hover:text-red-600">New Invoice</button></div></div>
+          <div className="border-t pt-6 flex flex-wrap gap-4 items-center justify-between"><div className="flex flex-wrap gap-4"><button type="submit" className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Generate & Print Receipt</button><button type="button" onClick={handleOpenEmailModal} disabled={emailStatus === 'sending' || !!emailError} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold disabled:bg-gray-200 disabled:cursor-not-allowed">{emailStatus === 'sending' ? 'Sending...' : 'Email Receipt'}</button><button type="button" onClick={() => generateInvoiceCSV(invoiceData)} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Download Excel (CSV)</button></div><div className="flex flex-wrap gap-4"><button type="button" onClick={() => setIsWalkInModalOpen(true)} className="inline-flex justify-center py-2 px-6 border border-dashed border-tide-gold text-sm font-medium rounded-md text-tide-gold bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Walk-in Guest</button><button type="button" onClick={handleNewInvoice} className="text-sm font-medium text-gray-600 hover:text-red-600">New Invoice</button></div></div>
         </form>
         <div className="text-xs text-gray-500 mt-4 text-right">Auto-save status: <span className={`font-semibold ${saveStatus === 'saved' ? 'text-green-600' : ''}`}>{saveStatus}</span></div>
       </div>
+      <EmailModal 
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        onSend={handleSendEmail}
+        email={recipientEmail}
+        setEmail={setRecipientEmail}
+        emailStatus={emailStatus}
+      />
       <WalkInGuestModal isOpen={isWalkInModalOpen} onClose={() => setIsWalkInModalOpen(false)} onTransactionGenerated={onInvoiceGenerated} currentUser={currentUser} />
     </>
   );
