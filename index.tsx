@@ -25,6 +25,7 @@ export enum PaymentMethod {
   CASH = 'Cash',
   POS = 'POS',
   BANK_TRANSFER = 'Bank Transfer',
+  PENDING = 'Pending',
   OTHER = 'Other',
 }
 
@@ -286,54 +287,57 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor('#2c3e50');
   doc.text('Where Boldness Meets Elegance.', 105, 27, { align: 'center' });
+  doc.setFontSize(9);
+  doc.text('38 S.O Williams Street Off Anthony Enahoro Street Utako Abuja', 105, 32, { align: 'center' });
+
 
   // Invoice Title
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('GUEST RECEIPT', 105, 40, { align: 'center' });
+  doc.text('GUEST RECEIPT', 105, 45, { align: 'center' });
 
   // Receipt Info
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text('Receipt No:', 14, 55);
+  doc.text('Receipt No:', 14, 60);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.receiptNo, 40, 55);
+  doc.text(data.receiptNo, 40, 60);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Date:', 150, 55);
+  doc.text('Date:', 150, 60);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.date, 165, 55);
+  doc.text(data.date, 165, 60);
 
   // Guest Info
   doc.setLineWidth(0.5);
-  doc.line(14, 60, 196, 60);
+  doc.line(14, 65, 196, 65);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Received From (Guest):', 14, 68);
+  doc.text('Received From (Guest):', 14, 73);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.guestName, 60, 68);
+  doc.text(data.guestName, 60, 73);
   
   doc.setFont('helvetica', 'bold');
-  doc.text('Email:', 14, 75);
+  doc.text('Email:', 14, 80);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.guestEmail, 60, 75);
+  doc.text(data.guestEmail, 60, 80);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Phone/Contact:', 14, 82);
+  doc.text('Phone/Contact:', 14, 87);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.phoneContact, 60, 82);
+  doc.text(data.phoneContact, 60, 87);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Room Number(s):', 14, 89);
+  doc.text('Room Number(s):', 14, 94);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.roomNumber, 60, 89);
+  doc.text(data.roomNumber, 60, 94);
   
-  doc.line(14, 95, 196, 95);
+  doc.line(14, 100, 196, 100);
 
   // Booking Table
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('Bookings', 14, 102);
+  doc.text('Bookings', 14, 107);
 
   const bookingTableColumn = ["S/N", "Room Type", "Qty", "Duration", "Check-In", "Check-Out", "Nights", `Rate/Night`, `Subtotal`];
   const bookingTableRows = data.bookings.map((booking, index) => [
@@ -349,7 +353,7 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   ]);
   
   doc.autoTable({
-    startY: 106,
+    startY: 111,
     head: [bookingTableColumn],
     body: bookingTableRows,
     theme: 'grid',
@@ -655,6 +659,7 @@ const printInvoice = (data: InvoiceData) => {
         <div class="header">
           <h1>TIDÈ HOTELS AND RESORTS</h1>
           <p>Where Boldness Meets Elegance.</p>
+          <p>38 S.O Williams Street Off Anthony Enahoro Street Utako Abuja</p>
         </div>
         <h2 class="receipt-title">GUEST RECEIPT</h2>
         <div class="info-section">
@@ -806,7 +811,7 @@ const printWalkInReceipt = (data: WalkInTransaction) => {
         <div class="header">
           <h1>TIDÈ HOTELS AND RESORTS</h1>
           <p>Where Boldness Meets Elegance.</p>
-          <p>38 S.O Williams Street, off Anthony Enahoro Street, Utako Abuja Nigeria</p>
+          <p>38 S.O Williams Street Off Anthony Enahoro Street Utako Abuja</p>
           <p style="margin-top: 8px; font-weight: bold;">Walk-In Guest Receipt</p>
         </div>
         <div class="info-section">
