@@ -38,7 +38,7 @@ export interface AdditionalChargeItem {
 }
 
 export interface BookingItem {
-  id: string;
+  id:string;
   roomType: RoomType;
   quantity: number;
   checkIn: string;
@@ -56,6 +56,9 @@ export interface InvoiceData {
   phoneContact: string;
   roomNumber: string; // "Multiple" or specific numbers can be entered here
   
+  documentType: 'reservation' | 'receipt';
+  paymentRefNo?: string;
+
   bookings: BookingItem[]; // Replaces single booking fields
 
   roomCharge: number;
@@ -270,6 +273,7 @@ const calculateNights = (checkIn: string, checkOut: string): number => {
 const createInvoiceDoc = (data: InvoiceData): any => {
   const { jsPDF } = jspdf;
   const doc = new jsPDF();
+  const isReservation = data.documentType === 'reservation';
 
   const currencyFormatter = new Intl.NumberFormat('en-US', { 
     style: 'currency', 
@@ -294,12 +298,12 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   // Invoice Title
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('GUEST RECEIPT', 105, 45, { align: 'center' });
+  doc.text(isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT', 105, 45, { align: 'center' });
 
   // Receipt Info
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text('Receipt No:', 14, 60);
+  doc.text(isReservation ? 'Invoice No:' : 'Receipt No:', 14, 60);
   doc.setFont('helvetica', 'normal');
   doc.text(data.receiptNo, 40, 60);
 
@@ -433,6 +437,17 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   doc.text('BALANCE:', 155, currentY, { align: 'right' });
   doc.text(currencyFormatter.format(data.balance), 196, currentY, { align: 'right' });
   currentY += 10;
+  
+  if (!isReservation) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Payment Verification:', 14, currentY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Payment Reference: ${data.paymentRefNo || 'N/A'}`, 14, currentY + 5);
+    doc.text(`Verified By: ${data.receivedBy} (${data.designation})`, 14, currentY + 10);
+    doc.text(`Date Verified: ${data.date}`, 14, currentY + 15);
+    currentY += 22;
+  }
 
   // Amount in words
   doc.setFontSize(10);
@@ -444,40 +459,42 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   
   // Conditional Payment Status & Bank Details
   let statusOffsetY = 0;
-  if (data.balance > 0) {
+  if (isReservation || data.balance > 0) {
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(217, 119, 6); // A shade of yellow/orange for pending
       doc.text('⚠️ Payment Pending – Kindly complete your payment using the bank details below.', 14, currentY + statusOffsetY, { maxWidth: 180 });
       statusOffsetY += 12;
 
-      doc.setTextColor(44, 62, 80); // Reset to default dark color
-      doc.setFontSize(9);
-      
-      const bankStartY = currentY + statusOffsetY;
-      doc.setFont('helvetica', 'bold');
-      doc.text('ZENITH BANK', 14, bankStartY);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Account Number: 1229000080', 14, bankStartY + 5);
-      doc.text('Account Name: TIDE’ HOTELS AND RESORTS', 14, bankStartY + 10);
-      
-      doc.setFont('helvetica', 'bold');
-      doc.text('PROVIDUS BANK', 80, bankStartY);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Account Number: 1306538190', 80, bankStartY + 5);
-      doc.text('Account Name: TIDE’ HOTELS AND RESORTS', 80, bankStartY + 10);
-      
-      statusOffsetY += 15;
-      const secondBankRowY = currentY + statusOffsetY;
-      doc.setFont('helvetica', 'bold');
-      doc.text('SUNTRUST BANK', 14, secondBankRowY);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Account Number: 0025840833', 14, secondBankRowY + 5);
-      doc.text('Account Name: TIDE’ HOTELS AND RESORTS', 14, secondBankRowY + 10);
-      statusOffsetY += 15;
+      if (isReservation) {
+        doc.setTextColor(44, 62, 80); // Reset to default dark color
+        doc.setFontSize(9);
+        
+        const bankStartY = currentY + statusOffsetY;
+        doc.setFont('helvetica', 'bold');
+        doc.text('ZENITH BANK', 14, bankStartY);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Account Number: 1229000080', 14, bankStartY + 5);
+        doc.text('Account Name: TIDE’ HOTELS AND RESORTS', 14, bankStartY + 10);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text('PROVIDUS BANK', 80, bankStartY);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Account Number: 1306538190', 80, bankStartY + 5);
+        doc.text('Account Name: TIDE’ HOTELS AND RESORTS', 80, bankStartY + 10);
+        
+        statusOffsetY += 15;
+        const secondBankRowY = currentY + statusOffsetY;
+        doc.setFont('helvetica', 'bold');
+        doc.text('SUNTRUST BANK', 14, secondBankRowY);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Account Number: 0025840833', 14, secondBankRowY + 5);
+        doc.text('Account Name: TIDE’ HOTELS AND RESORTS', 14, secondBankRowY + 10);
+        statusOffsetY += 15;
 
-      doc.setFontSize(8);
-      doc.text('Please make your payment using any of the accounts above and include your reference number for confirmation.', 14, currentY + statusOffsetY, { maxWidth: 180 });
-      statusOffsetY += 5;
+        doc.setFontSize(8);
+        doc.text('Please make your payment using any of the accounts above and include your invoice reference number for confirmation.', 14, currentY + statusOffsetY, { maxWidth: 180 });
+        statusOffsetY += 5;
+      }
   } else {
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(22, 163, 74); // A shade of green for success
@@ -512,18 +529,26 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   doc.text('Designation:', 14, signatureY + 12);
   doc.text(data.designation, 40, signatureY + 12);
 
+  let footerY = 280;
+  if(isReservation) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor('#888');
+    doc.text('This is a reservation invoice. Payment is pending. A final receipt will be issued upon confirmation of payment.', 105, footerY - 5, { align: 'center' });
+  }
+
   doc.setFontSize(8);
   doc.setTextColor('#888');
-  doc.text('Page 1 of 1', 105, 280, { align: 'center' });
-  doc.text('NOTE: This is a system-generated receipt and does not require a physical signature.', 105, 285, { align: 'center' });
-  doc.text('Thank you for choosing Tidè Hotels and Resorts!', 105, 290, { align: 'center' });
+  doc.text('Page 1 of 1', 105, footerY, { align: 'center' });
+  doc.text('NOTE: This is a system-generated receipt and does not require a physical signature.', 105, footerY + 5, { align: 'center' });
+  doc.text('Thank you for choosing Tidè Hotels and Resorts!', 105, footerY + 10, { align: 'center' });
 
   return doc;
 }
 
 const generateInvoicePDF = (data: InvoiceData) => {
   const doc = createInvoiceDoc(data);
-  doc.save(`TideHotels_Receipt_${data.receiptNo}.pdf`);
+  doc.save(`TideHotels_${data.documentType === 'reservation' ? 'Invoice' : 'Receipt'}_${data.receiptNo}.pdf`);
 };
 
 const emailInvoicePDF = async (data: InvoiceData, recipient: string): Promise<{success: boolean, message: string}> => {
@@ -554,6 +579,7 @@ const emailInvoicePDF = async (data: InvoiceData, recipient: string): Promise<{s
 // START: services/printGenerator.ts
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 const printInvoice = (data: InvoiceData) => {
+  const isReservation = data.documentType === 'reservation';
   const currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: data.currency,
@@ -575,35 +601,63 @@ const printInvoice = (data: InvoiceData) => {
     </tr>
   `).join('');
 
-  const additionalChargesRows = data.additionalChargeItems.map(item => `
-    <tr>
-      <td>${item.date}</td>
-      <td colspan="7">${item.description || 'Additional Charge'} (${item.paymentMethod})</td>
-      <td class="text-right">${currencyFormatter.format(item.amount)}</td>
-    </tr>
-  `).join('');
+  const additionalChargesTable = data.additionalChargeItems.length > 0 ? `
+    <h3 class="table-title" style="margin-top: 20px;">Additional Charges</h3>
+    <table class="charges-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Description</th>
+          <th>Payment Method</th>
+          <th class="text-right">Amount (${data.currency})</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.additionalChargeItems.map(item => `
+          <tr>
+            <td>${item.date}</td>
+            <td>${item.description || 'Additional Charge'}</td>
+            <td>${item.paymentMethod}</td>
+            <td class="text-right">${currencyFormatter.format(item.amount)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : '';
 
-  const bankDetailsSection = data.balance > 0 ? `
+  const paymentVerificationSection = !isReservation ? `
+    <div class="payment-verification">
+        <h4 class="section-title">Payment Verification</h4>
+        <p><strong>Payment Reference:</strong> ${data.paymentRefNo || 'N/A'}</p>
+        <p><strong>Verified By:</strong> ${data.receivedBy} (${data.designation})</p>
+        <p><strong>Date Verified:</strong> ${data.date}</p>
+    </div>
+  ` : '';
+
+  const bankDetailsSection = (isReservation || data.balance > 0) ? `
     <div class="payment-details">
-      <p class="status pending">⚠️ Payment Pending – Kindly complete your payment using the bank details below.</p>
-      <div class="bank-accounts">
-        <div class="bank-account-item">
-          <strong>ZENITH BANK</strong><br>
-          Account Number: 1229000080<br>
-          Account Name: TIDE’ HOTELS AND RESORTS
+      <p class="status pending">⚠️ Payment Status: Pending</p>
+      ${isReservation ? `
+        <p>Kindly complete your payment using the bank details below.</p>
+        <div class="bank-accounts">
+          <div class="bank-account-item">
+            <strong>ZENITH BANK</strong><br>
+            Account Number: 1229000080<br>
+            Account Name: TIDE’ HOTELS AND RESORTS
+          </div>
+          <div class="bank-account-item">
+            <strong>PROVIDUS BANK</strong><br>
+            Account Number: 1306538190<br>
+            Account Name: TIDE’ HOTELS AND RESORTS
+          </div>
+          <div class="bank-account-item">
+            <strong>SUNTRUST BANK</strong><br>
+            Account Number: 0025840833<br>
+            Account Name: TIDE’ HOTELS AND RESORTS
+          </div>
         </div>
-        <div class="bank-account-item">
-          <strong>PROVIDUS BANK</strong><br>
-          Account Number: 1306538190<br>
-          Account Name: TIDE’ HOTELS AND RESORTS
-        </div>
-        <div class="bank-account-item">
-          <strong>SUNTRUST BANK</strong><br>
-          Account Number: 0025840833<br>
-          Account Name: TIDE’ HOTELS AND RESORTS
-        </div>
-      </div>
-      <p class="payment-note">Please make your payment using any of the accounts above and include your reference number for confirmation.</p>
+        <p class="payment-note">Please make your payment using any of the accounts above and include your invoice reference number for confirmation.</p>
+      ` : ''}
     </div>
   ` : `
     <div class="payment-details">
@@ -611,12 +665,16 @@ const printInvoice = (data: InvoiceData) => {
     </div>
   `;
 
+  const footerNote = isReservation ? `
+    <p class="footer-note">This is a reservation invoice. Payment is pending. A final receipt will be issued upon confirmation of payment.</p>
+  ` : '';
+
   const printContent = `
     <!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
-      <title>Receipt ${data.receiptNo}</title>
+      <title>${isReservation ? 'Invoice' : 'Receipt'} ${data.receiptNo}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
         body { font-family: 'Roboto', sans-serif; font-size: 10pt; color: #2c3e50; line-height: 1.6; }
@@ -634,13 +692,14 @@ const printInvoice = (data: InvoiceData) => {
         .charges-table th, .charges-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
         .charges-table th { background-color: #2c3e50; color: #fff; font-weight: 700; }
         .text-right { text-align: right; }
-        .table-title { font-size: 12pt; font-weight: 700; margin: 20px 0 10px 0; color: #2c3e50; }
+        .table-title, .section-title { font-size: 12pt; font-weight: 700; margin: 20px 0 10px 0; color: #2c3e50; }
         .summary-section { display: flex; justify-content: flex-end; margin-top: 15px; }
         .summary-table { width: 350px; }
         .summary-table td { padding: 5px 10px; }
         .summary-table td:first-child { font-weight: 700; }
         .summary-table .total-row td { font-size: 12pt; font-weight: 700; border-top: 2px solid #2c3e50; padding-top: 10px; }
         .amount-in-words { margin-top: 20px; font-weight: 700; }
+        .payment-verification { margin-top: 20px; padding: 15px; border: 1px solid #e2e8f0; border-radius: 5px; background-color: #f8f9fa; }
         .payment-details { margin-top: 20px; padding: 15px; border-radius: 5px; background-color: #f8f9fa; }
         .payment-details .status { font-weight: 700; font-size: 11pt; margin-bottom: 10px; }
         .payment-details .status.pending { color: #d97706; }
@@ -652,6 +711,7 @@ const printInvoice = (data: InvoiceData) => {
         .signature-line { border-bottom: 1px solid #000; height: 40px; width: 200px; }
         .signature-label { font-size: 9pt; }
         .thank-you { text-align: center; margin-top: 40px; font-style: italic; color: #555; }
+        .footer-note { font-size: 9pt; text-align: center; margin-top: 20px; font-style: italic; color: #555; }
       </style>
     </head>
     <body>
@@ -661,9 +721,9 @@ const printInvoice = (data: InvoiceData) => {
           <p>Where Boldness Meets Elegance.</p>
           <p>38 S.O Williams Street Off Anthony Enahoro Street Utako Abuja</p>
         </div>
-        <h2 class="receipt-title">GUEST RECEIPT</h2>
+        <h2 class="receipt-title">${isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT'}</h2>
         <div class="info-section">
-          <div><strong>Receipt No:</strong> ${data.receiptNo}</div>
+          <div><strong>${isReservation ? 'Invoice No:' : 'Receipt No:'}</strong> ${data.receiptNo}</div>
           <div><strong>Date:</strong> ${data.date}</div>
         </div>
         <div class="guest-info">
@@ -692,9 +752,10 @@ const printInvoice = (data: InvoiceData) => {
           </thead>
           <tbody>
             ${bookingRows}
-            ${additionalChargesRows}
           </tbody>
         </table>
+
+        ${additionalChargesTable}
 
         <p style="font-size: 8pt; font-style: italic; color: #555; text-align: left;">Note: All rates are inclusive of 7.5% tax. No additional tax is required.</p>
 
@@ -716,7 +777,8 @@ const printInvoice = (data: InvoiceData) => {
         </div>
         
         <p class="amount-in-words">Amount in Words (for Amount Received): ${data.amountInWords}</p>
-
+        
+        ${paymentVerificationSection}
         ${bankDetailsSection}
 
         <div class="footer-section">
@@ -730,6 +792,7 @@ const printInvoice = (data: InvoiceData) => {
             </div>
         </div>
         
+        ${footerNote}
         <p class="thank-you">Thank you for choosing Tidè Hotels and Resorts!</p>
 
       </div>
@@ -902,21 +965,13 @@ const escapeCsvCell = (cell: any): string => {
 
 const generateInvoiceCSV = (data: InvoiceData) => {
     const headers = [
-        'Receipt No', 'Date', 'Guest Name', 'Guest Email', 'Phone/Contact', 'Room Number(s)',
-        'Booking Details',
-        'Additional Charges Details',
-        `Room Charge (${data.currency})`,
-        `Additional Charges (${data.currency})`,
-        `Discount (${data.currency})`,
-        'Festive Discount Name',
-        `Festive Discount Amount (${data.currency})`,
-        `Subtotal (${data.currency})`, 
-        'Tax (%)', 
-        `Tax Amount (${data.currency})`, 
-        `Total Amount Due (${data.currency})`,
-        `Amount Received (${data.currency})`,
-        `Balance (${data.currency})`,
-        'Amount in Words', 'Purpose of Payment', 'Payment Method', 'Received By', 'Designation',
+        'ID', 'Document Type', 'Date', 'Guest Name', 'Guest Email', 'Phone/Contact', 'Room Number(s)',
+        'Booking Details', 'Additional Charges Details',
+        `Room Charge (${data.currency})`, `Additional Charges (${data.currency})`, `Discount (${data.currency})`,
+        'Festive Discount Name', `Festive Discount Amount (${data.currency})`,
+        `Subtotal (${data.currency})`, 'Tax (%)', `Tax Amount (${data.currency})`, `Total Amount Due (${data.currency})`,
+        `Amount Received (${data.currency})`, `Balance (${data.currency})`,
+        'Amount in Words', 'Purpose of Payment', 'Payment Method', 'Customer Payment Reference', 'Received By', 'Designation',
         'Currency'
     ];
     
@@ -929,15 +984,13 @@ const generateInvoiceCSV = (data: InvoiceData) => {
       .join('; ');
 
     const rowData = [
-        data.receiptNo, data.date, data.guestName, data.guestEmail, data.phoneContact, data.roomNumber,
+        data.receiptNo, data.documentType, data.date, data.guestName, data.guestEmail, data.phoneContact, data.roomNumber,
         bookingDetails, additionalChargesDetails,
-        data.roomCharge, data.additionalCharges,
-        data.discount, 
-        data.festiveDiscountName || '',
-        data.festiveDiscountAmount || 0,
+        data.roomCharge, data.additionalCharges, data.discount,
+        data.festiveDiscountName || '', data.festiveDiscountAmount || 0,
         data.subtotal, data.taxPercentage, data.taxAmount, data.totalAmountDue,
         data.amountReceived, data.balance, data.amountInWords, data.paymentPurpose,
-        data.paymentMethod, data.receivedBy, data.designation, data.currency,
+        data.paymentMethod, data.paymentRefNo || '', data.receivedBy, data.designation, data.currency,
     ].map(escapeCsvCell);
 
     const csvContent = [
@@ -950,7 +1003,7 @@ const generateInvoiceCSV = (data: InvoiceData) => {
     if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', `TideHotels_Receipt_${data.receiptNo}.csv`);
+        link.setAttribute('download', `TideHotels_${data.documentType === 'reservation' ? 'Invoice' : 'Receipt'}_${data.receiptNo}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -1091,10 +1144,15 @@ const _syncAllTransactionsToCloud = async (history: RecordedTransaction[]): Prom
   }
 };
 
-const fetchUserTransactionHistory = async (username: string): Promise<RecordedTransaction[]> => {
+const fetchUserTransactionHistory = async (username: string, isAdmin: boolean): Promise<RecordedTransaction[]> => {
   if (!username) return [];
 
   const allTransactions = await _fetchAllTransactionsFromCloud();
+  
+  if (isAdmin) {
+      allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      return allTransactions;
+  }
   
   const userHistory = allTransactions.filter(record => {
     if (record.type === 'Hotel Stay') {
@@ -1115,6 +1173,12 @@ const saveTransaction = async (newRecord: RecordedTransaction) => {
   const allTransactions = await _fetchAllTransactionsFromCloud();
   const updatedHistory = [newRecord, ...allTransactions.filter(r => r.id !== newRecord.id)];
   await _syncAllTransactionsToCloud(updatedHistory);
+};
+
+const deleteTransaction = async (transactionId: string): Promise<void> => {
+    const allTransactions = await _fetchAllTransactionsFromCloud();
+    const updatedHistory = allTransactions.filter(r => r.id !== transactionId);
+    await _syncAllTransactionsToCloud(updatedHistory);
 };
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // END: utils/transactionHistory.ts
@@ -1191,9 +1255,10 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, name, r
 interface HeaderProps {
   currentUser?: string | null;
   onLogout?: () => void;
+  isAdmin: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ currentUser, onLogout }) => {
+const Header: React.FC<HeaderProps> = ({ currentUser, onLogout, isAdmin }) => {
   return (
     <header className="bg-white shadow-md">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -1208,7 +1273,10 @@ const Header: React.FC<HeaderProps> = ({ currentUser, onLogout }) => {
           </div>
           {currentUser && (
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">Welcome, <strong className="font-medium">{currentUser}</strong></span>
+               <div className="flex items-center gap-2">
+                 <span className="text-sm text-gray-600">Welcome, <strong className="font-medium">{currentUser}</strong></span>
+                 {isAdmin && <span className="px-2 py-0.5 text-xs font-semibold text-tide-dark bg-tide-gold rounded-full">Admin</span>}
+              </div>
               <button
                 onClick={onLogout}
                 className="py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold"
@@ -1267,10 +1335,11 @@ const WelcomeScreen: React.FC = () => {
 
 // --- LoginScreen Component ---
 const authorizedCredentials = {
-  'Faith': 'F@i7h#92X!', 'Goodness': 'G00d*N3ss$4', 'Benjamin': 'B3nJ&9m_84',
+  'Admin': 'Adm!n$ecur3', 'Faith': 'F@i7h#92X!', 'Goodness': 'G00d*N3ss$4', 'Benjamin': 'B3nJ&9m_84',
   'Sandra': 'S@ndR4!51%', 'David': 'D@v1D#73Q', 'Ifeanyi': '1F3@yN!88*',
   'Margret': 'M@rG7eT_42', 'Miriam': 'M1r!@m#97W', 'Francis': 'Fr@nC1$62!'
 };
+const ADMIN_USERS = ['Admin', 'Francis'];
 
 interface LoginScreenProps {
   onLogin: (name: string, rememberMe: boolean) => void;
@@ -1429,45 +1498,224 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
 };
 
 
-// --- TransactionHistory Component ---
-interface TransactionHistoryProps {
+// --- AdminDashboard Component ---
+interface AdminDashboardProps {
   history: RecordedTransaction[];
 }
 
-const TransactionHistory: React.FC<TransactionHistoryProps> = ({ history }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ history }) => {
+    const stats = useMemo(() => {
+        const getTodayLocalString = (): string => {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = (today.getMonth() + 1).toString().padStart(2, '0');
+            const day = today.getDate().toString().padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const todayStr = getTodayLocalString();
+        const transactionsForToday = history.filter(t => t.date === todayStr);
+
+        let revenueTodayNGN = 0;
+        let revenueTodayUSD = 0;
+
+        transactionsForToday.forEach(t => {
+            if (t.type === 'Hotel Stay') {
+                const data = t.data as InvoiceData;
+                if (data.currency === 'NGN') {
+                    revenueTodayNGN += data.amountReceived;
+                } else {
+                    revenueTodayUSD += data.amountReceived;
+                }
+            } else { // Walk-In
+                const data = t.data as WalkInTransaction;
+                if (data.currency === 'NGN') {
+                    revenueTodayNGN += data.amountPaid;
+                } else {
+                    revenueTodayUSD += data.amountPaid;
+                }
+            }
+        });
+
+        const pendingReservations = history.filter(t =>
+            t.type === 'Hotel Stay' &&
+            (t.data as InvoiceData).documentType === 'reservation' &&
+            (t.data as InvoiceData).balance > 0
+        ).length;
+
+        return {
+            transactionsTodayCount: transactionsForToday.length,
+            revenueTodayNGN,
+            revenueTodayUSD,
+            pendingReservations,
+        };
+    }, [history]);
+
+    const formatNgn = (amount: number) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
+    const formatUsd = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+
+    return (
+        <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg max-w-7xl mx-auto">
+            <h2 className="text-2xl font-bold text-tide-dark mb-4 border-b pb-3">Admin Dashboard: Today's Summary</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Transactions Today */}
+                <div className="bg-blue-100 border border-blue-200 p-5 rounded-lg text-center">
+                    <p className="text-sm font-medium text-blue-800">Transactions Today</p>
+                    <p className="text-3xl font-bold text-blue-900 mt-2">{stats.transactionsTodayCount}</p>
+                </div>
+                {/* Revenue Today (NGN) */}
+                <div className="bg-green-100 border border-green-200 p-5 rounded-lg text-center">
+                    <p className="text-sm font-medium text-green-800">Revenue Today (NGN)</p>
+                    <p className="text-3xl font-bold text-green-900 mt-2">{formatNgn(stats.revenueTodayNGN)}</p>
+                </div>
+                {/* Revenue Today (USD) */}
+                <div className="bg-green-100 border border-green-200 p-5 rounded-lg text-center">
+                    <p className="text-sm font-medium text-green-800">Revenue Today (USD)</p>
+                    <p className="text-3xl font-bold text-green-900 mt-2">{formatUsd(stats.revenueTodayUSD)}</p>
+                </div>
+                {/* Pending Reservations */}
+                <div className="bg-yellow-100 border border-yellow-200 p-5 rounded-lg text-center">
+                    <p className="text-sm font-medium text-yellow-800">Pending Reservations</p>
+                    <p className="text-3xl font-bold text-yellow-900 mt-2">{stats.pendingReservations}</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+// --- TransactionHistory Component ---
+interface TransactionHistoryProps {
+  history: RecordedTransaction[];
+  isAdmin: boolean;
+  onDeleteTransaction: (id: string) => void;
+  highlightedTxId?: string | null;
+}
+
+const TransactionHistory: React.FC<TransactionHistoryProps> = ({ history, isAdmin, onDeleteTransaction, highlightedTxId }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const currencyFormatter = (amount: number, currency: 'NGN' | 'USD') => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).format(amount);
   };
 
   const filteredHistory = useMemo(() => {
+    const lowercasedQuery = searchQuery.toLowerCase().trim();
+
     return history.filter(record => {
+      // Date filtering
       if (startDate && record.date < startDate) return false;
       if (endDate && record.date > endDate) return false;
+
+      // Search query filtering
+      if (lowercasedQuery) {
+        const checkCommon = record.id.toLowerCase().includes(lowercasedQuery) ||
+                            record.guestName.toLowerCase().includes(lowercasedQuery);
+        if (checkCommon) return true;
+
+        if (record.type === 'Hotel Stay') {
+          const data = record.data as InvoiceData;
+          const checkHotelStay = (data.guestEmail || '').toLowerCase().includes(lowercasedQuery) ||
+                                 (data.phoneContact || '').toLowerCase().includes(lowercasedQuery) ||
+                                 (data.roomNumber || '').toLowerCase().includes(lowercasedQuery);
+          if (checkHotelStay) return true;
+        } else { // Walk-In
+          const data = record.data as WalkInTransaction;
+          const checkWalkIn = data.charges.some(charge =>
+              charge.service.toLowerCase().includes(lowercasedQuery) ||
+              (charge.otherServiceDescription || '').toLowerCase().includes(lowercasedQuery)
+          );
+          if (checkWalkIn) return true;
+        }
+        
+        // If query exists and no match found, filter out
+        return false;
+      }
+
+      // If no query, don't filter out based on search
       return true;
     });
-  }, [history, startDate, endDate]);
+  }, [history, startDate, endDate, searchQuery]);
 
-  const handleClearFilter = () => { setStartDate(''); setEndDate(''); };
+  const handleClearFilter = () => {
+    if (window.confirm("Are you sure you want to clear all filters? This will reset the date range and search query.")) {
+      setStartDate('');
+      setEndDate('');
+      setSearchQuery('');
+    }
+  };
+  
+  const handleDelete = (record: RecordedTransaction) => {
+    const creator = record.type === 'Hotel Stay' 
+        ? (record.data as InvoiceData).receivedBy 
+        : (record.data as WalkInTransaction).cashier;
+    
+    if (window.confirm(`Are you sure you want to delete receipt ${record.id} for "${record.guestName}" created by ${creator}? This action cannot be undone.`)) {
+        onDeleteTransaction(record.id);
+    }
+  };
 
   return (
     <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg max-w-7xl mx-auto">
       <div className="mb-6 border-b pb-4">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
-          <h2 className="text-2xl font-bold text-tide-dark">Transaction History</h2>
+          <h2 className="text-2xl font-bold text-tide-dark flex items-center gap-3">
+            <span>Transaction History</span>
+            {isAdmin && <span className="text-sm font-semibold text-tide-dark bg-tide-gold px-3 py-1 rounded-md">ADMIN VIEW</span>}
+          </h2>
           <button onClick={() => generateHistoryCSV(filteredHistory)} disabled={filteredHistory.length === 0} className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-tide-dark bg-tide-gold hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed">Download Filtered List (CSV)</button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 items-end gap-4">
-            <div className="sm:col-span-1"><DatePicker label="Start Date" name="startDate" value={startDate} onChange={setStartDate} /></div>
-            <div className="sm:col-span-1"><DatePicker label="End Date" name="endDate" value={endDate} onChange={setEndDate} /></div>
-            <div className="sm:col-span-1"><button onClick={handleClearFilter} className="w-full py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold transition-colors">Clear Filter</button></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-end gap-4">
+            <div className="lg:col-span-1"><DatePicker label="Start Date" name="startDate" value={startDate} onChange={setStartDate} /></div>
+            <div className="lg:col-span-1"><DatePicker label="End Date" name="endDate" value={endDate} onChange={setEndDate} /></div>
+            <div className="sm:col-span-2 lg:col-span-1">
+                <label htmlFor="history-search" className="block text-sm font-medium text-gray-700">Search</label>
+                <input
+                    type="text"
+                    id="history-search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Guest name, receipt no..."
+                    className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm"
+                />
+            </div>
+            <div className="lg:col-span-1">
+                <button onClick={handleClearFilter} className="w-full py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold transition-colors">
+                    Clear Filters
+                </button>
+            </div>
         </div>
       </div>
       <div className="overflow-x-auto max-h-[500px]">
-        {history.length === 0 ? <p className="text-center text-gray-500 py-8">No receipts have been issued yet.</p> : filteredHistory.length === 0 ? <p className="text-center text-gray-500 py-8">No transactions found for the selected date range.</p> : (
-          <table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50 sticky top-0"><tr><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt No.</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th><th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guest Name</th><th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{filteredHistory.map((record) => (<tr key={record.id}><td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.id}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.date}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ record.type === 'Hotel Stay' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800' }`}>{record.type}</span></td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.guestName}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right font-semibold">{currencyFormatter(record.amount, record.currency)}</td></tr>))}</tbody></table>
+        {history.length === 0 ? <p className="text-center text-gray-500 py-8">No receipts have been issued yet.</p> : filteredHistory.length === 0 ? <p className="text-center text-gray-500 py-8">No transactions found for the selected filters.</p> : (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt No.</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guest Name</th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                {isAdmin && <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>}
+                {isAdmin && <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredHistory.map((record) => (
+                <tr key={record.id} className={`transition-colors duration-1000 ease-out ${record.id === highlightedTxId ? 'bg-yellow-100' : ''}`}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.date}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ record.type === 'Hotel Stay' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800' }`}>{record.type}</span></td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.guestName}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right font-semibold">{currencyFormatter(record.amount, record.currency)}</td>
+                  {isAdmin && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.type === 'Hotel Stay' ? (record.data as InvoiceData).receivedBy : (record.data as WalkInTransaction).cashier}</td>}
+                  {isAdmin && <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"><button onClick={() => handleDelete(record)} className="text-red-600 hover:text-red-900 transition-colors">Delete</button></td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
@@ -1490,7 +1738,7 @@ const EmailModal: React.FC<{
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" aria-modal="true" role="dialog">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" aria-label="Close"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
-        <h3 className="text-lg font-bold text-tide-dark mb-4">Send Receipt via Email</h3>
+        <h3 className="text-lg font-bold text-tide-dark mb-4">Send Document via Email</h3>
         <p className="text-sm text-gray-600 mb-4">Please confirm or enter the recipient's email address below.</p>
         <div>
             <label htmlFor="recipient-email" className="block text-sm font-medium text-gray-700">Recipient Email</label>
@@ -1533,7 +1781,7 @@ interface InvoiceFormProps {
 }
 
 const FormInput: React.FC<{ label: string; name: string; type?: string; value: string | number; onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void; required?: boolean; error?: string; disabled?: boolean; placeholder?: string; }> = ({ label, name, type = 'text', value, onChange, required = false, error, disabled = false, placeholder = '' }) => (<div><label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label><input type={type} id={name} name={name} value={value} onChange={onChange} required={required} disabled={disabled} placeholder={placeholder} className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold sm:text-sm ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'} ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-tide-gold'}`} />{error && <p className="mt-1 text-xs text-red-600">{error}</p>}</div>);
-const FormSelect: React.FC<{ label: string; name: string; value: string; onChange: (e: ChangeEvent<HTMLSelectElement>) => void; options: string[]; required?: boolean; children?: React.ReactNode; }> = ({ label, name, value, onChange, options, required = false, children }) => (<div><label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label><select id={name} name={name} value={value} onChange={onChange} required={required} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md">{children}{options.map(option => <option key={option} value={option}>{option}</option>)}</select></div>);
+const FormSelect: React.FC<{ label: string; name: string; value: string; onChange: (e: ChangeEvent<HTMLSelectElement>) => void; options: string[]; required?: boolean; disabled?: boolean; children?: React.ReactNode; }> = ({ label, name, value, onChange, options, required = false, disabled = false, children }) => (<div><label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label><select id={name} name={name} value={value} onChange={onChange} required={required} disabled={disabled} className={`mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}>{children}{options.map(option => <option key={option} value={option}>{option}</option>)}</select></div>);
 const CalculatedField: React.FC<{ label: string; value: string; }> = ({ label, value }) => (<div><p className="block text-sm font-medium text-gray-700">{label}</p><p className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-md shadow-sm sm:text-sm text-gray-800 font-semibold">{value}</p></div>);
 
 const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUser }) => {
@@ -1594,14 +1842,49 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
     return `${year}-${month}-${day}`;
   };
 
-  const generateNewInvoiceState = (currentUser: string): InvoiceData => {
+  const generateNewInvoiceState = (currentUser: string, mode: 'reservation' | 'receipt' = 'reservation'): InvoiceData => {
     const today = getTodayLocalString();
     const defaultRoomType = RoomType.SOJOURN_ROOM;
     const defaultBooking: BookingItem = { id: `booking-${Date.now()}`, roomType: defaultRoomType, quantity: 1, checkIn: today, checkOut: today, nights: 0, ratePerNight: roomRates[defaultRoomType], subtotal: 0 };
-    const initialState: InvoiceData = { receiptNo: `TH${Date.now().toString().slice(-6)}`, date: today, guestName: '', guestEmail: '', phoneContact: '', roomNumber: '', bookings: [defaultBooking], roomCharge: 0, additionalChargeItems: [], additionalCharges: 0, discount: 0, festiveDiscountName: '', festiveDiscountAmount: 0, subtotal: 0, taxPercentage: 7.5, taxAmount: 0, totalAmountDue: 0, amountReceived: 0, balance: 0, amountInWords: '', paymentPurpose: 'Hotel Accommodation', paymentMethod: PaymentMethod.POS, receivedBy: currentUser, designation: '', currency: 'NGN' };
+    
+    const isReservation = mode === 'reservation';
+    const receiptNo = isReservation
+        ? `INV-TIDE-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`
+        : `TH${Date.now().toString().slice(-6)}`;
+
+    const initialState: InvoiceData = { 
+        receiptNo, 
+        date: today, 
+        guestName: '', 
+        guestEmail: '', 
+        phoneContact: '', 
+        roomNumber: '',
+        documentType: mode,
+        paymentRefNo: '',
+        bookings: [defaultBooking], 
+        roomCharge: 0, 
+        additionalChargeItems: [], 
+        additionalCharges: 0, 
+        discount: 0, 
+        festiveDiscountName: '', 
+        festiveDiscountAmount: 0, 
+        subtotal: 0, 
+        taxPercentage: 7.5, 
+        taxAmount: 0, 
+        totalAmountDue: 0, 
+        amountReceived: isReservation ? 0 : 0, 
+        balance: 0, 
+        amountInWords: '', 
+        paymentPurpose: 'Hotel Accommodation', 
+        paymentMethod: isReservation ? PaymentMethod.PENDING : PaymentMethod.POS, 
+        receivedBy: currentUser, 
+        designation: '', 
+        currency: 'NGN' 
+    };
     return calculateInvoiceTotals(initialState);
   };
-
+  
+  const [formMode, setFormMode] = useState<'reservation' | 'receipt'>('reservation');
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(() => {
     try {
       const savedData = localStorage.getItem('savedInvoiceData');
@@ -1609,14 +1892,18 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
         const parsedData = JSON.parse(savedData);
         parsedData.receivedBy = currentUser;
         parsedData.taxPercentage = 7.5;
-        // Ensure bookings is an array
         if (!Array.isArray(parsedData.bookings)) {
             parsedData.bookings = [];
         }
+        // Infer mode from saved data
+        const isReservation = parsedData.receiptNo.startsWith('INV-');
+        setFormMode(isReservation ? 'reservation' : 'receipt');
+        parsedData.documentType = isReservation ? 'reservation' : 'receipt';
+        
         return calculateInvoiceTotals(parsedData);
       }
     } catch (error) { console.error("Failed to load or parse saved invoice data:", error); localStorage.removeItem('savedInvoiceData'); }
-    return generateNewInvoiceState(currentUser);
+    return generateNewInvoiceState(currentUser, 'reservation');
   });
 
   const [isGenerated, setIsGenerated] = useState<boolean>(false);
@@ -1628,6 +1915,26 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
   const [recipientEmail, setRecipientEmail] = useState('');
   const saveTimerRef = useRef<number | null>(null);
   const statusTimerRef = useRef<number | null>(null);
+
+  const handleModeChange = (newMode: 'reservation' | 'receipt') => {
+    if (formMode === newMode) return;
+    setFormMode(newMode);
+    setInvoiceData(prev => {
+        const isReservation = newMode === 'reservation';
+        const newReceiptNo = isReservation 
+            ? `INV-TIDE-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`
+            : `TH${Date.now().toString().slice(-6)}`;
+        
+        return calculateInvoiceTotals({
+            ...prev,
+            documentType: newMode,
+            receiptNo: newReceiptNo,
+            paymentMethod: isReservation ? PaymentMethod.PENDING : PaymentMethod.POS,
+            amountReceived: isReservation ? 0 : prev.amountReceived,
+            paymentRefNo: isReservation ? '' : prev.paymentRefNo,
+        });
+    });
+  };
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -1714,6 +2021,12 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
 
   const validateForm = () => {
     const requiredFields: { key: keyof InvoiceData; label: string }[] = [ { key: 'guestName', label: 'Guest Name' }, { key: 'guestEmail', label: 'Guest Email' }, { key: 'phoneContact', label: 'Phone/Contact' }, { key: 'roomNumber', label: 'Room Number(s)' }, { key: 'receivedBy', label: 'Received By' }, { key: 'designation', label: 'Designation' }, { key: 'paymentPurpose', label: 'Purpose of Payment' } ];
+    
+    if (invoiceData.documentType === 'receipt' && (!invoiceData.paymentRefNo || invoiceData.paymentRefNo.trim() === '')) {
+      alert('The "Customer Payment Reference" is required for official receipts.');
+      return false;
+    }
+    
     for (const field of requiredFields) { if (!invoiceData[field.key]) { alert(`The field "${field.label}" is required.`); return false; } }
     if (invoiceData.bookings.length === 0) { alert("At least one booking is required."); return false; }
     for (const booking of invoiceData.bookings) { if (booking.nights <= 0) { alert(`A booking for "${booking.roomType}" has an invalid date range or zero nights.`); return false; } }
@@ -1762,11 +2075,12 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
   };
   
   const handleNewInvoice = () => {
-    if (window.confirm("Are you sure you want to start a new invoice? All current data will be cleared.")) {
+    if (window.confirm("Are you sure you want to start a new document? All current data will be cleared.")) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
       localStorage.removeItem('savedInvoiceData');
-      setInvoiceData(generateNewInvoiceState(currentUser));
+      setFormMode('reservation');
+      setInvoiceData(generateNewInvoiceState(currentUser, 'reservation'));
       setIsGenerated(false); setSaveStatus('idle'); setEmailError('');
     }
   };
@@ -1776,11 +2090,27 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
   return (
     <>
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg max-w-7xl mx-auto">
-        <h2 className="text-2xl font-bold text-tide-dark mb-6 border-b pb-4">Create New Invoice</h2>
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-6 border-b pb-4">
+            <h2 className="text-2xl font-bold text-tide-dark">Create New Document</h2>
+            <div className="flex items-center p-1 bg-gray-200 rounded-lg">
+                <button
+                    onClick={() => handleModeChange('reservation')}
+                    className={`px-4 py-1 text-sm font-semibold rounded-md transition-colors ${formMode === 'reservation' ? 'bg-white text-tide-dark shadow' : 'text-gray-600 hover:bg-gray-300'}`}
+                >
+                    Reservation Invoice
+                </button>
+                <button
+                    onClick={() => handleModeChange('receipt')}
+                    className={`px-4 py-1 text-sm font-semibold rounded-md transition-colors ${formMode === 'receipt' ? 'bg-white text-tide-dark shadow' : 'text-gray-600 hover:bg-gray-300'}`}
+                >
+                    Official Receipt
+                </button>
+            </div>
+        </div>
         {isGenerated && (<div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded-md" role="alert"><p className="font-bold">Success!</p><p>The print dialog should have opened. You can print or save as PDF from there.</p></div>)}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <FormInput label="Receipt No" name="receiptNo" value={invoiceData.receiptNo} onChange={handleInputChange} required />
+            <FormInput label={formMode === 'reservation' ? 'Invoice No.' : 'Receipt No.'} name="receiptNo" value={invoiceData.receiptNo} onChange={handleInputChange} required />
             <DatePicker label="Date" name="date" value={invoiceData.date} onChange={(date) => handleDateChange('date', date)} required />
             <FormSelect label="Currency" name="currency" value={invoiceData.currency} onChange={handleInputChange} options={['NGN', 'USD']} />
           </div>
@@ -1830,9 +2160,31 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
             <div className="border-t pt-6 mt-6"><h4 className="text-md font-semibold text-gray-700 mb-4">Additional Charges</h4><div className="space-y-4">{invoiceData.additionalChargeItems.map((item, index) => (<div key={item.id} className="grid grid-cols-12 gap-x-4 items-end"><div className="col-span-12 sm:col-span-4"><FormInput label={`Description #${index + 1}`} name={`description-${index}`} value={item.description} onChange={(e) => handleChargeItemChange(index, 'description', e.target.value)} required /></div><div className="col-span-6 sm:col-span-2"><DatePicker label="Date" name={`chargeDate-${index}`} value={item.date} onChange={(date) => handleChargeItemDateChange(index, date)} required /></div><div className="col-span-6 sm:col-span-2"><FormSelect label="Payment" name={`paymentMethod-${index}`} value={item.paymentMethod} onChange={(e) => handleChargeItemChange(index, 'paymentMethod', e.target.value as PaymentMethod)} options={Object.values(PaymentMethod)} required /></div><div className="col-span-6 sm:col-span-2"><FormInput label="Amount" name={`amount-${index}`} type="number" value={item.amount} onChange={(e) => handleChargeItemChange(index, 'amount', e.target.value)} required/></div><div className="col-span-6 sm:col-span-2 flex items-center"><button type="button" onClick={() => handleRemoveChargeItem(item.id)} className="text-red-600 hover:text-red-800 text-sm font-medium p-2 rounded-full hover:bg-red-50" aria-label={`Remove item ${index+1}`}>Remove</button></div></div>))}</div><button type="button" onClick={handleAddChargeItem} className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">+ Add Charge</button></div>
           </div>
           
-          <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Summary & Payment</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div className="space-y-4 p-4 bg-gray-50 rounded-lg"><CalculatedField label="Additional Charges" value={currencyFormatter.format(invoiceData.additionalCharges)} /><CalculatedField label="Subtotal" value={currencyFormatter.format(invoiceData.subtotal)} /><CalculatedField label="Tax (7.5% included)" value={currencyFormatter.format(invoiceData.taxAmount)} /><div className="border-t pt-2 mt-2"><CalculatedField label="TOTAL AMOUNT DUE" value={currencyFormatter.format(invoiceData.totalAmountDue)} /></div></div><div className="space-y-4"><FormInput label={`Amount Received (${invoiceData.currency})`} name="amountReceived" type="number" value={invoiceData.amountReceived} onChange={handleInputChange} required /><CalculatedField label="BALANCE" value={currencyFormatter.format(invoiceData.balance)} /><p className="text-xs text-gray-600 font-medium bg-gray-100 p-2 rounded-md">Amount in Words: {invoiceData.amountInWords}</p></div></div></div>
-          <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Confirmation Details</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><FormInput label="Purpose of Payment" name="paymentPurpose" value={invoiceData.paymentPurpose} onChange={handleInputChange} required /><FormSelect label="Payment Method" name="paymentMethod" value={invoiceData.paymentMethod} onChange={handleInputChange} options={Object.values(PaymentMethod)} required /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"><FormInput label="Received By (User)" name="receivedBy" value={invoiceData.receivedBy} onChange={handleInputChange} required disabled /><FormInput label="Designation" name="designation" value={invoiceData.designation} onChange={handleInputChange} required /></div></div>
-          <div className="border-t pt-6 flex flex-wrap gap-4 items-center justify-between"><div className="flex flex-wrap gap-4"><button type="submit" className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Generate & Print Receipt</button><button type="button" onClick={handleOpenEmailModal} disabled={emailStatus === 'sending' || !!emailError} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold disabled:bg-gray-200 disabled:cursor-not-allowed">{emailStatus === 'sending' ? 'Sending...' : 'Email Receipt'}</button><button type="button" onClick={() => generateInvoiceCSV(invoiceData)} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Download Excel (CSV)</button></div><div className="flex flex-wrap gap-4"><button type="button" onClick={() => setIsWalkInModalOpen(true)} className="inline-flex justify-center py-2 px-6 border border-dashed border-tide-gold text-sm font-medium rounded-md text-tide-gold bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Walk-in Guest</button><button type="button" onClick={handleNewInvoice} className="text-sm font-medium text-gray-600 hover:text-red-600">New Invoice</button></div></div>
+          <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Summary & Payment</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div className="space-y-4 p-4 bg-gray-50 rounded-lg"><CalculatedField label="Additional Charges" value={currencyFormatter.format(invoiceData.additionalCharges)} /><CalculatedField label="Subtotal" value={currencyFormatter.format(invoiceData.subtotal)} /><CalculatedField label="Tax (7.5% included)" value={currencyFormatter.format(invoiceData.taxAmount)} /><div className="border-t pt-2 mt-2"><CalculatedField label="TOTAL AMOUNT DUE" value={currencyFormatter.format(invoiceData.totalAmountDue)} /></div></div><div className="space-y-4"><FormInput label={`Amount Received (${invoiceData.currency})`} name="amountReceived" type="number" value={invoiceData.amountReceived} onChange={handleInputChange} required disabled={formMode === 'reservation'} /><CalculatedField label="BALANCE" value={currencyFormatter.format(invoiceData.balance)} /><p className="text-xs text-gray-600 font-medium bg-gray-100 p-2 rounded-md">Amount in Words: {invoiceData.amountInWords}</p></div></div></div>
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Confirmation Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormInput label="Purpose of Payment" name="paymentPurpose" value={invoiceData.paymentPurpose} onChange={handleInputChange} required />
+                <FormSelect label="Payment Method" name="paymentMethod" value={invoiceData.paymentMethod} onChange={handleInputChange} options={Object.values(PaymentMethod)} required disabled={formMode === 'reservation'} />
+            </div>
+            {formMode === 'receipt' && (
+              <div className="mt-6">
+                  <FormInput
+                      label="Customer Payment Reference"
+                      name="paymentRefNo"
+                      value={invoiceData.paymentRefNo || ''}
+                      onChange={handleInputChange}
+                      placeholder="Enter reference from bank transfer, etc."
+                      required
+                  />
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <FormInput label="Received By (User)" name="receivedBy" value={invoiceData.receivedBy} onChange={handleInputChange} required disabled />
+                <FormInput label="Designation" name="designation" value={invoiceData.designation} onChange={handleInputChange} required />
+            </div>
+        </div>
+          <div className="border-t pt-6 flex flex-wrap gap-4 items-center justify-between"><div className="flex flex-wrap gap-4"><button type="submit" className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Generate & Print</button><button type="button" onClick={handleOpenEmailModal} disabled={emailStatus === 'sending' || !!emailError} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold disabled:bg-gray-200 disabled:cursor-not-allowed">{emailStatus === 'sending' ? 'Sending...' : 'Email Document'}</button><button type="button" onClick={() => generateInvoiceCSV(invoiceData)} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Download Excel (CSV)</button></div><div className="flex flex-wrap gap-4"><button type="button" onClick={() => setIsWalkInModalOpen(true)} className="inline-flex justify-center py-2 px-6 border border-dashed border-tide-gold text-sm font-medium rounded-md text-tide-gold bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Walk-in Guest</button><button type="button" onClick={handleNewInvoice} className="text-sm font-medium text-gray-600 hover:text-red-600">New Document</button></div></div>
         </form>
         <div className="text-xs text-gray-500 mt-4 text-right">Auto-save status: <span className={`font-semibold ${saveStatus === 'saved' ? 'text-green-600' : ''}`}>{saveStatus}</span></div>
       </div>
@@ -1860,6 +2212,23 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [history, setHistory] = useState<RecordedTransaction[]>([]);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [highlightedTxId, setHighlightedTxId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
+
+  const isAdmin = useMemo(() => ADMIN_USERS.includes(currentUser || ''), [currentUser]);
+  const historyRef = useRef(history);
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+
+  const loadHistory = async () => {
+      if (currentUser) {
+        const userHistory = await fetchUserTransactionHistory(currentUser, isAdmin);
+        setHistory(userHistory);
+      } else {
+        setHistory([]);
+      }
+    };
 
   useEffect(() => {
     const rememberedUser = localStorage.getItem('rememberedUser');
@@ -1871,23 +2240,54 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const loadHistory = async () => {
-      if (currentUser) {
-        const userHistory = await fetchUserTransactionHistory(currentUser);
-        setHistory(userHistory);
-      } else {
-        setHistory([]);
-      }
-    };
     loadHistory();
-  }, [currentUser]);
+  }, [currentUser, isAdmin]);
+  
+  // Real-time update listener
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+        if (event.key === CLOUD_STORAGE_KEY && event.newValue) {
+            try {
+              const newHistory: RecordedTransaction[] = JSON.parse(event.newValue);
+              const oldHistory = historyRef.current;
+              let message = 'Transaction history updated.';
+
+              if (newHistory.length > oldHistory.length) {
+                const oldIds = new Set(oldHistory.map(t => t.id));
+                const newTransaction = newHistory.find(t => !oldIds.has(t.id));
+                if (newTransaction) {
+                    const creator = newTransaction.type === 'Hotel Stay' ? (newTransaction.data as InvoiceData).receivedBy : (newTransaction.data as WalkInTransaction).cashier;
+                    message = `New transaction created by ${creator}.`;
+                    setHighlightedTxId(newTransaction.id);
+                    setTimeout(() => setHighlightedTxId(null), 3500); // Highlight for 3.5 seconds
+                }
+              } else if (newHistory.length < oldHistory.length) {
+                message = 'A transaction was deleted by another user.';
+              }
+              
+              setNotification(message);
+              setTimeout(() => setNotification(null), 4000); // Show notification for 4 seconds
+
+            } catch (e) {
+              console.error("Could not parse storage update.", e);
+            }
+            loadHistory();
+        }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+        window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [currentUser, isAdmin]); // Rerun effect if user or admin status changes
 
   const addTransactionToHistory = async (record: RecordedTransaction) => {
     await saveTransaction(record);
-    if (currentUser) {
-      const updatedHistory = await fetchUserTransactionHistory(currentUser);
-      setHistory(updatedHistory);
-    }
+    await loadHistory();
+  };
+
+  const handleDeleteTransaction = async (transactionId: string) => {
+    await deleteTransaction(transactionId);
+    await loadHistory();
   };
   
   const handleLogin = (name: string, rememberMe: boolean) => {
@@ -1908,16 +2308,40 @@ const App: React.FC = () => {
   if (!currentUser) { return <LoginScreen onLogin={handleLogin} />; }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-tide-dark font-sans">
-      <Header currentUser={currentUser} onLogout={handleLogout} />
-      <main className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-        <InvoiceForm onInvoiceGenerated={addTransactionToHistory} currentUser={currentUser} />
-        <TransactionHistory history={history} />
-      </main>
-      <footer className="text-center py-4 text-gray-500 text-sm">
-        <p>&copy; {new Date().getFullYear()} Tidè Hotels and Resorts. All rights reserved.</p>
-      </footer>
-    </div>
+    <>
+      <style>{`
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateY(-20px); }
+          15% { opacity: 1; transform: translateY(0); }
+          85% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-20px); }
+        }
+        .animate-fadeInOut {
+          animation: fadeInOut 4s ease-in-out forwards;
+        }
+      `}</style>
+      <div className="min-h-screen bg-gray-50 text-tide-dark font-sans">
+        {notification && (
+          <div className="fixed top-5 right-5 bg-tide-dark text-white py-2 px-4 rounded-lg shadow-lg z-50 animate-fadeInOut" role="status">
+            {notification}
+          </div>
+        )}
+        <Header currentUser={currentUser} onLogout={handleLogout} isAdmin={isAdmin} />
+        <main className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+          {isAdmin && <AdminDashboard history={history} />}
+          <InvoiceForm onInvoiceGenerated={addTransactionToHistory} currentUser={currentUser} />
+          <TransactionHistory 
+            history={history} 
+            isAdmin={isAdmin}
+            onDeleteTransaction={handleDeleteTransaction}
+            highlightedTxId={highlightedTxId}
+          />
+        </main>
+        <footer className="text-center py-4 text-gray-500 text-sm">
+          <p>&copy; {new Date().getFullYear()} Tidè Hotels and Resorts. All rights reserved.</p>
+        </footer>
+      </div>
+    </>
   );
 };
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
