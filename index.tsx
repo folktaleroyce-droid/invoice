@@ -1054,7 +1054,7 @@ const generateHistoryCSV = (history: RecordedTransaction[]) => {
     }
 
     const headers = [
-        'ID', 'Type', 'Issue Date', 'Guest Name', 'Amount Due', 'Currency',
+        'ID', 'Type', 'Status', 'Issue Date', 'Guest Name', 'Amount Due', 'Currency',
         'Guest Email', 'Phone', 'Room No', 'Arrival Date', 'Departure Date',
         'Total Room Nights', 'Room Types', 'Walk-In Services',
         'Subtotal', 'Discount', 'Festive Discount Name', 'Festive Discount Amount', 'Tax', 'Amount Paid', 'Balance',
@@ -1068,9 +1068,10 @@ const generateHistoryCSV = (history: RecordedTransaction[]) => {
             const latestCheckOut = data.bookings.length ? data.bookings.reduce((max, b) => b.checkOut > max ? b.checkOut : max, data.bookings[0].checkOut) : '';
             const totalRoomNights = data.bookings.reduce((sum, b) => sum + (b.nights * b.quantity), 0);
             const roomTypes = [...new Set(data.bookings.map(b => b.roomType))].join(', ');
+            const status = data.documentType === 'reservation' ? 'Pending' : 'Completed';
 
             return [
-                data.receiptNo, record.type, data.date, data.guestName, data.totalAmountDue, data.currency,
+                data.receiptNo, record.type, status, data.date, data.guestName, data.totalAmountDue, data.currency,
                 data.guestEmail, data.phoneContact, data.roomNumber, 
                 earliestCheckIn, latestCheckOut,
                 totalRoomNights, roomTypes, '',
@@ -1085,9 +1086,10 @@ const generateHistoryCSV = (history: RecordedTransaction[]) => {
             const services = data.charges.map(c => 
                 c.service === WalkInService.OTHER ? c.otherServiceDescription : c.service
             ).join('; ');
+            const status = 'Completed';
 
             return [
-                data.id, record.type, data.transactionDate, 'Walk-In Guest', (data.subtotal - data.discount), data.currency,
+                data.id, record.type, status, data.transactionDate, 'Walk-In Guest', (data.subtotal - data.discount), data.currency,
                 '', '', '', '', '', '', '', services,
                 data.subtotal, data.discount, '', 0, 0,
                 data.amountPaid, data.balance,
@@ -1169,9 +1171,10 @@ const fetchUserTransactionHistory = async (username: string, isAdmin: boolean): 
   return userHistory;
 };
 
-const saveTransaction = async (newRecord: RecordedTransaction) => {
+const saveTransaction = async (newRecord: RecordedTransaction, oldRecordId?: string) => {
   const allTransactions = await _fetchAllTransactionsFromCloud();
-  const updatedHistory = [newRecord, ...allTransactions.filter(r => r.id !== newRecord.id)];
+  const idToRemove = oldRecordId || newRecord.id;
+  const updatedHistory = [newRecord, ...allTransactions.filter(r => r.id !== idToRemove)];
   await _syncAllTransactionsToCloud(updatedHistory);
 };
 
@@ -1196,9 +1199,10 @@ interface DatePickerProps {
   label?: string;
   name: string;
   required?: boolean;
+  disabled?: boolean;
 }
 
-const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, name, required = false }) => {
+const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, name, required = false, disabled = false }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const fpInstanceRef = useRef<any>(null);
 
@@ -1232,6 +1236,18 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, name, r
          fpInstanceRef.current.setDate(value, false);
      }
   }, [value]);
+  
+  useEffect(() => {
+    if (fpInstanceRef.current) {
+      if(disabled) {
+        fpInstanceRef.current.close(); // Close picker if open
+        fpInstanceRef.current.set('clickOpens', false);
+      } else {
+        fpInstanceRef.current.set('clickOpens', true);
+      }
+    }
+  }, [disabled]);
+
 
   return (
     <div>
@@ -1244,7 +1260,8 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, name, r
         placeholder="YYYY-MM-DD"
         required={required}
         readOnly
-        className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm text-gray-900 font-medium"
+        disabled={disabled}
+        className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm text-gray-900 font-medium ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
       />
     </div>
   );
@@ -1589,10 +1606,11 @@ interface TransactionHistoryProps {
   history: RecordedTransaction[];
   isAdmin: boolean;
   onDeleteTransaction: (id: string) => void;
+  onConfirmReservation: (id: string) => void;
   highlightedTxId?: string | null;
 }
 
-const TransactionHistory: React.FC<TransactionHistoryProps> = ({ history, isAdmin, onDeleteTransaction, highlightedTxId }) => {
+const TransactionHistory: React.FC<TransactionHistoryProps> = ({ history, isAdmin, onDeleteTransaction, onConfirmReservation, highlightedTxId }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -1707,11 +1725,21 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ history, isAdmi
                 <tr key={record.id} className={`transition-colors duration-1000 ease-out ${record.id === highlightedTxId ? 'bg-yellow-100' : ''}`}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.date}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ record.type === 'Hotel Stay' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800' }`}>{record.type}</span></td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ record.type === 'Hotel Stay' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800' }`}>{record.type}</span>
+                    {record.type === 'Hotel Stay' && (record.data as InvoiceData).documentType === 'reservation' && (
+                      <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.guestName}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right font-semibold">{currencyFormatter(record.amount, record.currency)}</td>
                   {isAdmin && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.type === 'Hotel Stay' ? (record.data as InvoiceData).receivedBy : (record.data as WalkInTransaction).cashier}</td>}
-                  {isAdmin && <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"><button onClick={() => handleDelete(record)} className="text-red-600 hover:text-red-900 transition-colors">Delete</button></td>}
+                  {isAdmin && <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      {record.type === 'Hotel Stay' && (record.data as InvoiceData).documentType === 'reservation' && (
+                        <button onClick={() => onConfirmReservation(record.id)} className="text-green-600 hover:text-green-900 font-semibold transition-colors">Confirm Payment</button>
+                      )}
+                      <button onClick={() => handleDelete(record)} className="text-red-600 hover:text-red-900 transition-colors ml-4">Delete</button>
+                  </td>}
                 </tr>
               ))}
             </tbody>
@@ -1776,15 +1804,17 @@ const EmailModal: React.FC<{
 
 // --- InvoiceForm Component ---
 interface InvoiceFormProps {
-  onInvoiceGenerated: (record: RecordedTransaction) => Promise<void>;
+  onInvoiceGenerated: (record: RecordedTransaction, oldRecordId?: string) => Promise<void>;
   currentUser: string;
+  transactionToEdit?: InvoiceData | null;
+  onEditComplete?: () => void;
 }
 
 const FormInput: React.FC<{ label: string; name: string; type?: string; value: string | number; onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void; required?: boolean; error?: string; disabled?: boolean; placeholder?: string; }> = ({ label, name, type = 'text', value, onChange, required = false, error, disabled = false, placeholder = '' }) => (<div><label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label><input type={type} id={name} name={name} value={value} onChange={onChange} required={required} disabled={disabled} placeholder={placeholder} className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-tide-gold sm:text-sm ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'} ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-tide-gold'}`} />{error && <p className="mt-1 text-xs text-red-600">{error}</p>}</div>);
 const FormSelect: React.FC<{ label: string; name: string; value: string; onChange: (e: ChangeEvent<HTMLSelectElement>) => void; options: string[]; required?: boolean; disabled?: boolean; children?: React.ReactNode; }> = ({ label, name, value, onChange, options, required = false, disabled = false, children }) => (<div><label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label><select id={name} name={name} value={value} onChange={onChange} required={required} disabled={disabled} className={`mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}>{children}{options.map(option => <option key={option} value={option}>{option}</option>)}</select></div>);
 const CalculatedField: React.FC<{ label: string; value: string; }> = ({ label, value }) => (<div><p className="block text-sm font-medium text-gray-700">{label}</p><p className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-md shadow-sm sm:text-sm text-gray-800 font-semibold">{value}</p></div>);
 
-const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUser }) => {
+const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUser, transactionToEdit, onEditComplete }) => {
   const roomRates: Record<RoomType, number> = {
     [RoomType.SOJOURN_ROOM]: 150000,
     [RoomType.TRANQUIL_ROOM]: 187500,
@@ -1913,8 +1943,33 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState('');
+  const [originalInvoiceId, setOriginalInvoiceId] = useState<string | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const statusTimerRef = useRef<number | null>(null);
+  
+  const isConfirmingMode = originalInvoiceId !== null;
+
+  useEffect(() => {
+    if (transactionToEdit) {
+        setOriginalInvoiceId(transactionToEdit.receiptNo);
+        
+        const newReceiptNo = `TH${Date.now().toString().slice(-6)}`;
+        const tempCalculated = calculateInvoiceTotals(transactionToEdit);
+
+        const dataForReceipt: InvoiceData = {
+            ...transactionToEdit,
+            documentType: 'receipt',
+            receiptNo: newReceiptNo,
+            date: getTodayLocalString(),
+            paymentMethod: PaymentMethod.POS,
+            amountReceived: tempCalculated.totalAmountDue,
+            paymentRefNo: '',
+        };
+
+        setInvoiceData(calculateInvoiceTotals(dataForReceipt));
+        setFormMode('receipt');
+    }
+  }, [transactionToEdit]);
 
   const handleModeChange = (newMode: 'reservation' | 'receipt') => {
     if (formMode === newMode) return;
@@ -2004,7 +2059,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
   
     saveTimerRef.current = window.setTimeout(() => {
       try {
-        localStorage.setItem('savedInvoiceData', JSON.stringify(invoiceData));
+        if (!isConfirmingMode) { // Don't auto-save when confirming a reservation
+            localStorage.setItem('savedInvoiceData', JSON.stringify(invoiceData));
+        }
         setSaveStatus('saved');
         statusTimerRef.current = window.setTimeout(() => { setSaveStatus('idle'); }, 1500);
       } catch (error) {
@@ -2017,7 +2074,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
     };
-  }, [invoiceData]);
+  }, [invoiceData, isConfirmingMode]);
 
   const validateForm = () => {
     const requiredFields: { key: keyof InvoiceData; label: string }[] = [ { key: 'guestName', label: 'Guest Name' }, { key: 'guestEmail', label: 'Guest Email' }, { key: 'phoneContact', label: 'Phone/Contact' }, { key: 'roomNumber', label: 'Room Number(s)' }, { key: 'receivedBy', label: 'Received By' }, { key: 'designation', label: 'Designation' }, { key: 'paymentPurpose', label: 'Purpose of Payment' } ];
@@ -2038,10 +2095,17 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
     e.preventDefault();
     if (!validateForm()) return;
     const record: RecordedTransaction = { id: invoiceData.receiptNo, type: 'Hotel Stay', date: invoiceData.date, guestName: invoiceData.guestName, amount: invoiceData.totalAmountDue, currency: invoiceData.currency, data: { ...invoiceData } };
-    onInvoiceGenerated(record);
+    onInvoiceGenerated(record, originalInvoiceId || undefined);
     printInvoice(invoiceData);
     setIsGenerated(true);
     setTimeout(() => setIsGenerated(false), 5000);
+
+    if (isConfirmingMode && onEditComplete) {
+        setOriginalInvoiceId(null);
+        onEditComplete();
+        // After confirming, we should probably reset the form to a new invoice state
+        handleNewInvoice(true);
+    }
   };
 
   const handleOpenEmailModal = () => {
@@ -2059,7 +2123,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
 
     setEmailStatus('sending');
     const record: RecordedTransaction = { id: invoiceData.receiptNo, type: 'Hotel Stay', date: invoiceData.date, guestName: invoiceData.guestName, amount: invoiceData.totalAmountDue, currency: invoiceData.currency, data: { ...invoiceData } };
-    await onInvoiceGenerated(record);
+    await onInvoiceGenerated(record, originalInvoiceId || undefined);
     
     const result = await emailInvoicePDF(invoiceData, recipientEmail);
     
@@ -2067,6 +2131,13 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
         setEmailStatus('sent');
         alert(result.message);
         setIsEmailModalOpen(false);
+
+        if (isConfirmingMode && onEditComplete) {
+            setOriginalInvoiceId(null);
+            onEditComplete();
+            handleNewInvoice(true);
+        }
+
     } else {
         setEmailStatus('error');
         alert(`Error: ${result.message}`);
@@ -2074,14 +2145,20 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
     setTimeout(() => setEmailStatus('idle'), 4000);
   };
   
-  const handleNewInvoice = () => {
-    if (window.confirm("Are you sure you want to start a new document? All current data will be cleared.")) {
+  const handleNewInvoice = (force: boolean = false) => {
+    const confirmed = force || window.confirm("Are you sure you want to start a new document? All current data will be cleared.");
+    if (confirmed) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
       localStorage.removeItem('savedInvoiceData');
       setFormMode('reservation');
       setInvoiceData(generateNewInvoiceState(currentUser, 'reservation'));
       setIsGenerated(false); setSaveStatus('idle'); setEmailError('');
+      
+      if (isConfirmingMode && onEditComplete) {
+          setOriginalInvoiceId(null);
+          onEditComplete();
+      }
     }
   };
 
@@ -2090,18 +2167,26 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
   return (
     <>
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg max-w-7xl mx-auto">
+        {isConfirmingMode && (
+          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 mb-6 rounded-md" role="alert">
+              <p className="font-bold">Confirming Payment for Reservation</p>
+              <p>You are converting Invoice <strong>{originalInvoiceId}</strong> into an official receipt. Please review, update the payment details below, and then generate the final document.</p>
+          </div>
+        )}
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6 border-b pb-4">
             <h2 className="text-2xl font-bold text-tide-dark">Create New Document</h2>
             <div className="flex items-center p-1 bg-gray-200 rounded-lg">
                 <button
                     onClick={() => handleModeChange('reservation')}
-                    className={`px-4 py-1 text-sm font-semibold rounded-md transition-colors ${formMode === 'reservation' ? 'bg-white text-tide-dark shadow' : 'text-gray-600 hover:bg-gray-300'}`}
+                    disabled={isConfirmingMode}
+                    className={`px-4 py-1 text-sm font-semibold rounded-md transition-colors ${formMode === 'reservation' ? 'bg-white text-tide-dark shadow' : 'text-gray-600 hover:bg-gray-300'} ${isConfirmingMode ? 'cursor-not-allowed opacity-50' : ''}`}
                 >
                     Reservation Invoice
                 </button>
                 <button
                     onClick={() => handleModeChange('receipt')}
-                    className={`px-4 py-1 text-sm font-semibold rounded-md transition-colors ${formMode === 'receipt' ? 'bg-white text-tide-dark shadow' : 'text-gray-600 hover:bg-gray-300'}`}
+                    disabled={isConfirmingMode}
+                    className={`px-4 py-1 text-sm font-semibold rounded-md transition-colors ${formMode === 'receipt' ? 'bg-white text-tide-dark shadow' : 'text-gray-600 hover:bg-gray-300'} ${isConfirmingMode ? 'cursor-not-allowed opacity-50' : ''}`}
                 >
                     Official Receipt
                 </button>
@@ -2112,9 +2197,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <FormInput label={formMode === 'reservation' ? 'Invoice No.' : 'Receipt No.'} name="receiptNo" value={invoiceData.receiptNo} onChange={handleInputChange} required />
             <DatePicker label="Date" name="date" value={invoiceData.date} onChange={(date) => handleDateChange('date', date)} required />
-            <FormSelect label="Currency" name="currency" value={invoiceData.currency} onChange={handleInputChange} options={['NGN', 'USD']} />
+            <FormSelect label="Currency" name="currency" value={invoiceData.currency} onChange={handleInputChange} options={['NGN', 'USD']} disabled={isConfirmingMode} />
           </div>
-          <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Guest Information</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><FormInput label="Guest Name (or Company)" name="guestName" value={invoiceData.guestName} onChange={handleInputChange} required /><FormInput label="Guest Email" name="guestEmail" type="email" value={invoiceData.guestEmail} onChange={handleInputChange} required error={emailError} /><FormInput label="Phone/Contact" name="phoneContact" type="tel" value={invoiceData.phoneContact} onChange={handleInputChange} required /><FormInput label="Room Number(s) (e.g. 101, 102)" name="roomNumber" value={invoiceData.roomNumber} onChange={handleInputChange} required /></div></div>
+          <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Guest Information</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><FormInput label="Guest Name (or Company)" name="guestName" value={invoiceData.guestName} onChange={handleInputChange} required disabled={isConfirmingMode}/><FormInput label="Guest Email" name="guestEmail" type="email" value={invoiceData.guestEmail} onChange={handleInputChange} required error={emailError} disabled={isConfirmingMode}/><FormInput label="Phone/Contact" name="phoneContact" type="tel" value={invoiceData.phoneContact} onChange={handleInputChange} required disabled={isConfirmingMode}/><FormInput label="Room Number(s) (e.g. 101, 102)" name="roomNumber" value={invoiceData.roomNumber} onChange={handleInputChange} required disabled={isConfirmingMode}/></div></div>
           
           <div className="border-t pt-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Bookings</h3>
@@ -2135,20 +2220,20 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
                     <tbody className="bg-white divide-y divide-gray-200">
                         {invoiceData.bookings.map((booking, index) => (
                             <tr key={booking.id}>
-                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '200px'}}><select name={`roomType-${index}`} value={booking.roomType} onChange={(e) => handleBookingChange(index, 'roomType', e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md font-semibold text-gray-800">{Object.values(RoomType).map(option => <option key={option} value={option}>{option}</option>)}</select></td>
-                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '80px'}}><input type="number" name={`quantity-${index}`} value={booking.quantity} onChange={(e) => handleBookingChange(index, 'quantity', e.target.value)} className="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-tide-gold sm:text-sm border-gray-300 text-gray-900 font-medium text-center" /></td>
-                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '150px'}}><DatePicker name={`checkIn-${index}`} value={booking.checkIn} onChange={(date) => handleBookingChange(index, 'checkIn', date)} /></td>
-                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '150px'}}><DatePicker name={`checkOut-${index}`} value={booking.checkOut} onChange={(date) => handleBookingChange(index, 'checkOut', date)} /></td>
+                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '200px'}}><select name={`roomType-${index}`} value={booking.roomType} onChange={(e) => handleBookingChange(index, 'roomType', e.target.value)} disabled={isConfirmingMode} className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm rounded-md font-semibold text-gray-800 ${isConfirmingMode ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}>{Object.values(RoomType).map(option => <option key={option} value={option}>{option}</option>)}</select></td>
+                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '80px'}}><input type="number" name={`quantity-${index}`} value={booking.quantity} onChange={(e) => handleBookingChange(index, 'quantity', e.target.value)} disabled={isConfirmingMode} className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-tide-gold sm:text-sm border-gray-300 text-gray-900 font-medium text-center ${isConfirmingMode ? 'bg-gray-100 cursor-not-allowed' : ''}`} /></td>
+                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '150px'}}><DatePicker name={`checkIn-${index}`} value={booking.checkIn} onChange={(date) => handleBookingChange(index, 'checkIn', date)} disabled={isConfirmingMode} /></td>
+                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '150px'}}><DatePicker name={`checkOut-${index}`} value={booking.checkOut} onChange={(date) => handleBookingChange(index, 'checkOut', date)} disabled={isConfirmingMode} /></td>
                                 <td className="px-2 py-2 whitespace-nowrap"><p className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-md sm:text-sm text-center font-bold text-gray-900">{booking.nights}</p></td>
-                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '150px'}}><input type="number" name={`ratePerNight-${index}`} value={booking.ratePerNight} onChange={(e) => handleBookingChange(index, 'ratePerNight', e.target.value)} className="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-tide-gold sm:text-sm border-gray-300 text-gray-900 font-medium text-right" /></td>
+                                <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '150px'}}><input type="number" name={`ratePerNight-${index}`} value={booking.ratePerNight} onChange={(e) => handleBookingChange(index, 'ratePerNight', e.target.value)} disabled={isConfirmingMode} className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-tide-gold sm:text-sm border-gray-300 text-gray-900 font-medium text-right ${isConfirmingMode ? 'bg-gray-100 cursor-not-allowed' : ''}`} /></td>
                                 <td className="px-2 py-2 whitespace-nowrap" style={{minWidth: '150px'}}><p className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-md sm:text-sm text-right font-bold text-gray-900">{currencyFormatter.format(booking.subtotal)}</p></td>
-                                <td className="px-2 py-2 whitespace-nowrap text-center"><button type="button" onClick={() => handleRemoveBooking(booking.id)} disabled={invoiceData.bookings.length <= 1} className="text-red-600 hover:text-red-800 disabled:text-gray-300 disabled:cursor-not-allowed text-sm font-medium p-2 rounded-full hover:bg-red-50" aria-label={`Remove booking ${index+1}`}>✕</button></td>
+                                <td className="px-2 py-2 whitespace-nowrap text-center"><button type="button" onClick={() => handleRemoveBooking(booking.id)} disabled={invoiceData.bookings.length <= 1 || isConfirmingMode} className="text-red-600 hover:text-red-800 disabled:text-gray-300 disabled:cursor-not-allowed text-sm font-medium p-2 rounded-full hover:bg-red-50" aria-label={`Remove booking ${index+1}`}>✕</button></td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-            <button type="button" onClick={handleAddBooking} className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">+ Add Booking</button>
+            <button type="button" onClick={handleAddBooking} disabled={isConfirmingMode} className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold disabled:bg-gray-200 disabled:cursor-not-allowed">+ Add Booking</button>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <CalculatedField label="Total Room Charge" value={currencyFormatter.format(invoiceData.roomCharge)} />
                 <FormInput label={`Discount (${invoiceData.currency})`} name="discount" type="number" value={invoiceData.discount} onChange={handleInputChange} />
@@ -2157,15 +2242,15 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
                 <FormInput label="Festive Season Discount Name" name="festiveDiscountName" type="text" value={invoiceData.festiveDiscountName || ''} onChange={handleInputChange} placeholder="e.g., Holiday Special" />
                 <FormInput label={`Festive Discount Amount (${invoiceData.currency})`} name="festiveDiscountAmount" type="number" value={invoiceData.festiveDiscountAmount || ''} onChange={handleInputChange} />
             </div>
-            <div className="border-t pt-6 mt-6"><h4 className="text-md font-semibold text-gray-700 mb-4">Additional Charges</h4><div className="space-y-4">{invoiceData.additionalChargeItems.map((item, index) => (<div key={item.id} className="grid grid-cols-12 gap-x-4 items-end"><div className="col-span-12 sm:col-span-4"><FormInput label={`Description #${index + 1}`} name={`description-${index}`} value={item.description} onChange={(e) => handleChargeItemChange(index, 'description', e.target.value)} required /></div><div className="col-span-6 sm:col-span-2"><DatePicker label="Date" name={`chargeDate-${index}`} value={item.date} onChange={(date) => handleChargeItemDateChange(index, date)} required /></div><div className="col-span-6 sm:col-span-2"><FormSelect label="Payment" name={`paymentMethod-${index}`} value={item.paymentMethod} onChange={(e) => handleChargeItemChange(index, 'paymentMethod', e.target.value as PaymentMethod)} options={Object.values(PaymentMethod)} required /></div><div className="col-span-6 sm:col-span-2"><FormInput label="Amount" name={`amount-${index}`} type="number" value={item.amount} onChange={(e) => handleChargeItemChange(index, 'amount', e.target.value)} required/></div><div className="col-span-6 sm:col-span-2 flex items-center"><button type="button" onClick={() => handleRemoveChargeItem(item.id)} className="text-red-600 hover:text-red-800 text-sm font-medium p-2 rounded-full hover:bg-red-50" aria-label={`Remove item ${index+1}`}>Remove</button></div></div>))}</div><button type="button" onClick={handleAddChargeItem} className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">+ Add Charge</button></div>
+            <div className="border-t pt-6 mt-6"><h4 className="text-md font-semibold text-gray-700 mb-4">Additional Charges</h4><div className="space-y-4">{invoiceData.additionalChargeItems.map((item, index) => (<div key={item.id} className="grid grid-cols-12 gap-x-4 items-end"><div className="col-span-12 sm:col-span-4"><FormInput label={`Description #${index + 1}`} name={`description-${index}`} value={item.description} onChange={(e) => handleChargeItemChange(index, 'description', e.target.value)} required disabled={isConfirmingMode} /></div><div className="col-span-6 sm:col-span-2"><DatePicker label="Date" name={`chargeDate-${index}`} value={item.date} onChange={(date) => handleChargeItemDateChange(index, date)} required disabled={isConfirmingMode} /></div><div className="col-span-6 sm:col-span-2"><FormSelect label="Payment" name={`paymentMethod-${index}`} value={item.paymentMethod} onChange={(e) => handleChargeItemChange(index, 'paymentMethod', e.target.value as PaymentMethod)} options={Object.values(PaymentMethod)} required disabled={isConfirmingMode} /></div><div className="col-span-6 sm:col-span-2"><FormInput label="Amount" name={`amount-${index}`} type="number" value={item.amount} onChange={(e) => handleChargeItemChange(index, 'amount', e.target.value)} required disabled={isConfirmingMode}/></div><div className="col-span-6 sm:col-span-2 flex items-center"><button type="button" onClick={() => handleRemoveChargeItem(item.id)} disabled={isConfirmingMode} className="text-red-600 hover:text-red-800 text-sm font-medium p-2 rounded-full hover:bg-red-50 disabled:text-gray-300 disabled:cursor-not-allowed" aria-label={`Remove item ${index+1}`}>Remove</button></div></div>))}</div><button type="button" onClick={handleAddChargeItem} disabled={isConfirmingMode} className="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold disabled:bg-gray-200 disabled:cursor-not-allowed">+ Add Charge</button></div>
           </div>
           
-          <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Summary & Payment</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div className="space-y-4 p-4 bg-gray-50 rounded-lg"><CalculatedField label="Additional Charges" value={currencyFormatter.format(invoiceData.additionalCharges)} /><CalculatedField label="Subtotal" value={currencyFormatter.format(invoiceData.subtotal)} /><CalculatedField label="Tax (7.5% included)" value={currencyFormatter.format(invoiceData.taxAmount)} /><div className="border-t pt-2 mt-2"><CalculatedField label="TOTAL AMOUNT DUE" value={currencyFormatter.format(invoiceData.totalAmountDue)} /></div></div><div className="space-y-4"><FormInput label={`Amount Received (${invoiceData.currency})`} name="amountReceived" type="number" value={invoiceData.amountReceived} onChange={handleInputChange} required disabled={formMode === 'reservation'} /><CalculatedField label="BALANCE" value={currencyFormatter.format(invoiceData.balance)} /><p className="text-xs text-gray-600 font-medium bg-gray-100 p-2 rounded-md">Amount in Words: {invoiceData.amountInWords}</p></div></div></div>
+          <div className="border-t pt-6"><h3 className="text-lg font-semibold text-gray-800 mb-4">Summary & Payment</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div className="space-y-4 p-4 bg-gray-50 rounded-lg"><CalculatedField label="Additional Charges" value={currencyFormatter.format(invoiceData.additionalCharges)} /><CalculatedField label="Subtotal" value={currencyFormatter.format(invoiceData.subtotal)} /><CalculatedField label="Tax (7.5% included)" value={currencyFormatter.format(invoiceData.taxAmount)} /><div className="border-t pt-2 mt-2"><CalculatedField label="TOTAL AMOUNT DUE" value={currencyFormatter.format(invoiceData.totalAmountDue)} /></div></div><div className="space-y-4"><FormInput label={`Amount Received (${invoiceData.currency})`} name="amountReceived" type="number" value={invoiceData.amountReceived} onChange={handleInputChange} required disabled={formMode === 'reservation' && !isConfirmingMode} /><CalculatedField label="BALANCE" value={currencyFormatter.format(invoiceData.balance)} /><p className="text-xs text-gray-600 font-medium bg-gray-100 p-2 rounded-md">Amount in Words: {invoiceData.amountInWords}</p></div></div></div>
           <div className="border-t pt-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Confirmation Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormInput label="Purpose of Payment" name="paymentPurpose" value={invoiceData.paymentPurpose} onChange={handleInputChange} required />
-                <FormSelect label="Payment Method" name="paymentMethod" value={invoiceData.paymentMethod} onChange={handleInputChange} options={Object.values(PaymentMethod)} required disabled={formMode === 'reservation'} />
+                <FormSelect label="Payment Method" name="paymentMethod" value={invoiceData.paymentMethod} onChange={handleInputChange} options={Object.values(PaymentMethod)} required disabled={formMode === 'reservation' && !isConfirmingMode} />
             </div>
             {formMode === 'receipt' && (
               <div className="mt-6">
@@ -2184,9 +2269,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onInvoiceGenerated, currentUs
                 <FormInput label="Designation" name="designation" value={invoiceData.designation} onChange={handleInputChange} required />
             </div>
         </div>
-          <div className="border-t pt-6 flex flex-wrap gap-4 items-center justify-between"><div className="flex flex-wrap gap-4"><button type="submit" className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Generate & Print</button><button type="button" onClick={handleOpenEmailModal} disabled={emailStatus === 'sending' || !!emailError} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold disabled:bg-gray-200 disabled:cursor-not-allowed">{emailStatus === 'sending' ? 'Sending...' : 'Email Document'}</button><button type="button" onClick={() => generateInvoiceCSV(invoiceData)} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Download Excel (CSV)</button></div><div className="flex flex-wrap gap-4"><button type="button" onClick={() => setIsWalkInModalOpen(true)} className="inline-flex justify-center py-2 px-6 border border-dashed border-tide-gold text-sm font-medium rounded-md text-tide-gold bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Walk-in Guest</button><button type="button" onClick={handleNewInvoice} className="text-sm font-medium text-gray-600 hover:text-red-600">New Document</button></div></div>
+          <div className="border-t pt-6 flex flex-wrap gap-4 items-center justify-between"><div className="flex flex-wrap gap-4"><button type="submit" className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Generate & Print</button><button type="button" onClick={handleOpenEmailModal} disabled={emailStatus === 'sending' || !!emailError} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold disabled:bg-gray-200 disabled:cursor-not-allowed">{emailStatus === 'sending' ? 'Sending...' : 'Email Document'}</button><button type="button" onClick={() => generateInvoiceCSV(invoiceData)} className="inline-flex justify-center py-2 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Download Excel (CSV)</button></div><div className="flex flex-wrap gap-4"><button type="button" onClick={() => setIsWalkInModalOpen(true)} className="inline-flex justify-center py-2 px-6 border border-dashed border-tide-gold text-sm font-medium rounded-md text-tide-gold bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tide-gold">Walk-in Guest</button><button type="button" onClick={() => handleNewInvoice()} className="text-sm font-medium text-gray-600 hover:text-red-600">New Document</button></div></div>
         </form>
-        <div className="text-xs text-gray-500 mt-4 text-right">Auto-save status: <span className={`font-semibold ${saveStatus === 'saved' ? 'text-green-600' : ''}`}>{saveStatus}</span></div>
+        <div className="text-xs text-gray-500 mt-4 text-right">Auto-save status: <span className={`font-semibold ${saveStatus === 'saved' ? 'text-green-600' : ''}`}>{isConfirmingMode ? 'disabled' : saveStatus}</span></div>
       </div>
       <EmailModal 
         isOpen={isEmailModalOpen}
@@ -2214,6 +2299,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [highlightedTxId, setHighlightedTxId] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const [transactionToEdit, setTransactionToEdit] = useState<InvoiceData | null>(null);
 
   const isAdmin = useMemo(() => ADMIN_USERS.includes(currentUser || ''), [currentUser]);
   const historyRef = useRef(history);
@@ -2263,6 +2349,8 @@ const App: React.FC = () => {
                 }
               } else if (newHistory.length < oldHistory.length) {
                 message = 'A transaction was deleted by another user.';
+              } else {
+                message = 'A transaction was updated by another user.';
               }
               
               setNotification(message);
@@ -2280,8 +2368,8 @@ const App: React.FC = () => {
     };
   }, [currentUser, isAdmin]); // Rerun effect if user or admin status changes
 
-  const addTransactionToHistory = async (record: RecordedTransaction) => {
-    await saveTransaction(record);
+  const addTransactionToHistory = async (record: RecordedTransaction, oldRecordId?: string) => {
+    await saveTransaction(record, oldRecordId);
     await loadHistory();
   };
 
@@ -2290,6 +2378,17 @@ const App: React.FC = () => {
     await loadHistory();
   };
   
+  const handleLoadTransactionForConfirmation = (transactionId: string) => {
+    const transaction = history.find(t => t.id === transactionId);
+    if (transaction && transaction.type === 'Hotel Stay' && (transaction.data as InvoiceData).documentType === 'reservation') {
+        setTransactionToEdit(transaction.data as InvoiceData);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+        console.warn(`Could not find reservation with ID: ${transactionId} to confirm.`);
+        alert('Could not find the specified reservation. It might have been updated or deleted.');
+    }
+  };
+
   const handleLogin = (name: string, rememberMe: boolean) => {
     setCurrentUser(name);
     if (rememberMe) {
@@ -2329,11 +2428,17 @@ const App: React.FC = () => {
         <Header currentUser={currentUser} onLogout={handleLogout} isAdmin={isAdmin} />
         <main className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
           {isAdmin && <AdminDashboard history={history} />}
-          <InvoiceForm onInvoiceGenerated={addTransactionToHistory} currentUser={currentUser} />
+          <InvoiceForm
+            onInvoiceGenerated={addTransactionToHistory}
+            currentUser={currentUser}
+            transactionToEdit={transactionToEdit}
+            onEditComplete={() => setTransactionToEdit(null)}
+          />
           <TransactionHistory 
             history={history} 
             isAdmin={isAdmin}
             onDeleteTransaction={handleDeleteTransaction}
+            onConfirmReservation={handleLoadTransactionForConfirmation}
             highlightedTxId={highlightedTxId}
           />
         </main>
