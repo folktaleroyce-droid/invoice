@@ -144,6 +144,7 @@ export interface RecordedTransaction {
   date: string;
   guestName: string; // guestName or "Walk-In Guest"
   amount: number; // totalAmountDue or (subtotal - discount)
+  balance: number;
   currency: 'NGN' | 'USD';
   data: InvoiceData | WalkInTransaction;
 }
@@ -1598,10 +1599,10 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
   const balance = useMemo(() => (subtotal - (typeof discount === 'number' ? discount : 0)) - (typeof amountPaid === 'number' ? amountPaid : 0), [subtotal, amountPaid, discount]);
   const currencyFormatter = useMemo(() => new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }), [currency]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setNewCharge({ date: getTodayLocalStringModal(), service: WalkInService.RESTAURANT, otherServiceDescription: '', amount: '', paymentMethod: PaymentMethod.CASH });
     setCharges([]); setCurrency('NGN'); setDiscount(''); setAmountPaid(''); setCashier(currentUser); setPaymentMethod(PaymentMethod.CASH); setError('');
-  };
+  }, [currentUser]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -1627,7 +1628,7 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
     } else {
       handleReset();
     }
-  }, [transactionToEdit, isOpen, isEditing]);
+  }, [transactionToEdit, isOpen, isEditing, handleReset]);
 
 
   if (!isOpen) return null;
@@ -1656,9 +1657,11 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
   const handleGenerate = async (action: 'print' | 'csv' | 'save') => {
     const transaction = validateAndCreateTransaction();
     if (transaction) {
-      const record: RecordedTransaction = { id: transaction.id, type: 'Walk-In', date: transaction.transactionDate, guestName: 'Walk-In Guest', amount: (transaction.subtotal - (transaction.discount || 0)), currency: transaction.currency, data: { ...transaction } };
+      const record: RecordedTransaction = { id: transaction.id, type: 'Walk-In', date: transaction.transactionDate, guestName: 'Walk-In Guest', amount: (transaction.subtotal - (transaction.discount || 0)), balance: transaction.balance, currency: transaction.currency, data: { ...transaction } };
       await onTransactionGenerated(record);
       
+      handleClose();
+
       if (action === 'print') { 
         printWalkInReceipt(transaction); 
         alert(isEditing ? 'Receipt updated for printing!' : 'Receipt generated for printing!'); 
@@ -1668,7 +1671,6 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
       } else if (action === 'save') { 
         alert(isEditing ? 'Transaction updated successfully!' : 'Transaction saved successfully!'); 
       }
-      handleClose();
     }
   };
 
@@ -1878,8 +1880,9 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ history, onView
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guest Name</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Due</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
                         </tr>
                     </thead>
@@ -1891,24 +1894,25 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ history, onView
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.date}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.guestName}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Intl.NumberFormat('en-US', { style: 'currency', currency: record.currency }).format(record.amount)}</td>
-                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getStatusChip(record)}</td>
+                                <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${record.balance > 0 ? 'text-red-600' : 'text-gray-500'}`}>{new Intl.NumberFormat('en-US', { style: 'currency', currency: record.currency }).format(record.balance)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getStatusChip(record)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    {record.type === 'Hotel Stay' ? (
-                                        <button onClick={() => onViewEdit(record.data as InvoiceData)} className="py-1 px-3 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">View / Edit</button>
-                                    ) : (
-                                        (record.data as WalkInTransaction).balance > 0 ?
-                                        <button onClick={() => onViewEditWalkIn(record.data as WalkInTransaction)} className="py-1 px-3 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700">Complete Payment</button>
-                                        : <button onClick={() => onViewEditWalkIn(record.data as WalkInTransaction)} className="py-1 px-3 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">View/Edit</button>
-                                    )}
+                                    <div className="flex items-center justify-end gap-2">
+                                        {record.type === 'Hotel Stay' ? (
+                                            <button onClick={() => onViewEdit(record.data as InvoiceData)} className="py-1 px-3 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">View/Edit</button>
+                                        ) : (
+                                            (record.data as WalkInTransaction).balance > 0 ?
+                                            <button onClick={() => onViewEditWalkIn(record.data as WalkInTransaction)} className="py-1 px-3 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700">Settle</button>
+                                            : <button onClick={() => onViewEditWalkIn(record.data as WalkInTransaction)} className="py-1 px-3 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">View/Edit</button>
+                                        )}
 
-                                    {isAdmin && (
-                                        <button onClick={() => handleDelete(record.id)} className="ml-4 py-1 px-3 border border-red-300 text-xs font-medium rounded-md text-red-700 bg-white hover:bg-red-50">Delete</button>
-                                    )}
+                                        <button onClick={() => handleDelete(record.id)} className="py-1 px-3 border border-red-300 text-xs font-medium rounded-md text-red-700 bg-white hover:bg-red-50">Delete</button>
+                                    </div>
                                 </td>
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-500">
+                                <td colSpan={8} className="px-6 py-12 text-center text-sm text-gray-500">
                                     No transaction history found.
                                 </td>
                             </tr>
@@ -1930,6 +1934,10 @@ interface InvoiceFormProps {
     existingData?: InvoiceData | null;
 }
 
+// Defines the core data that is stored in state, excluding any calculated summary fields.
+type InvoiceCoreData = Omit<InvoiceData, 'status' | 'subtotal' | 'taxAmount' | 'totalAmountDue' | 'amountReceived' | 'balance' | 'amountInWords'>;
+
+
 const getTodayLocalString = (): string => {
     const today = new Date();
     const year = today.getFullYear();
@@ -1940,34 +1948,37 @@ const getTodayLocalString = (): string => {
 
 const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser, designation, existingData }) => {
     
-    const createInitialInvoiceData = (): InvoiceData => ({
-        id: `INV-${Date.now()}`,
-        receiptNo: `INV-${Date.now()}`,
-        date: getTodayLocalString(),
-        lastUpdatedAt: getTodayLocalString(),
-        guestName: '', guestEmail: '', phoneContact: '', roomNumber: '',
-        documentType: 'reservation',
-        status: InvoiceStatus.PENDING,
-        bookings: [],
-        additionalChargeItems: [],
-        subtotal: 0,
-        discount: 0,
-        holidaySpecialDiscountName: 'Holiday Special',
-        holidaySpecialDiscount: 0,
-        taxPercentage: 7.5,
-        taxAmount: 0,
-        totalAmountDue: 0,
-        payments: [],
-        amountReceived: 0,
-        balance: 0,
-        amountInWords: '',
-        paymentPurpose: '',
-        receivedBy: currentUser,
-        designation: designation,
-        currency: 'NGN',
-    });
+    // This function initializes the state. It handles both new and existing data,
+    // ensuring only the core, editable data is stored in state.
+    const getInitialState = (): InvoiceCoreData => {
+        if (existingData) {
+            // If editing, strip out the old calculated fields to ensure they are recalculated.
+            const { status, subtotal, taxAmount, totalAmountDue, amountReceived, balance, amountInWords, ...coreData } = existingData;
+            return JSON.parse(JSON.stringify(coreData));
+        }
+        // For a new invoice, create a fresh object with only the core fields.
+        return {
+            id: `INV-${Date.now()}`,
+            receiptNo: `INV-${Date.now()}`,
+            date: getTodayLocalString(),
+            lastUpdatedAt: getTodayLocalString(),
+            guestName: '', guestEmail: '', phoneContact: '', roomNumber: '',
+            documentType: 'reservation',
+            bookings: [],
+            additionalChargeItems: [],
+            discount: 0,
+            holidaySpecialDiscountName: 'Holiday Special',
+            holidaySpecialDiscount: 0,
+            taxPercentage: 7.5,
+            payments: [],
+            paymentPurpose: '',
+            receivedBy: currentUser,
+            designation: designation,
+            currency: 'NGN',
+        };
+    };
 
-    const [invoiceData, setInvoiceData] = useState<InvoiceData>(existingData ? JSON.parse(JSON.stringify(existingData)) : createInitialInvoiceData());
+    const [invoiceData, setInvoiceData] = useState<InvoiceCoreData>(getInitialState());
     const [newBooking, setNewBooking] = useState<Omit<BookingItem, 'id' | 'nights' | 'subtotal'>>({
         roomType: RoomType.SOJOURN_ROOM, quantity: 1, checkIn: '', checkOut: '', ratePerNight: ROOM_RATES[RoomType.SOJOURN_ROOM],
     });
@@ -1993,15 +2004,13 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
     
     const isReservation = invoiceData.documentType === 'reservation';
 
-
-    // Recalculate everything when dependencies change
-    useEffect(() => {
+    // Calculate all summary values in real-time. This hook re-runs whenever a dependency changes,
+    // ensuring the summary is always perfectly in sync with the input data.
+    const calculatedSummary = useMemo(() => {
         const bookingsSubtotal = invoiceData.bookings.reduce((sum, item) => sum + item.subtotal, 0);
         const chargesSubtotal = invoiceData.additionalChargeItems.reduce((sum, item) => sum + item.amount, 0);
         const subtotal = bookingsSubtotal + chargesSubtotal;
         
-        // Tax is inclusive, so we calculate it from the subtotal before discounts.
-        // Tax = (Subtotal / (1 + TaxRate)) * TaxRate
         const taxAmount = (subtotal / (1 + (invoiceData.taxPercentage / 100))) * (invoiceData.taxPercentage / 100);
         
         const totalAmountDue = subtotal - invoiceData.discount - invoiceData.holidaySpecialDiscount;
@@ -2013,19 +2022,33 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
             status = balance <= 0 ? InvoiceStatus.PAID : InvoiceStatus.PARTIAL;
         }
 
-        setInvoiceData(prev => ({
-            ...prev,
+        if (invoiceData.documentType === 'reservation' && amountReceived <= 0) {
+            status = InvoiceStatus.PENDING;
+        }
+
+        const amountInWords = convertAmountToWords(amountReceived, invoiceData.currency);
+
+        return {
             subtotal,
             taxAmount,
             totalAmountDue,
             amountReceived,
             balance,
-            status: isReservation && amountReceived <= 0 ? InvoiceStatus.PENDING : status,
-            amountInWords: convertAmountToWords(amountReceived, prev.currency),
-            lastUpdatedAt: getTodayLocalString()
-        }));
-    }, [invoiceData.bookings, invoiceData.additionalChargeItems, invoiceData.payments, invoiceData.discount, invoiceData.holidaySpecialDiscount, invoiceData.taxPercentage, invoiceData.currency, isReservation]);
+            status,
+            amountInWords
+        };
+    }, [invoiceData.bookings, invoiceData.additionalChargeItems, invoiceData.payments, invoiceData.discount, invoiceData.holidaySpecialDiscount, invoiceData.taxPercentage, invoiceData.currency, invoiceData.documentType]);
 
+    // This helper function combines the core state data with the real-time calculated summary 
+    // to create a complete, up-to-date InvoiceData object whenever needed for saving, printing, etc.
+    const getFullInvoiceData = useCallback((): InvoiceData => {
+        return {
+            ...invoiceData,
+            ...calculatedSummary,
+            lastUpdatedAt: getTodayLocalString(),
+        };
+    }, [invoiceData, calculatedSummary]);
+    
     useEffect(() => {
         if(existingData) {
             setEmailToSend(existingData.guestEmail);
@@ -2036,10 +2059,9 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
         setNewBooking(prev => ({ ...prev, ratePerNight: ROOM_RATES[prev.roomType] || 0 }));
     }, [newBooking.roomType]);
     
-    // Handlers
     const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setInvoiceData(prev => ({ ...prev, [name]: name === 'discount' || name === 'holidaySpecialDiscount' ? parseFloat(value) || 0 : value }));
+        setInvoiceData(prev => ({ ...prev, [name]: name === 'discount' || name === 'holidaySpecialDiscount' || name === 'taxPercentage' ? parseFloat(value) || 0 : value }));
     };
     
     const handleVerificationChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -2110,20 +2132,18 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
         }
         const oldRecordId = (existingData && existingData.documentType === 'reservation' && type === 'receipt') ? existingData.receiptNo : undefined;
         
-        const finalData = { ...invoiceData };
-        finalData.documentType = type;
+        const fullData = getFullInvoiceData();
+        const finalData = { ...fullData, documentType: type };
         
         if(type === 'receipt') {
             finalData.verificationDetails = verificationDetails;
-            // If converting from INV to RCPT or creating a new receipt
             if (!finalData.receiptNo.startsWith('RCPT-')) {
                 const newReceiptNo = `RCPT-${Date.now()}`;
-                finalData.invoiceNo = finalData.receiptNo; // Keep old INV- number
+                finalData.invoiceNo = finalData.receiptNo;
                 finalData.receiptNo = newReceiptNo;
                 finalData.id = newReceiptNo;
             }
         } else {
-             // Saving as reservation, clear verification details
             finalData.verificationDetails = undefined;
         }
         
@@ -2133,6 +2153,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
             date: finalData.date,
             guestName: finalData.guestName,
             amount: finalData.totalAmountDue,
+            balance: finalData.balance,
             currency: finalData.currency,
             data: finalData
         };
@@ -2147,7 +2168,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
             setEmailStatus({message: 'Please enter a recipient email.', type: 'error'});
             return;
         }
-        const result = await emailInvoicePDF(invoiceData, emailToSend);
+        const result = await emailInvoicePDF(getFullInvoiceData(), emailToSend);
         setEmailStatus({message: result.message, type: result.success ? 'success' : 'error'});
     };
 
@@ -2170,6 +2191,13 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
                     <div className="lg:row-start-2"><label className="block text-sm font-medium text-gray-700">Guest Email</label><input type="email" name="guestEmail" value={invoiceData.guestEmail} onChange={handleInputChange} className={`mt-1 ${inputClasses}`} /></div>
                     <div className="lg:row-start-2"><label className="block text-sm font-medium text-gray-700">Phone/Contact</label><input type="tel" name="phoneContact" value={invoiceData.phoneContact} onChange={handleInputChange} className={`mt-1 ${inputClasses}`} /></div>
                     <div className="sm:col-span-2 lg:col-span-1 lg:row-start-1 lg:col-start-3"><label className="block text-sm font-medium text-gray-700">Purpose of Payment</label><input type="text" name="paymentPurpose" value={invoiceData.paymentPurpose} onChange={handleInputChange} className={`mt-1 ${inputClasses}`} /></div>
+                     <div className="lg:row-start-2">
+                        <label className="block text-sm font-medium text-gray-700">Currency</label>
+                        <select name="currency" value={invoiceData.currency} onChange={handleInputChange} className={`mt-1 ${selectClasses}`}>
+                            <option value="NGN">Naira (NGN)</option>
+                            <option value="USD">US Dollar (USD)</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             
@@ -2312,11 +2340,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
                     <div className="p-4 bg-slate-50 rounded-lg space-y-3">
                          <div className="flex justify-between items-center mb-2">
                             <h3 className="text-lg font-semibold text-gray-800">Summary</h3>
-                            { (invoiceData.status === InvoiceStatus.PAID) && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Fully Paid</span> }
-                            { (invoiceData.status === InvoiceStatus.PARTIAL) && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Partially Paid</span> }
-                            { (isReservation && invoiceData.status === InvoiceStatus.PENDING) && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending Payment</span> }
+                            { (calculatedSummary.status === InvoiceStatus.PAID) && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Fully Paid</span> }
+                            { (calculatedSummary.status === InvoiceStatus.PARTIAL) && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Partially Paid</span> }
+                            { (isReservation && calculatedSummary.status === InvoiceStatus.PENDING) && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending Payment</span> }
                          </div>
-                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Subtotal</span><span className="font-medium text-gray-900">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(invoiceData.subtotal)}</span></div>
+                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Subtotal</span><span className="font-medium text-gray-900">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(calculatedSummary.subtotal)}</span></div>
                         <div className="flex justify-between items-center text-sm">
                           <label htmlFor="discount" className="text-gray-600">Discount</label>
                           <div className="w-32"><input id="discount" type="number" name="discount" value={invoiceData.discount} onChange={handleInputChange} className={summaryInputClasses}/></div>
@@ -2325,26 +2353,26 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
                           <input type="text" name="holidaySpecialDiscountName" value={invoiceData.holidaySpecialDiscountName} onChange={handleInputChange} className={`flex-grow text-left ${summaryInputClasses.replace('text-right', '')}`}/>
                           <div className="w-32"><input type="number" name="holidaySpecialDiscount" value={invoiceData.holidaySpecialDiscount} onChange={handleInputChange} className={summaryInputClasses}/></div>
                         </div>
-                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Tax (7.5% incl.)</span><span className="font-medium text-gray-900">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(invoiceData.taxAmount)}</span></div>
+                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Tax (7.5% incl.)</span><span className="font-medium text-gray-900">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(calculatedSummary.taxAmount)}</span></div>
                         <div className="border-t border-gray-300 !my-2"></div>
-                        <div className="flex justify-between items-center font-bold text-lg"><span className="text-gray-800">TOTAL AMOUNT DUE</span><span className="text-gray-900">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(invoiceData.totalAmountDue)}</span></div>
-                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Amount Received</span><span className="font-medium text-green-700">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(invoiceData.amountReceived)}</span></div>
+                        <div className="flex justify-between items-center font-bold text-lg"><span className="text-gray-800">TOTAL AMOUNT DUE</span><span className="text-gray-900">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(calculatedSummary.totalAmountDue)}</span></div>
+                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Amount Received</span><span className="font-medium text-green-700">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(calculatedSummary.amountReceived)}</span></div>
                         <div className="border-t border-gray-300 !my-2"></div>
-                        <div className={`flex justify-between items-center font-bold text-xl ${invoiceData.balance > 0 ? 'text-red-600' : (invoiceData.balance < 0 ? 'text-green-600' : 'text-gray-900')}`}>
-                            <span>BALANCE</span><span>{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(invoiceData.balance)}</span>
+                        <div className={`flex justify-between items-center font-bold text-xl ${calculatedSummary.balance > 0 ? 'text-red-600' : (calculatedSummary.balance < 0 ? 'text-green-600' : 'text-gray-900')}`}>
+                            <span>BALANCE</span><span>{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(calculatedSummary.balance)}</span>
                         </div>
                     </div>
                      
                     <div className="p-4 border rounded-md">
                         <h3 className="text-lg font-semibold text-gray-800 mb-3">Actions</h3>
                         <div className="flex flex-col gap-3">
-                           <button onClick={() => printInvoice(invoiceData)} className="w-full py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700">Generate & Print Document</button>
+                           <button onClick={() => printInvoice(getFullInvoiceData())} className="w-full py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700">Generate & Print Document</button>
                            <div className="flex gap-2">
                                <input type="email" placeholder="Recipient's email" value={emailToSend} onChange={e => setEmailToSend(e.target.value)} className={`flex-grow ${inputClasses}`} />
                                <button onClick={handleEmail} className="py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">Send Email</button>
                            </div>
                            {emailStatus && <p className={`text-xs ${emailStatus.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{emailStatus.message}</p>}
-                           <button onClick={() => generateInvoiceCSV(invoiceData)} className="w-full py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Download Excel (CSV)</button>
+                           <button onClick={() => generateInvoiceCSV(getFullInvoiceData())} className="w-full py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Download Excel (CSV)</button>
                            <div className="flex flex-col sm:flex-row gap-3 mt-2">
                                 <button onClick={() => handleSave('receipt')} className="w-full py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">Save as Official Receipt</button>
                                 <button onClick={() => handleSave('reservation')} className="w-full py-2 px-4 border border-yellow-500 text-sm font-medium rounded-md text-yellow-800 bg-yellow-400 hover:bg-yellow-500">Save as Reservation Invoice</button>
@@ -2378,26 +2406,27 @@ const App: React.FC = () => {
     }
     return () => clearTimeout(timer);
   }, []);
+  
+  const fetchHistory = useCallback(async (username: string, isAdminUser: boolean) => {
+    const history = await fetchUserTransactionHistory(username, isAdminUser);
+    setTransactionHistory(history);
+  }, []);
 
-  const handleLogin = (name: string, rememberMe: boolean) => {
+  const handleLogin = useCallback((name: string, rememberMe: boolean) => {
     setCurrentUser(name);
-    setIsAdmin(ADMIN_USERS.includes(name));
-    fetchHistory(name, ADMIN_USERS.includes(name));
+    const isAdminUser = ADMIN_USERS.includes(name);
+    setIsAdmin(isAdminUser);
+    fetchHistory(name, isAdminUser);
     if (rememberMe) {
       localStorage.setItem('rememberedUser', name);
     }
-  };
+  }, [fetchHistory]);
 
   const handleLogout = () => {
     setCurrentUser(null);
     setIsAdmin(false);
     localStorage.removeItem('rememberedUser');
   };
-  
-  const fetchHistory = useCallback(async (username: string, isAdminUser: boolean) => {
-    const history = await fetchUserTransactionHistory(username, isAdminUser);
-    setTransactionHistory(history);
-  }, []);
 
   const handleSaveTransaction = async (record: RecordedTransaction, oldRecordId?: string) => {
     await saveTransaction(record, oldRecordId);
@@ -2410,15 +2439,9 @@ const App: React.FC = () => {
   
   const handleWalkInTransactionGenerated = async (record: RecordedTransaction) => {
     await saveTransaction(record);
-    setTransactionHistory(prev => {
-        const existingIndex = prev.findIndex(t => t.id === record.id);
-        if (existingIndex > -1) {
-            const newHistory = [...prev];
-            newHistory[existingIndex] = record;
-            return newHistory;
-        }
-        return [record, ...prev];
-    });
+    if(currentUser){
+        fetchHistory(currentUser, isAdmin); // Re-fetch the entire history to ensure UI consistency
+    }
   };
 
   const handleDeleteTransaction = async (recordId: string) => {
