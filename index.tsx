@@ -1926,7 +1926,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ history, onView
 
 // --- InvoiceForm Component ---
 interface InvoiceFormProps {
-    onSave: (data: RecordedTransaction, oldRecordId?: string) => void;
+    onSave: (data: RecordedTransaction, oldRecordId?: string, options?: { navigateOnSave?: boolean }) => void;
     onCancel: () => void;
     currentUser: string;
     designation: string;
@@ -1947,7 +1947,7 @@ const getTodayLocalString = (): string => {
 
 const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser, designation, existingData }) => {
     
-    const getInitialState = (): InvoiceCoreData => {
+    const getInitialState = useCallback((): InvoiceCoreData => {
         if (existingData) {
             const { status, subtotal, taxAmount, totalAmountDue, amountReceived, balance, amountInWords, ...coreData } = existingData;
             return JSON.parse(JSON.stringify(coreData));
@@ -1971,7 +1971,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
             designation: designation,
             currency: 'NGN',
         };
-    };
+    }, [existingData, currentUser, designation]);
 
     const [invoiceData, setInvoiceData] = useState<InvoiceCoreData>(getInitialState());
     const [newBooking, setNewBooking] = useState<Omit<BookingItem, 'id' | 'nights' | 'subtotal'>>({
@@ -2037,6 +2037,13 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
     }, [invoiceData, calculatedSummary]);
     
     useEffect(() => {
+        // This effect syncs the form's internal state whenever the `existingData` prop changes.
+        // This is crucial for when we save without navigating away, ensuring the form
+        // reflects the newly saved data (like a new receipt number).
+        setInvoiceData(getInitialState());
+    }, [getInitialState]);
+
+    useEffect(() => {
         if (!existingData) {
             const savedDataJSON = localStorage.getItem('autoSavedInvoiceData');
             if (savedDataJSON) {
@@ -2062,7 +2069,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
                            invoiceData.payments.length === 0 &&
                            invoiceData.discount === 0;
 
-        if (isPristine) {
+        if (isPristine || existingData) { // Don't auto-save for existing records, only new ones
             return;
         }
 
@@ -2079,7 +2086,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
                 clearTimeout(autoSaveTimeoutRef.current);
             }
         };
-    }, [invoiceData]);
+    }, [invoiceData, existingData]);
 
     useEffect(() => {
         if(existingData) {
@@ -2193,6 +2200,36 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
         localStorage.removeItem('autoSavedInvoiceData');
         onSave(record, oldRecordId);
         alert(`Successfully saved ${type}!`);
+    };
+    
+    const handleGeneratePrintAndSave = () => {
+        if (!invoiceData.guestName) {
+            alert('Guest name is required to save and print.');
+            return;
+        }
+
+        const fullData = getFullInvoiceData();
+        
+        const record: RecordedTransaction = {
+            id: fullData.receiptNo,
+            type: 'Hotel Stay',
+            date: fullData.date,
+            guestName: fullData.guestName,
+            amount: fullData.totalAmountDue,
+            balance: fullData.balance,
+            currency: fullData.currency,
+            data: fullData
+        };
+
+        // Save the transaction but don't navigate away from the form
+        onSave(record, undefined, { navigateOnSave: false });
+
+        // Proceed to print
+        printInvoice(fullData);
+
+        // Clear any auto-saved draft since we've now saved it
+        localStorage.removeItem('autoSavedInvoiceData');
+        alert('Document saved and sent to printer!');
     };
     
     const handleCancel = () => {
@@ -2406,7 +2443,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
                     <div className="p-4 border rounded-md">
                         <h3 className="text-lg font-semibold text-gray-800 mb-3">Actions</h3>
                         <div className="flex flex-col gap-3">
-                           <button onClick={() => printInvoice(getFullInvoiceData())} className="w-full py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700">Generate & Print Document</button>
+                           <button onClick={handleGeneratePrintAndSave} className="w-full py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-tide-dark hover:bg-gray-700">Generate, Save & Print</button>
                            <div className="flex gap-2">
                                <input type="email" placeholder="Recipient's email" value={emailToSend} onChange={e => setEmailToSend(e.target.value)} className={`flex-grow ${inputClasses}`} />
                                <button onClick={handleEmail} className="py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">Send Email</button>
@@ -2468,13 +2505,22 @@ const App: React.FC = () => {
     localStorage.removeItem('rememberedUser');
   };
 
-  const handleSaveTransaction = async (record: RecordedTransaction, oldRecordId?: string) => {
+  const handleSaveTransaction = async (record: RecordedTransaction, oldRecordId?: string, options?: { navigateOnSave?: boolean }) => {
+    const { navigateOnSave = true } = options || {};
     await saveTransaction(record, oldRecordId);
     if(currentUser){
         fetchHistory(currentUser, isAdmin);
     }
-    setView('dashboard');
-    setEditingTransaction(null);
+    if (navigateOnSave) {
+        setView('dashboard');
+        setEditingTransaction(null);
+    } else {
+        // Update the state with the newly saved data, which might have a new ID,
+        // so the form can stay in sync without a full navigation.
+        if (record.type === 'Hotel Stay') {
+            setEditingTransaction(record.data as InvoiceData);
+        }
+    }
   };
   
   const handleWalkInTransactionGenerated = async (record: RecordedTransaction) => {
