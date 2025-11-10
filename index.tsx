@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, ChangeEvent, useRef, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 
@@ -1948,15 +1947,11 @@ const getTodayLocalString = (): string => {
 
 const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser, designation, existingData }) => {
     
-    // This function initializes the state. It handles both new and existing data,
-    // ensuring only the core, editable data is stored in state.
     const getInitialState = (): InvoiceCoreData => {
         if (existingData) {
-            // If editing, strip out the old calculated fields to ensure they are recalculated.
             const { status, subtotal, taxAmount, totalAmountDue, amountReceived, balance, amountInWords, ...coreData } = existingData;
             return JSON.parse(JSON.stringify(coreData));
         }
-        // For a new invoice, create a fresh object with only the core fields.
         return {
             id: `INV-${Date.now()}`,
             receiptNo: `INV-${Date.now()}`,
@@ -1998,14 +1993,14 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
     const [emailToSend, setEmailToSend] = useState('');
     const [emailStatus, setEmailStatus] = useState<{message: string; type: 'success' | 'error'} | null>(null);
 
+    const autoSaveTimeoutRef = useRef<number | null>(null);
+
     const inputClasses = "block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm text-gray-900";
     const selectClasses = "block w-full pl-3 pr-10 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm text-gray-900";
     const summaryInputClasses = "w-full text-right px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-tide-gold focus:border-tide-gold sm:text-sm text-gray-900";
     
     const isReservation = invoiceData.documentType === 'reservation';
 
-    // Calculate all summary values in real-time. This hook re-runs whenever a dependency changes,
-    // ensuring the summary is always perfectly in sync with the input data.
     const calculatedSummary = useMemo(() => {
         const bookingsSubtotal = invoiceData.bookings.reduce((sum, item) => sum + item.subtotal, 0);
         const chargesSubtotal = invoiceData.additionalChargeItems.reduce((sum, item) => sum + item.amount, 0);
@@ -2029,18 +2024,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
         const amountInWords = convertAmountToWords(amountReceived, invoiceData.currency);
 
         return {
-            subtotal,
-            taxAmount,
-            totalAmountDue,
-            amountReceived,
-            balance,
-            status,
-            amountInWords
+            subtotal, taxAmount, totalAmountDue, amountReceived, balance, status, amountInWords
         };
     }, [invoiceData.bookings, invoiceData.additionalChargeItems, invoiceData.payments, invoiceData.discount, invoiceData.holidaySpecialDiscount, invoiceData.taxPercentage, invoiceData.currency, invoiceData.documentType]);
 
-    // This helper function combines the core state data with the real-time calculated summary 
-    // to create a complete, up-to-date InvoiceData object whenever needed for saving, printing, etc.
     const getFullInvoiceData = useCallback((): InvoiceData => {
         return {
             ...invoiceData,
@@ -2049,6 +2036,51 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
         };
     }, [invoiceData, calculatedSummary]);
     
+    useEffect(() => {
+        if (!existingData) {
+            const savedDataJSON = localStorage.getItem('autoSavedInvoiceData');
+            if (savedDataJSON) {
+                if (window.confirm('You have an unsaved draft. Would you like to restore it?')) {
+                    try {
+                        const savedData = JSON.parse(savedDataJSON);
+                        setInvoiceData(savedData);
+                    } catch (e) {
+                        console.error("Failed to parse auto-saved data:", e);
+                        localStorage.removeItem('autoSavedInvoiceData');
+                    }
+                } else {
+                    localStorage.removeItem('autoSavedInvoiceData');
+                }
+            }
+        }
+    }, [existingData]);
+
+    useEffect(() => {
+        const isPristine = invoiceData.guestName === '' &&
+                           invoiceData.bookings.length === 0 &&
+                           invoiceData.additionalChargeItems.length === 0 &&
+                           invoiceData.payments.length === 0 &&
+                           invoiceData.discount === 0;
+
+        if (isPristine) {
+            return;
+        }
+
+        if (autoSaveTimeoutRef.current) {
+            clearTimeout(autoSaveTimeoutRef.current);
+        }
+
+        autoSaveTimeoutRef.current = window.setTimeout(() => {
+            localStorage.setItem('autoSavedInvoiceData', JSON.stringify(invoiceData));
+        }, 2000);
+
+        return () => {
+            if (autoSaveTimeoutRef.current) {
+                clearTimeout(autoSaveTimeoutRef.current);
+            }
+        };
+    }, [invoiceData]);
+
     useEffect(() => {
         if(existingData) {
             setEmailToSend(existingData.guestEmail);
@@ -2158,10 +2190,18 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
             data: finalData
         };
 
+        localStorage.removeItem('autoSavedInvoiceData');
         onSave(record, oldRecordId);
         alert(`Successfully saved ${type}!`);
     };
     
+    const handleCancel = () => {
+        if (window.confirm('Are you sure? Unsaved changes in this form will be lost.')) {
+            localStorage.removeItem('autoSavedInvoiceData');
+            onCancel();
+        }
+    };
+
     const handleEmail = async () => {
         setEmailStatus(null);
         if (!emailToSend) {
@@ -2178,7 +2218,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
             <div className="flex justify-between items-center mb-6 pb-4 border-b">
                 <h2 className="text-2xl font-bold text-tide-dark">{isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT'}</h2>
                 <div>
-                    <button onClick={onCancel} className="py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Back to Dashboard</button>
+                    <button onClick={handleCancel} className="py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Back to Dashboard</button>
                 </div>
             </div>
 
