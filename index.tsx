@@ -324,7 +324,10 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     return currencyFormatter.format(amount);
   }
   const formatMoneyWithPrefix = (amount: number) => {
-    return currencyPrefix + currencyFormatter.format(amount);
+      if (amount < 0) {
+        return `${currencyPrefix}-${currencyFormatter.format(Math.abs(amount))}`;
+      }
+      return currencyPrefix + currencyFormatter.format(amount);
   }
 
 
@@ -490,13 +493,13 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   doc.setFont('helvetica', 'normal');
   doc.text('Discount:', summaryX_Label, summaryY, { align: 'right' });
   doc.setFont('helvetica', 'bold');
-  doc.text(`-${formatMoneyWithPrefix(data.discount)}`, summaryX_Value, summaryY, { align: 'right' });
+  doc.text(formatMoneyWithPrefix(-data.discount), summaryX_Value, summaryY, { align: 'right' });
   summaryY += lineHeight;
   
   doc.setFont('helvetica', 'normal');
   doc.text(`${data.holidaySpecialDiscountName}:`, summaryX_Label, summaryY, { align: 'right' });
   doc.setFont('helvetica', 'bold');
-  doc.text(`-${formatMoneyWithPrefix(data.holidaySpecialDiscount)}`, summaryX_Value, summaryY, { align: 'right' });
+  doc.text(formatMoneyWithPrefix(-data.holidaySpecialDiscount), summaryX_Value, summaryY, { align: 'right' });
   summaryY += lineHeight;
   
   doc.setFont('helvetica', 'normal');
@@ -524,8 +527,9 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   doc.line(summaryX_Label - 35, summaryY, summaryX_Value, summaryY);
   summaryY += 4;
   
+  const finalBalance = data.balance <= 0.009 ? 0 : data.balance;
   doc.text('BALANCE:', summaryX_Label, summaryY, { align: 'right' });
-  doc.text(formatMoneyWithPrefix(data.balance), summaryX_Value, summaryY, { align: 'right' });
+  doc.text(formatMoneyWithPrefix(finalBalance), summaryX_Value, summaryY, { align: 'right' });
 
 
   // Amount in words
@@ -658,6 +662,9 @@ const printInvoice = (data: InvoiceData) => {
   });
 
   const formatMoney = (amount: number) => {
+      if (amount < 0) {
+          return `${data.currency} -${currencyFormatter.format(Math.abs(amount))}`;
+      }
       return `${data.currency} ${currencyFormatter.format(amount)}`;
   }
 
@@ -774,6 +781,8 @@ const printInvoice = (data: InvoiceData) => {
      paymentMethodsText = data.payments.length > 0 ? [...new Set(data.payments.map(p=>p.paymentMethod))].join(', ') : 'Not Specified';
   }
 
+  const finalBalance = data.balance <= 0.009 ? 0 : data.balance;
+
   const printContent = `
     <!DOCTYPE html>
     <html lang="en">
@@ -883,12 +892,12 @@ const printInvoice = (data: InvoiceData) => {
             <div class="right-column">
               <table class="summary-table">
                 <tr><td>Subtotal:</td><td>${formatMoney(data.subtotal)}</td></tr>
-                <tr><td>Discount:</td><td>-${formatMoney(data.discount)}</td></tr>
-                <tr><td>${data.holidaySpecialDiscountName}:</td><td>-${formatMoney(data.holidaySpecialDiscount)}</td></tr>
+                <tr><td>Discount:</td><td>${formatMoney(-data.discount)}</td></tr>
+                <tr><td>${data.holidaySpecialDiscountName}:</td><td>${formatMoney(-data.holidaySpecialDiscount)}</td></tr>
                 <tr><td>Tax (7.5% included):</td><td>${formatMoney(data.taxAmount)}</td></tr>
                 <tr class="total-row"><td>TOTAL AMOUNT DUE:</td><td>${formatMoney(data.totalAmountDue)}</td></tr>
                 <tr><td>AMOUNT RECEIVED:</td><td>${formatMoney(amountReceived)}</td></tr>
-                <tr class="balance-row"><td>BALANCE:</td><td>${formatMoney(data.balance)}</td></tr>
+                <tr class="balance-row"><td>BALANCE:</td><td>${formatMoney(finalBalance)}</td></tr>
               </table>
             </div>
         </div>
@@ -2489,11 +2498,11 @@ const App: React.FC = () => {
     setTransactionHistory(history);
   }, []);
 
-  const handleLogin = useCallback((name: string, rememberMe: boolean) => {
+  const handleLogin = useCallback(async (name: string, rememberMe: boolean) => {
     setCurrentUser(name);
     const isAdminUser = ADMIN_USERS.includes(name);
     setIsAdmin(isAdminUser);
-    fetchHistory(name, isAdminUser);
+    await fetchHistory(name, isAdminUser);
     if (rememberMe) {
       localStorage.setItem('rememberedUser', name);
     }
@@ -2509,7 +2518,7 @@ const App: React.FC = () => {
     const { navigateOnSave = true } = options || {};
     await saveTransaction(record, oldRecordId);
     if(currentUser){
-        fetchHistory(currentUser, isAdmin);
+        await fetchHistory(currentUser, isAdmin);
     }
     if (navigateOnSave) {
         setView('dashboard');
@@ -2526,14 +2535,14 @@ const App: React.FC = () => {
   const handleWalkInTransactionGenerated = async (record: RecordedTransaction) => {
     await saveTransaction(record);
     if(currentUser){
-        fetchHistory(currentUser, isAdmin); // Re-fetch the entire history to ensure UI consistency
+        await fetchHistory(currentUser, isAdmin); // Re-fetch the entire history to ensure UI consistency
     }
   };
 
   const handleDeleteTransaction = async (recordId: string) => {
       await deleteTransaction(recordId);
       if(currentUser) {
-          fetchHistory(currentUser, isAdmin);
+          await fetchHistory(currentUser, isAdmin);
       }
   };
   
