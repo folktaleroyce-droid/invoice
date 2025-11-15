@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, ChangeEvent, useRef, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 
@@ -325,7 +326,7 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   }
   const formatMoneyWithPrefix = (amount: number) => {
       if (amount < 0) {
-        return `${currencyPrefix}-${currencyFormatter.format(Math.abs(amount))}`;
+        return `-${currencyPrefix}${currencyFormatter.format(Math.abs(amount))}`;
       }
       return currencyPrefix + currencyFormatter.format(amount);
   }
@@ -527,9 +528,8 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   doc.line(summaryX_Label - 35, summaryY, summaryX_Value, summaryY);
   summaryY += 4;
   
-  const finalBalance = data.balance <= 0.009 ? 0 : data.balance;
   doc.text('BALANCE:', summaryX_Label, summaryY, { align: 'right' });
-  doc.text(formatMoneyWithPrefix(finalBalance), summaryX_Value, summaryY, { align: 'right' });
+  doc.text(formatMoneyWithPrefix(data.balance), summaryX_Value, summaryY, { align: 'right' });
 
 
   // Amount in words
@@ -663,7 +663,7 @@ const printInvoice = (data: InvoiceData) => {
 
   const formatMoney = (amount: number) => {
       if (amount < 0) {
-          return `${data.currency} -${currencyFormatter.format(Math.abs(amount))}`;
+          return `-${data.currency} ${currencyFormatter.format(Math.abs(amount))}`;
       }
       return `${data.currency} ${currencyFormatter.format(amount)}`;
   }
@@ -781,8 +781,6 @@ const printInvoice = (data: InvoiceData) => {
      paymentMethodsText = data.payments.length > 0 ? [...new Set(data.payments.map(p=>p.paymentMethod))].join(', ') : 'Not Specified';
   }
 
-  const finalBalance = data.balance <= 0.009 ? 0 : data.balance;
-
   const printContent = `
     <!DOCTYPE html>
     <html lang="en">
@@ -897,7 +895,7 @@ const printInvoice = (data: InvoiceData) => {
                 <tr><td>Tax (7.5% included):</td><td>${formatMoney(data.taxAmount)}</td></tr>
                 <tr class="total-row"><td>TOTAL AMOUNT DUE:</td><td>${formatMoney(data.totalAmountDue)}</td></tr>
                 <tr><td>AMOUNT RECEIVED:</td><td>${formatMoney(amountReceived)}</td></tr>
-                <tr class="balance-row"><td>BALANCE:</td><td>${formatMoney(finalBalance)}</td></tr>
+                <tr class="balance-row"><td>BALANCE:</td><td>${formatMoney(data.balance)}</td></tr>
               </table>
             </div>
         </div>
