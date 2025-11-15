@@ -300,6 +300,19 @@ const calculateNights = (checkIn: string, checkOut: string): number => {
         return 0;
     }
 };
+
+const formatCurrencyWithCode = (amount: number, currency: 'NGN' | 'USD') => {
+  const formatter = new Intl.NumberFormat('en-NG', {
+    style: 'decimal',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  if (amount < 0) {
+    return `-${currency} ${formatter.format(Math.abs(amount))}`;
+  }
+  return `${currency} ${formatter.format(amount)}`;
+};
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // END: UTILITY FUNCTIONS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -314,21 +327,22 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   const isReservation = data.documentType === 'reservation';
   const amountReceived = data.amountReceived;
 
-  const currencyFormatter = new Intl.NumberFormat('en-NG', {
+  const decimalFormatter = new Intl.NumberFormat('en-NG', {
       style: 'decimal',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
   });
-  const currencyPrefix = `${data.currency} `;
   
   const formatMoney = (amount: number) => {
-    return currencyFormatter.format(amount);
+    return decimalFormatter.format(amount);
   }
+  
   const formatMoneyWithPrefix = (amount: number) => {
+      const formattedAbs = decimalFormatter.format(Math.abs(amount));
       if (amount < 0) {
-        return `-${currencyPrefix}${currencyFormatter.format(Math.abs(amount))}`;
+        return `-${data.currency} ${formattedAbs}`;
       }
-      return currencyPrefix + currencyFormatter.format(amount);
+      return `${data.currency} ${formattedAbs}`;
   }
 
 
@@ -529,7 +543,13 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   summaryY += 4;
   
   doc.text('BALANCE:', summaryX_Label, summaryY, { align: 'right' });
+  if (data.balance < 0) {
+      doc.setTextColor('#38A169'); // Green for credit
+  } else if (data.balance > 0) {
+      doc.setTextColor('#E53E3E'); // Red for due
+  }
   doc.text(formatMoneyWithPrefix(data.balance), summaryX_Value, summaryY, { align: 'right' });
+  doc.setTextColor('#2c3e50'); // Reset color
 
 
   // Amount in words
@@ -655,18 +675,22 @@ const printInvoice = (data: InvoiceData) => {
   const isReservation = data.documentType === 'reservation';
   const amountReceived = data.amountReceived;
 
-  const currencyFormatter = new Intl.NumberFormat('en-NG', {
+  const decimalFormatter = new Intl.NumberFormat('en-NG', {
     style: 'decimal',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
   const formatMoney = (amount: number) => {
+      const formattedAbs = decimalFormatter.format(Math.abs(amount));
       if (amount < 0) {
-          return `-${data.currency} ${currencyFormatter.format(Math.abs(amount))}`;
+          return `-${data.currency} ${formattedAbs}`;
       }
-      return `${data.currency} ${currencyFormatter.format(amount)}`;
+      return `${data.currency} ${formattedAbs}`;
   }
+  
+  const balanceColor = data.balance < 0 ? '#38A169' : (data.balance > 0 ? '#E53E3E' : '#2c3e50');
+
 
   const bookingRows = data.bookings.map((booking, index) => `
     <tr>
@@ -677,8 +701,8 @@ const printInvoice = (data: InvoiceData) => {
       <td>${formatDateForDisplay(booking.checkIn)}</td>
       <td>${formatDateForDisplay(booking.checkOut)}</td>
       <td class="text-center">${booking.nights}</td>
-      <td class="text-right">${currencyFormatter.format(booking.ratePerNight)}</td>
-      <td class="text-right">${currencyFormatter.format(booking.subtotal)}</td>
+      <td class="text-right">${decimalFormatter.format(booking.ratePerNight)}</td>
+      <td class="text-right">${decimalFormatter.format(booking.subtotal)}</td>
     </tr>
   `).join('');
 
@@ -697,7 +721,7 @@ const printInvoice = (data: InvoiceData) => {
           <tr>
             <td>${index + 1}</td>
             <td>${item.description}</td>
-            <td class="text-right">${currencyFormatter.format(item.amount)}</td>
+            <td class="text-right">${decimalFormatter.format(item.amount)}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -721,7 +745,7 @@ const printInvoice = (data: InvoiceData) => {
             <td>${item.date}</td>
             <td>${item.paymentMethod}</td>
             <td>${item.reference || 'N/A'}</td>
-            <td class="text-right">${currencyFormatter.format(item.amount)}</td>
+            <td class="text-right">${decimalFormatter.format(item.amount)}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -895,7 +919,10 @@ const printInvoice = (data: InvoiceData) => {
                 <tr><td>Tax (7.5% included):</td><td>${formatMoney(data.taxAmount)}</td></tr>
                 <tr class="total-row"><td>TOTAL AMOUNT DUE:</td><td>${formatMoney(data.totalAmountDue)}</td></tr>
                 <tr><td>AMOUNT RECEIVED:</td><td>${formatMoney(amountReceived)}</td></tr>
-                <tr class="balance-row"><td>BALANCE:</td><td>${formatMoney(data.balance)}</td></tr>
+                <tr class="balance-row">
+                  <td>BALANCE:</td>
+                  <td style="color: ${balanceColor};">${formatMoney(data.balance)}</td>
+                </tr>
               </table>
             </div>
         </div>
@@ -1709,12 +1736,12 @@ const WalkInGuestModal: React.FC<WalkInGuestModalProps> = ({ isOpen, onClose, on
 };
 
 
-// --- AdminDashboard Component ---
-interface AdminDashboardProps {
+// --- DashboardStats Component ---
+interface DashboardStatsProps {
   history: RecordedTransaction[];
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ history }) => {
+const DashboardStats: React.FC<DashboardStatsProps> = ({ history }) => {
     const stats = useMemo(() => {
         const getTodayLocalString = (): string => {
             const today = new Date();
@@ -1766,7 +1793,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ history }) => {
 
     return (
         <div className="bg-tide-dark text-white p-6 rounded-lg shadow-lg">
-            <h2 className="text-2xl font-bold text-tide-gold mb-4">Admin Dashboard</h2>
+            <h2 className="text-2xl font-bold text-tide-gold mb-4">Dashboard</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-gray-700 p-4 rounded-md">
                     <h3 className="text-sm font-medium text-gray-300">Transactions Today</h3>
@@ -1900,7 +1927,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ history, onView
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.date}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.guestName}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Intl.NumberFormat('en-US', { style: 'currency', currency: record.currency }).format(record.amount)}</td>
-                                <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${record.balance > 0 ? 'text-red-600' : 'text-gray-500'}`}>{new Intl.NumberFormat('en-US', { style: 'currency', currency: record.currency }).format(record.balance)}</td>
+                                <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${record.balance > 0 ? 'text-red-600' : (record.balance < 0 ? 'text-green-600' : 'text-gray-500')}`}>{new Intl.NumberFormat('en-US', { style: 'currency', currency: record.currency }).format(record.balance)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getStatusChip(record)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div className="flex items-center justify-end gap-2">
@@ -2428,7 +2455,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
                             { (calculatedSummary.status === InvoiceStatus.PARTIAL) && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Partially Paid</span> }
                             { (isReservation && calculatedSummary.status === InvoiceStatus.PENDING) && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending Payment</span> }
                          </div>
-                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Subtotal</span><span className="font-medium text-gray-900">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(calculatedSummary.subtotal)}</span></div>
+                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Subtotal</span><span className="font-medium text-gray-900">{formatCurrencyWithCode(calculatedSummary.subtotal, invoiceData.currency)}</span></div>
                         <div className="flex justify-between items-center text-sm">
                           <label htmlFor="discount" className="text-gray-600">Discount</label>
                           <div className="w-32"><input id="discount" type="number" name="discount" value={invoiceData.discount} onChange={handleInputChange} className={summaryInputClasses}/></div>
@@ -2437,13 +2464,13 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
                           <input type="text" name="holidaySpecialDiscountName" value={invoiceData.holidaySpecialDiscountName} onChange={handleInputChange} className={`flex-grow text-left ${summaryInputClasses.replace('text-right', '')}`}/>
                           <div className="w-32"><input type="number" name="holidaySpecialDiscount" value={invoiceData.holidaySpecialDiscount} onChange={handleInputChange} className={summaryInputClasses}/></div>
                         </div>
-                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Tax (7.5% incl.)</span><span className="font-medium text-gray-900">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(calculatedSummary.taxAmount)}</span></div>
+                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Tax (7.5% incl.)</span><span className="font-medium text-gray-900">{formatCurrencyWithCode(calculatedSummary.taxAmount, invoiceData.currency)}</span></div>
                         <div className="border-t border-gray-300 !my-2"></div>
-                        <div className="flex justify-between items-center font-bold text-lg"><span className="text-gray-800">TOTAL AMOUNT DUE</span><span className="text-gray-900">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(calculatedSummary.totalAmountDue)}</span></div>
-                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Amount Received</span><span className="font-medium text-green-700">{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(calculatedSummary.amountReceived)}</span></div>
+                        <div className="flex justify-between items-center font-bold text-lg"><span className="text-gray-800">TOTAL AMOUNT DUE</span><span className="text-gray-900">{formatCurrencyWithCode(calculatedSummary.totalAmountDue, invoiceData.currency)}</span></div>
+                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Amount Received</span><span className="font-medium text-green-700">{formatCurrencyWithCode(calculatedSummary.amountReceived, invoiceData.currency)}</span></div>
                         <div className="border-t border-gray-300 !my-2"></div>
                         <div className={`flex justify-between items-center font-bold text-xl ${calculatedSummary.balance > 0 ? 'text-red-600' : (calculatedSummary.balance < 0 ? 'text-green-600' : 'text-gray-900')}`}>
-                            <span>BALANCE</span><span>{new Intl.NumberFormat('en-US', { style: 'currency', currency: invoiceData.currency }).format(calculatedSummary.balance)}</span>
+                            <span>BALANCE</span><span>{formatCurrencyWithCode(calculatedSummary.balance, invoiceData.currency)}</span>
                         </div>
                     </div>
                      
@@ -2563,6 +2590,11 @@ const App: React.FC = () => {
       setEditingWalkInTransaction(null);
       setIsWalkInModalOpen(true);
   }
+  
+  const handleReturnToDashboard = () => {
+      setEditingTransaction(null);
+      setView('dashboard');
+  };
 
 
   if (isLoading) return <WelcomeScreen />;
@@ -2584,7 +2616,7 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            {isAdmin && <AdminDashboard history={transactionHistory} />}
+            <DashboardStats history={transactionHistory} />
             <TransactionHistory 
                 history={transactionHistory} 
                 onViewEdit={handleViewEdit} 
@@ -2596,7 +2628,7 @@ const App: React.FC = () => {
         ) : (
           <InvoiceForm 
             onSave={handleSaveTransaction} 
-            onCancel={() => setView('dashboard')} 
+            onCancel={handleReturnToDashboard} 
             currentUser={currentUser}
             designation={isAdmin ? 'Admin' : 'Staff'}
             existingData={editingTransaction}
