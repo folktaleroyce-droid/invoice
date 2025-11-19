@@ -542,13 +542,16 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   doc.line(summaryX_Label - 35, summaryY, summaryX_Value, summaryY);
   summaryY += 4;
   
-  doc.text('BALANCE:', summaryX_Label, summaryY, { align: 'right' });
+  const balanceLabel = data.balance > 0 ? 'BALANCE DUE:' : data.balance < 0 ? 'CREDIT:' : 'BALANCE:';
+  const balanceDisplayAmount = Math.abs(data.balance);
+
+  doc.text(balanceLabel, summaryX_Label, summaryY, { align: 'right' });
   if (data.balance < 0) {
       doc.setTextColor('#38A169'); // Green for credit
   } else if (data.balance > 0) {
       doc.setTextColor('#E53E3E'); // Red for due
   }
-  doc.text(formatMoneyWithPrefix(data.balance), summaryX_Value, summaryY, { align: 'right' });
+  doc.text(formatMoneyWithPrefix(balanceDisplayAmount), summaryX_Value, summaryY, { align: 'right' });
   doc.setTextColor('#2c3e50'); // Reset color
 
 
@@ -564,6 +567,17 @@ const createInvoiceDoc = (data: InvoiceData): any => {
 
 
   // Payment Status & Bank Details
+  const renderBankDetails = (startY: number) => {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold'); doc.text('MONIEPOINT MFB', 14, startY);
+      doc.setFont('helvetica', 'normal'); doc.text('Account Number: 6484490884', 14, startY + 4);
+      doc.text('Account Name: TIDE\' HOTELS AND RESORTS', 14, startY + 8);
+      
+      doc.setFont('helvetica', 'bold'); doc.text('PROVIDUS BANK', 105, startY, {align: 'center'});
+      doc.setFont('helvetica', 'normal'); doc.text('Account Number: 1306538190', 105, startY + 4, {align: 'center'});
+      doc.text('Account Name: TIDE\' HOTELS AND RESORTS', 105, startY + 8, {align: 'center'});
+  }
+
   if (isReservation) {
       let paymentY = currentY > 210 ? currentY + 5 : 215;
       doc.setFont('helvetica', 'bold');
@@ -574,34 +588,34 @@ const createInvoiceDoc = (data: InvoiceData): any => {
       doc.setTextColor(44, 62, 80); // Reset color
       doc.setFont('helvetica', 'normal');
       doc.text('Kindly complete your payment using the bank details below.', 14, paymentY + 5);
-      paymentY += 10;
-
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold'); doc.text('ZENITH BANK', 14, paymentY);
-      doc.setFont('helvetica', 'normal'); doc.text('Account Number: 1229000080', 14, paymentY + 4);
-      doc.text('Account Name: TIDE\' HOTELS AND RESORTS', 14, paymentY + 8);
       
-      doc.setFont('helvetica', 'bold'); doc.text('PROVIDUS BANK', 105, paymentY, {align: 'center'});
-      doc.setFont('helvetica', 'normal'); doc.text('Account Number: 1306538190', 105, paymentY + 4, {align: 'center'});
-      doc.text('Account Name: TIDE\' HOTELS AND RESORTS', 105, paymentY + 8, {align: 'center'});
-      
-      doc.setFont('helvetica', 'bold'); doc.text('SUNTRUST BANK', 14, paymentY + 14);
-      doc.setFont('helvetica', 'normal'); doc.text('Account Number: 0025840833', 14, paymentY + 18);
-      doc.text('Account Name: TIDE\' HOTELS AND RESORTS', 14, paymentY + 22);
+      renderBankDetails(paymentY + 10);
       
       doc.setFontSize(8);
       doc.setFont('helvetica', 'italic');
-      doc.text('Please make your payment using any of the accounts above and include your invoice reference number for confirmation.', 105, paymentY + 30, { align: 'center', maxWidth: 180 });
+      doc.text('Please make your payment using any of the accounts above and include your invoice reference number for confirmation.', 105, paymentY + 38, { align: 'center', maxWidth: 180 });
+
   } else if (data.status === InvoiceStatus.PAID) {
       let paymentY = currentY > 210 ? currentY + 5 : 215;
       doc.setFont('helvetica', 'bold');
       doc.setTextColor('#38A169'); // Green
       doc.text('✅ Payment Received – Thank you for your business.', 14, paymentY);
+
   } else if (data.status === InvoiceStatus.PARTIAL) {
       let paymentY = currentY > 210 ? currentY + 5 : 215;
       doc.setFont('helvetica', 'bold');
       doc.setTextColor('#E53E3E'); // Red
       doc.text('▲ Partial Payment Received.', 14, paymentY);
+
+      doc.setTextColor(44, 62, 80); // Reset color
+      doc.setFont('helvetica', 'normal');
+      doc.text('Kindly settle the outstanding balance using the bank details below.', 14, paymentY + 5);
+      
+      renderBankDetails(paymentY + 10);
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Please include your receipt reference number for confirmation.', 105, paymentY + 38, { align: 'center', maxWidth: 180 });
   }
 
   // Footer
@@ -690,6 +704,8 @@ const printInvoice = (data: InvoiceData) => {
   }
   
   const balanceColor = data.balance < 0 ? '#38A169' : (data.balance > 0 ? '#E53E3E' : '#2c3e50');
+  const balanceLabel = data.balance > 0 ? 'BALANCE DUE:' : data.balance < 0 ? 'CREDIT:' : 'BALANCE:';
+  const balanceDisplayAmount = Math.abs(data.balance);
 
 
   const bookingRows = data.bookings.map((booking, index) => `
@@ -752,36 +768,38 @@ const printInvoice = (data: InvoiceData) => {
     </table>
   ` : '';
   
+  const bankDetailsHTML = `
+    <div class="payment-details" style="margin-top: 10px;">
+        <p>Kindly complete your payment using the bank details below.</p>
+        <div class="bank-accounts">
+        <div class="bank-account-item">
+            <strong>MONIEPOINT MFB</strong><br>
+            Account Number: 6484490884<br>
+            Account Name: TIDE' HOTELS AND RESORTS
+        </div>
+        <div class="bank-account-item">
+            <strong>PROVIDUS BANK</strong><br>
+            Account Number: 1306538190<br>
+            Account Name: TIDE' HOTELS AND RESORTS
+        </div>
+        </div>
+        <p class="payment-note">Please make your payment using any of the accounts above and include your invoice/receipt reference number for confirmation.</p>
+    </div>
+    `;
+
   let statusHTML = '';
   if (isReservation) {
       statusHTML = `
-        <div class="payment-details">
-          <p class="status pending">▲ Payment Status: Pending</p>
-          <p>Kindly complete your payment using the bank details below.</p>
-          <div class="bank-accounts">
-            <div class="bank-account-item">
-              <strong>ZENITH BANK</strong><br>
-              Account Number: 1229000080<br>
-              Account Name: TIDE' HOTELS AND RESORTS
-            </div>
-            <div class="bank-account-item">
-              <strong>PROVIDUS BANK</strong><br>
-              Account Number: 1306538190<br>
-              Account Name: TIDE' HOTELS AND RESORTS
-            </div>
-            <div class="bank-account-item">
-              <strong>SUNTRUST BANK</strong><br>
-              Account Number: 0025840833<br>
-              Account Name: TIDE' HOTELS AND RESORTS
-            </div>
-          </div>
-          <p class="payment-note">Please make your payment using any of the accounts above and include your invoice reference number for confirmation.</p>
-        </div>
+        <p class="status pending">▲ Payment Status: Pending</p>
+        ${bankDetailsHTML}
       `;
   } else if (data.status === InvoiceStatus.PAID) {
       statusHTML = `<p class="status paid">✅ Payment Received – Thank you for your business.</p>`;
   } else if (data.status === InvoiceStatus.PARTIAL) {
-      statusHTML = `<p class="status partial">▲ Partial Payment Received.</p>`;
+      statusHTML = `
+        <p class="status partial">▲ Partial Payment Received.</p>
+        ${bankDetailsHTML.replace('Kindly complete your payment', 'Kindly settle the outstanding balance')}
+      `;
   }
 
   const verificationSection = data.verificationDetails && !isReservation ? `
@@ -920,8 +938,8 @@ const printInvoice = (data: InvoiceData) => {
                 <tr class="total-row"><td>TOTAL AMOUNT DUE:</td><td>${formatMoney(data.totalAmountDue)}</td></tr>
                 <tr><td>AMOUNT RECEIVED:</td><td>${formatMoney(amountReceived)}</td></tr>
                 <tr class="balance-row">
-                  <td>BALANCE:</td>
-                  <td style="color: ${balanceColor};">${formatMoney(data.balance)}</td>
+                  <td>${balanceLabel}</td>
+                  <td style="color: ${balanceColor};">${formatMoney(balanceDisplayAmount)}</td>
                 </tr>
               </table>
             </div>
@@ -1577,7 +1595,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
             <label htmlFor="password" className="sr-only">Password</label>
             <input type={showPassword ? 'text' : 'password'} id="password" value={password} onChange={(e) => { setPassword(e.target.value); if (error) setError(''); }} placeholder="Enter your password" className={`w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-2 sm:text-sm ${error ? 'border-red-500 ring-red-500' : 'border-gray-300 focus:ring-tide-gold focus:border-tide-gold'}`} />
              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-tide-dark" aria-label={showPassword ? 'Hide password' : 'Show password'}>
-              {showPassword ? ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L6.228 6.228" /></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.432 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> )}
+              {showPassword ? ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L6.228 6.228" /></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.432 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> )}
             </button>
           </div>
           <div className="flex items-center text-left">
@@ -2062,6 +2080,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
         };
     }, [invoiceData.bookings, invoiceData.additionalChargeItems, invoiceData.payments, invoiceData.discount, invoiceData.holidaySpecialDiscount, invoiceData.taxPercentage, invoiceData.currency, invoiceData.documentType]);
 
+    const { balance } = calculatedSummary;
+    const balanceLabel = balance > 0 ? 'BALANCE DUE' : balance < 0 ? 'CREDIT' : 'BALANCE';
+    const balanceDisplayAmount = Math.abs(balance);
+    const balanceColorClass = balance > 0 ? 'text-red-600' : balance < 0 ? 'text-green-600' : 'text-gray-900';
+
     const getFullInvoiceData = useCallback((): InvoiceData => {
         return {
             ...invoiceData,
@@ -2469,8 +2492,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, onCancel, currentUser
                         <div className="flex justify-between items-center font-bold text-lg"><span className="text-gray-800">TOTAL AMOUNT DUE</span><span className="text-gray-900">{formatCurrencyWithCode(calculatedSummary.totalAmountDue, invoiceData.currency)}</span></div>
                         <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Amount Received</span><span className="font-medium text-green-700">{formatCurrencyWithCode(calculatedSummary.amountReceived, invoiceData.currency)}</span></div>
                         <div className="border-t border-gray-300 !my-2"></div>
-                        <div className={`flex justify-between items-center font-bold text-xl ${calculatedSummary.balance > 0 ? 'text-red-600' : (calculatedSummary.balance < 0 ? 'text-green-600' : 'text-gray-900')}`}>
-                            <span>BALANCE</span><span>{formatCurrencyWithCode(calculatedSummary.balance, invoiceData.currency)}</span>
+                        <div className={`flex justify-between items-center font-bold text-xl ${balanceColorClass}`}>
+                            <span>{balanceLabel}</span><span>{formatCurrencyWithCode(balanceDisplayAmount, invoiceData.currency)}</span>
                         </div>
                     </div>
                      
