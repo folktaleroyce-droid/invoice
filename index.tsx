@@ -150,13 +150,13 @@ export interface RecordedTransaction {
 }
 
 const ROOM_RATES: Record<RoomType, number> = {
-  [RoomType.SOJOURN_ROOM]: 165000,
-  [RoomType.TRANQUIL_ROOM]: 185000,
-  [RoomType.HARMONY_STUDIO]: 250000,
-  [RoomType.SERENITY_STUDIO]: 280000,
-  [RoomType.NARRATIVE_SUITE]: 390000,
-  [RoomType.ODYSSEY_SUITE]: 550000,
-  [RoomType.TIDE_SIGNATURE_SUITE]: 850000,
+  [RoomType.SOJOURN_ROOM]: 94050,
+  [RoomType.TRANQUIL_ROOM]: 115140,
+  [RoomType.HARMONY_STUDIO]: 128250,
+  [RoomType.SERENITY_STUDIO]: 179550,
+  [RoomType.NARRATIVE_SUITE]: 222300,
+  [RoomType.ODYSSEY_SUITE]: 235125,
+  [RoomType.TIDE_SIGNATURE_SUITE]: 265050,
 };
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // END: types.ts
@@ -570,8 +570,8 @@ const createInvoiceDoc = (data: InvoiceData): any => {
   const renderBankDetails = (startY: number) => {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold'); doc.text('MONIEPOINT MFB', 14, startY);
-      doc.setFont('helvetica', 'normal'); doc.text('Account Number: 6484490884', 14, startY + 4);
-      doc.text('Account Name: TIDE\' HOTELS AND RESORTS', 14, startY + 8);
+      doc.setFont('helvetica', 'normal'); doc.text('Account Number: 5169200615', 14, startY + 4);
+      doc.text('Account Name: TIDE HOTELS & RESORTS', 14, startY + 8);
       
       doc.setFont('helvetica', 'bold'); doc.text('PROVIDUS BANK', 105, startY, {align: 'center'});
       doc.setFont('helvetica', 'normal'); doc.text('Account Number: 1306538190', 105, startY + 4, {align: 'center'});
@@ -774,8 +774,8 @@ const printInvoice = (data: InvoiceData) => {
         <div class="bank-accounts">
         <div class="bank-account-item">
             <strong>MONIEPOINT MFB</strong><br>
-            Account Number: 6484490884<br>
-            Account Name: TIDE' HOTELS AND RESORTS
+            Account Number: 5169200615<br>
+            Account Name: TIDE HOTELS & RESORTS
         </div>
         <div class="bank-account-item">
             <strong>PROVIDUS BANK</strong><br>
@@ -1141,15 +1141,15 @@ const generateInvoiceCSV = (data: InvoiceData) => {
         'Currency'
     ];
     
-    const bookingDetails = data.bookings.map(b => 
+    const bookingDetails = (data.bookings || []).map(b => 
         `{Room Type: ${b.roomType}; Qty: ${b.quantity}; Nights: ${b.nights}; Rate: ${b.ratePerNight}; CheckIn: ${b.checkIn}; CheckOut: ${b.checkOut}}`
     ).join(' | ');
 
-    const additionalChargesDetails = data.additionalChargeItems
+    const additionalChargesDetails = (data.additionalChargeItems || [])
       .map(item => `${item.description || 'N/A'}: ${item.amount}`)
       .join('; ');
       
-    const paymentDetails = data.payments
+    const paymentDetails = (data.payments || [])
       .map(p => `Amount: ${p.amount}; Method: ${p.paymentMethod}; Date: ${p.date}; Ref: ${p.reference || 'N/A'}`)
       .join(' | ');
 
@@ -1189,7 +1189,7 @@ const generateWalkInCSV = (data: WalkInTransaction) => {
         'Transaction Subtotal', 'Transaction Discount', 'Transaction Amount Paid', 'Transaction Balance'
     ];
     
-    const rows = data.charges.map(charge => {
+    const rows = (data.charges || []).map(charge => {
         const serviceName = charge.service;
         const serviceDescription = charge.service === WalkInService.OTHER ? charge.otherServiceDescription || '' : '';
 
@@ -1235,11 +1235,12 @@ const generateHistoryCSV = (history: RecordedTransaction[]) => {
     const rows = history.map(record => {
         if (record.type === 'Hotel Stay') {
             const data = record.data as InvoiceData;
-            const earliestCheckIn = data.bookings.length ? data.bookings.reduce((min, b) => b.checkIn < min ? b.checkIn : min, data.bookings[0].checkIn) : '';
-            const latestCheckOut = data.bookings.length ? data.bookings.reduce((max, b) => b.checkOut > max ? b.checkOut : max, data.bookings[0].checkOut) : '';
-            const totalRoomNights = data.bookings.reduce((sum, b) => sum + (b.nights * b.quantity), 0);
-            const roomTypes = [...new Set(data.bookings.map(b => b.roomType))].join(', ');
-            const paymentMethods = [...new Set(data.payments.map(p => p.paymentMethod))].join(', ');
+            const bookings = data.bookings || [];
+            const earliestCheckIn = bookings.length ? bookings.reduce((min, b) => b.checkIn < min ? b.checkIn : min, bookings[0].checkIn) : '';
+            const latestCheckOut = bookings.length ? bookings.reduce((max, b) => b.checkOut > max ? b.checkOut : max, bookings[0].checkOut) : '';
+            const totalRoomNights = bookings.reduce((sum, b) => sum + (b.nights * b.quantity), 0);
+            const roomTypes = [...new Set(bookings.map(b => b.roomType))].join(', ');
+            const paymentMethods = [...new Set((data.payments || []).map(p => p.paymentMethod))].join(', ');
             const status = data.documentType === 'reservation' ? 'Reservation' : data.status;
 
             return [
@@ -1254,7 +1255,8 @@ const generateHistoryCSV = (history: RecordedTransaction[]) => {
             ].map(escapeCsvCell);
         } else { // Walk-In
             const data = record.data as WalkInTransaction;
-            const services = data.charges.map(c => 
+            const charges = data.charges || [];
+            const services = charges.map(c => 
                 c.service === WalkInService.OTHER ? c.otherServiceDescription : c.service
             ).join('; ');
             const status = data.balance <= 0 ? 'Completed' : 'Partial';
