@@ -1400,14 +1400,21 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
   }, [data.bookings, data.additionalChargeItems, data.payments, data.discount, data.holidaySpecialDiscount, data.currency]);
 
   useEffect(() => {
-      if (!initialData) {
-          const timer = setTimeout(() => {
-              const fullData = { ...data, ...totals };
+      const timer = setTimeout(() => {
+          const fullData = { ...data, ...totals };
+          if (initialData) {
+              // Autosave to main transaction list if editing an existing invoice
+              // Only if it has valid compulsory fields to avoid corrupting list
+              if (fullData.guestName && fullData.receiptNo) {
+                  onSave(fullData, true);
+              }
+          } else {
+              // Save as draft if creating a new invoice
               localStorage.setItem(DRAFT_KEY, JSON.stringify(fullData));
-          }, 800); 
-          return () => clearTimeout(timer);
-      }
-  }, [data, totals, initialData]);
+          }
+      }, 2000); // 2 second debounce for autosave
+      return () => clearTimeout(timer);
+  }, [data, totals, initialData, onSave]);
 
   const getCurrentRates = () => data.currency === 'USD' ? ROOM_RATES_USD : ROOM_RATES_NGN;
 
@@ -1681,6 +1688,8 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
 };
 
 const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
+  const WALK_IN_DRAFT_KEY = 'tide_walkin_draft';
+
   const [guestName, setGuestName] = useState('Walk-In Guest');
   const [currency, setCurrency] = useState<'NGN'|'USD'>('NGN');
   const [discount, setDiscount] = useState(0);
@@ -1693,6 +1702,33 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
       amount: 0,
       paymentMethod: PaymentMethod.POS
   }]);
+
+  // Initialize state from draft if available
+  useEffect(() => {
+    const draft = localStorage.getItem(WALK_IN_DRAFT_KEY);
+    if (draft) {
+        try {
+            const parsed = JSON.parse(draft);
+            setGuestName(parsed.guestName || 'Walk-In Guest');
+            setCurrency(parsed.currency || 'NGN');
+            setDiscount(parsed.discount || 0);
+            setCharges(parsed.charges || []);
+            if (parsed.amountPaid !== undefined) {
+                setAmountPaid(parsed.amountPaid);
+                setUserEditedPayment(true);
+            }
+        } catch (e) { console.error("Failed to load walk-in draft", e); }
+    }
+  }, []);
+
+  // Autosave draft
+  useEffect(() => {
+    const stateToSave = { guestName, currency, discount, charges, amountPaid };
+    const timer = setTimeout(() => {
+        localStorage.setItem(WALK_IN_DRAFT_KEY, JSON.stringify(stateToSave));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [guestName, currency, discount, charges, amountPaid]);
 
   const subtotal = charges.reduce((sum, c) => sum + c.amount, 0);
   // 10% Service Charge
@@ -1731,15 +1767,27 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
           paymentMethod: PaymentMethod.POS
       };
       
+      // Clear draft before saving
+      localStorage.removeItem(WALK_IN_DRAFT_KEY);
+
       // Print first, then save and close
       printWalkInReceipt(transaction, guestName);
       onSave(transaction, guestName);
   };
 
+  const handleClose = () => {
+    // If the user cancels, do we keep the draft? Usually if they explicitly cancel, we might clear it, 
+    // but for safety we can leave it or clear it. Let's clear it to avoid confusion next time.
+    if (confirm("Are you sure you want to close? Any unsaved changes will be cleared.")) {
+        localStorage.removeItem(WALK_IN_DRAFT_KEY);
+        onClose();
+    }
+  };
+
   return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-lg w-[600px] max-h-[90vh] overflow-y-auto shadow-2xl relative animate-fade-in-up">
-              <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-red-600">
+              <button onClick={handleClose} className="absolute top-4 right-4 text-gray-500 hover:text-red-600">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -1853,7 +1901,7 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
                   </div>
                 </div>
                 <div className="flex gap-3 items-end">
-                    <button onClick={onClose} className="px-4 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 font-bold">Cancel</button>
+                    <button onClick={handleClose} className="px-4 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 font-bold">Cancel</button>
                     <button onClick={handleSave} className="px-6 py-2 bg-[#2c3e50] text-white rounded shadow hover:bg-[#34495e] font-bold">Process Payment & Print</button>
                 </div>
               </div>
