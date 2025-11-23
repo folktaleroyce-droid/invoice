@@ -1491,6 +1491,8 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
           const newBookings = prev.bookings.map(b => {
               if (b.id === id) {
                   const updated = { ...b, [field]: value };
+                  
+                  // If changing room type, default the rate, but user can change it later
                   if (field === 'roomType') updated.ratePerNight = rates[value as RoomType];
                   
                   // Auto-calculate nights when dates change
@@ -1509,6 +1511,7 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
                        }
                   }
                   
+                  // Recalculate subtotal whenever quantity, nights, or rate changes
                   updated.subtotal = updated.nights * updated.quantity * updated.ratePerNight;
                   return updated;
               }
@@ -1645,7 +1648,15 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
                           <td className="p-2"><input type="date" className="w-full border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={b.checkIn} onChange={e => updateBooking(b.id, 'checkIn', e.target.value)} /></td>
                           <td className="p-2"><input type="date" className="w-full border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={b.checkOut} onChange={e => updateBooking(b.id, 'checkOut', e.target.value)} /></td>
                           <td className="p-2"><input type="number" min="0" className="w-full border border-gray-400 rounded p-1 text-center bg-gray-50 text-gray-900 focus:border-[#c4a66a] outline-none" value={b.nights} onChange={e => updateBooking(b.id, 'nights', e.target.value)} /></td>
-                          <td className="p-2 text-right text-gray-900">{b.ratePerNight.toLocaleString()}</td>
+                          <td className="p-2">
+                             <input 
+                                type="number" 
+                                min="0"
+                                className="w-full border border-gray-400 rounded p-1 text-right bg-white text-gray-900 focus:border-[#c4a66a] outline-none" 
+                                value={b.ratePerNight} 
+                                onChange={e => updateBooking(b.id, 'ratePerNight', parseFloat(e.target.value) || 0)} 
+                             />
+                          </td>
                           <td className="p-2 text-right font-bold text-gray-900">{b.subtotal.toLocaleString()}</td>
                           <td className="p-2 text-center text-red-500 cursor-pointer" onClick={() => setData(prev => ({...prev, bookings: prev.bookings.filter(x => x.id !== b.id)}))}>×</td>
                       </tr>
