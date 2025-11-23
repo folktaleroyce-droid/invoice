@@ -552,18 +552,18 @@ const createInvoiceDoc = (data: InvoiceData): any => {
       y += lineHeight;
     }
 
-    // Service Charge (10%) - HIDDEN FROM RECEIPT
-    /*
+    // Service Charge (10%)
+    // Service Charge is NOT included in the rate, so it is added here.
     doc.setFont('helvetica', 'normal');
     doc.text('Service Charge (10%):', summaryX_Label, y, { align: 'right' });
     doc.setFont('helvetica', 'bold');
     doc.text(formatMoneyWithPrefix(data.serviceCharge), summaryX_Value, y, { align: 'right' });
     y += lineHeight;
-    */
     
     // Tax
+    // Tax of 7.5% is INCLUDED in the rack rate. Displayed for information only.
     doc.setFont('helvetica', 'normal');
-    doc.text('Tax (7.5%):', summaryX_Label, y, { align: 'right' });
+    doc.text('Tax (7.5% Inclusive):', summaryX_Label, y, { align: 'right' });
     doc.setFont('helvetica', 'bold');
     doc.text(formatMoneyWithPrefix(data.taxAmount), summaryX_Value, y, { align: 'right' });
     y += 2;
@@ -871,15 +871,14 @@ const printInvoice = (data: InvoiceData) => {
             <span>${data.holidaySpecialDiscountName}:</span>
             <span class="font-bold">${formatMoneyWithPrefix(-data.holidaySpecialDiscount)}</span>
           </div>
-           <!-- Service Charge (10%) - HIDDEN FROM RECEIPT -->
-           <!--
+           
            <div class="flex justify-between mb-1 text-sm">
             <span>Service Charge (10%):</span>
             <span class="font-bold">${formatMoneyWithPrefix(data.serviceCharge)}</span>
           </div>
-           -->
+           
            <div class="flex justify-between mb-2 text-sm border-b border-gray-300 pb-1">
-            <span>Tax (7.5%):</span>
+            <span>Tax (7.5% Inclusive):</span>
             <span class="font-bold">${formatMoneyWithPrefix(data.taxAmount)}</span>
           </div>
            <div class="flex justify-between mb-2 text-base">
@@ -945,7 +944,8 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
     </div>
   `).join('');
 
-  const totalDue = data.subtotal - data.discount + data.serviceCharge + data.tax;
+  // Tax is inclusive, so Total Due is Subtotal - Discount + Service Charge
+  const totalDue = data.subtotal - data.discount + data.serviceCharge;
 
   const html = `
     <!DOCTYPE html>
@@ -1018,16 +1018,13 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
       </div>
       ` : ''}
       
-      <!-- Service Charge Hidden -->
-      <!--
       <div class="row">
         <div class="col-left">Service Charge (10%)</div>
         <div class="col-right">${symbol}${formatMoney(data.serviceCharge)}</div>
       </div>
-      -->
 
       <div class="row">
-        <div class="col-left">Tax (7.5%)</div>
+        <div class="col-left">Tax (7.5% Inclusive)</div>
         <div class="col-right">${symbol}${formatMoney(data.tax)}</div>
       </div>
       
@@ -1425,13 +1422,18 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
       
       const taxableAmount = sub - data.discount - data.holidaySpecialDiscount;
       
-      // 10% Service Charge on the net amount
+      // 10% Service Charge on the net amount.
+      // Service Charge is NOT included in the rate, so it is added on top.
       const serviceCharge = Math.round(Math.max(0, taxableAmount * 0.10));
       
-      // 7.5% Tax on the net amount + service charge (as is standard in many jurisdictions)
-      const tax = Math.max(0, (taxableAmount + serviceCharge) * 0.075); 
+      // Tax of 7.5% is INCLUDED in the rack rate.
+      // So we calculate it backwards for display, but DO NOT add it to the total (because it's already in taxableAmount).
+      // Rate = Base + Tax.  Base = Rate / 1.075. Tax = Rate - Base.
+      const tax = Math.max(0, taxableAmount - (taxableAmount / 1.075)); 
       
-      const total = Math.max(0, taxableAmount + serviceCharge + tax);
+      // Total Amount = Subtotal (inclusive of tax) + Service Charge (not included).
+      const total = Math.max(0, taxableAmount + serviceCharge);
+      
       let received = 0;
       data.payments.forEach(p => received += p.amount);
       
@@ -1709,7 +1711,7 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
                   <span className="text-gray-600 text-sm">{formatCurrencyWithCode(totals.serviceCharge, data.currency)}</span>
               </div>
               <div className="flex justify-between mb-3 border-b border-gray-300 pb-2">
-                  <span className="text-gray-600 text-sm">Tax (7.5%)</span>
+                  <span className="text-gray-600 text-sm">Tax (7.5% Inclusive)</span>
                   <span className="text-gray-600 text-sm">{formatCurrencyWithCode(totals.taxAmount, data.currency)}</span>
               </div>
 
@@ -1797,10 +1799,13 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
   const subtotal = charges.reduce((sum, c) => sum + c.amount, 0);
   // 10% Service Charge
   const serviceCharge = Math.round(Math.max(0, (subtotal - discount) * 0.10));
-  // 7.5% Tax
-  const tax = Math.max(0, (subtotal - discount + serviceCharge) * 0.075);
   
-  const finalTotal = Math.max(0, (subtotal - discount) + serviceCharge + tax);
+  // Tax of 7.5% is INCLUDED in rate. Calculate backward for display.
+  // Rate = Base + Tax. Base = Rate/1.075. Tax = Rate - Base.
+  const tax = Math.max(0, (subtotal - discount) - ((subtotal - discount) / 1.075));
+  
+  // Final Total = Subtotal (inclusive of tax) + Service Charge.
+  const finalTotal = Math.max(0, (subtotal - discount) + serviceCharge);
 
   useEffect(() => {
       if (!userEditedPayment) {
@@ -1939,7 +1944,7 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
                     <span>{currency === 'NGN' ? '₦' : '$'} {serviceCharge.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
                   <div className="flex justify-between text-sm mb-1 text-gray-600 border-b border-gray-200 pb-1">
-                    <span>Tax (7.5%):</span>
+                    <span>Tax (7.5% Inclusive):</span>
                     <span>{currency === 'NGN' ? '₦' : '$'} {tax.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
 
@@ -1999,33 +2004,66 @@ const App = () => {
       localStorage.setItem('tide_transactions', JSON.stringify(newTransactions));
   };
 
-  const handleLogin = (u: any) => { setUser(u); setView('dashboard'); };
-
-  const handleSaveInvoice = (invoiceData: InvoiceData, stayOnPage: boolean = false) => {
-      const isNew = !transactions.find(t => t.id === invoiceData.receiptNo);
-      const record: RecordedTransaction = {
-          id: invoiceData.receiptNo,
-          type: 'Hotel Stay',
-          date: invoiceData.date,
-          guestName: invoiceData.guestName,
-          amount: invoiceData.totalAmountDue,
-          balance: invoiceData.balance,
-          currency: invoiceData.currency,
-          data: invoiceData
-      };
-      let newTransactions;
-      if (isNew) { newTransactions = [record, ...transactions]; } else { newTransactions = transactions.map(t => t.id === record.id ? record : t); }
-      saveTransactions(newTransactions);
-      if (!stayOnPage) setView('dashboard');
+  const handleLogin = (u: any) => {
+      setUser(u);
   };
 
-  const handleSaveWalkIn = (data: WalkInTransaction, guestName: string) => {
+  const handleLogout = () => {
+      setUser(null);
+      setView('dashboard');
+  };
+
+  const handleDeleteTransaction = (id: string) => {
+      const updated = transactions.filter(t => t.id !== id);
+      saveTransactions(updated);
+  };
+
+  const handleEditTransaction = (t: RecordedTransaction) => {
+      if (t.type === 'Hotel Stay') {
+          setCurrentInvoice(t.data as InvoiceData);
+          setView('invoice-form');
+      } else {
+          alert("Editing Walk-In transactions is not supported in this view. Please delete and recreate if necessary.");
+      }
+  };
+
+  const handleSaveInvoice = (data: InvoiceData, isAutoSave: boolean) => {
+      // Find if exists
+      const existingIdx = transactions.findIndex(t => t.id === data.id);
+      
       const record: RecordedTransaction = {
-          id: `W-IN-${Date.now()}`,
+          id: data.id,
+          type: 'Hotel Stay',
+          date: data.date,
+          guestName: data.guestName,
+          amount: data.totalAmountDue,
+          balance: data.balance,
+          currency: data.currency,
+          data: data
+      };
+
+      let newTransactions = [...transactions];
+      if (existingIdx >= 0) {
+          newTransactions[existingIdx] = record;
+      } else {
+          newTransactions = [record, ...newTransactions];
+      }
+      
+      saveTransactions(newTransactions);
+      
+      if (!isAutoSave) {
+          setView('dashboard');
+          setCurrentInvoice(null);
+      }
+  };
+
+  const handleWalkInSave = (data: WalkInTransaction, guestName: string) => {
+       const record: RecordedTransaction = {
+          id: data.id,
           type: 'Walk-In',
           date: data.transactionDate.split('T')[0],
           guestName: guestName,
-          amount: data.subtotal, // Record full amount as invoice amount
+          amount: data.subtotal - data.discount + data.serviceCharge, // Total Amount Due
           balance: data.balance,
           currency: data.currency,
           data: data
@@ -2034,72 +2072,47 @@ const App = () => {
       setShowWalkInModal(false);
   };
 
-  const handleEditTransaction = (t: RecordedTransaction) => {
-      if (t.type === 'Hotel Stay') { setCurrentInvoice(t.data as InvoiceData); setView('invoice-form'); } 
-      else { alert('Editing Walk-In transactions is not supported in this simplified version.'); }
-  };
-  
-  const handleDeleteTransaction = (id: string) => {
-      const newTrans = transactions.filter(t => t.id !== id);
-      saveTransactions(newTrans);
+  if (showWelcome) {
+      return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
   }
 
-  if (showWelcome) return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
-
-  if (!user) { return <LoginScreen onLogin={handleLogin} />; }
+  if (!user) {
+      return <LoginScreen onLogin={handleLogin} />;
+  }
 
   return (
-    <ErrorBoundary>
-      {view === 'dashboard' && (
-        <Dashboard 
-          user={user} 
-          onLogout={() => setUser(null)}
-          onCreateInvoice={() => { setCurrentInvoice(null); setView('invoice-form'); }}
-          transactions={transactions}
-          onDeleteTransaction={handleDeleteTransaction}
-          onEditTransaction={handleEditTransaction}
-          onCreateWalkIn={() => setShowWalkInModal(true)}
-        />
-      )}
-      
-      {view === 'invoice-form' && (
-        <div className="min-h-screen bg-gray-100 p-4">
-            <InvoiceForm 
-                initialData={currentInvoice} 
-                onSave={handleSaveInvoice} 
-                onCancel={() => setView('dashboard')} 
-                user={user}
-            />
-        </div>
-      )}
-
-      {showWalkInModal && (
-          <WalkInGuestModal 
-            onClose={() => setShowWalkInModal(false)}
-            onSave={handleSaveWalkIn}
-            user={user}
-          />
-      )}
-    </ErrorBoundary>
+      <ErrorBoundary>
+          {view === 'dashboard' && (
+              <>
+                <Dashboard 
+                    user={user} 
+                    onLogout={handleLogout} 
+                    onCreateInvoice={() => { setCurrentInvoice(null); setView('invoice-form'); }}
+                    transactions={transactions}
+                    onDeleteTransaction={handleDeleteTransaction}
+                    onEditTransaction={handleEditTransaction}
+                    onCreateWalkIn={() => setShowWalkInModal(true)}
+                />
+                {showWalkInModal && (
+                    <WalkInGuestModal 
+                        onClose={() => setShowWalkInModal(false)}
+                        onSave={handleWalkInSave}
+                        user={user}
+                    />
+                )}
+              </>
+          )}
+          {view === 'invoice-form' && (
+              <InvoiceForm 
+                  initialData={currentInvoice} 
+                  onSave={handleSaveInvoice}
+                  onCancel={() => { setView('dashboard'); setCurrentInvoice(null); }}
+                  user={user}
+              />
+          )}
+      </ErrorBoundary>
   );
 };
 
-const mount = () => {
-  const rootElement = document.getElementById('root');
-  if (!rootElement) {
-    console.error("Root element not found");
-    return;
-  }
-  try {
-    const root = createRoot(rootElement);
-    root.render(
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>
-    );
-  } catch (e) {
-    console.error("Failed to mount React app", e);
-  }
-};
-
-mount();
+const root = createRoot(document.getElementById('root')!);
+root.render(<App />);
