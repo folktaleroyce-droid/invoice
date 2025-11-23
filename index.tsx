@@ -552,10 +552,9 @@ const createInvoiceDoc = (data: InvoiceData): any => {
       y += lineHeight;
     }
 
-    // Service Charge (10%)
-    // Service Charge is NOT included in the rate, so it is added here.
+    // Service Charge (Set to 0)
     doc.setFont('helvetica', 'normal');
-    doc.text('Service Charge (10%):', summaryX_Label, y, { align: 'right' });
+    doc.text('Service Charge:', summaryX_Label, y, { align: 'right' });
     doc.setFont('helvetica', 'bold');
     doc.text(formatMoneyWithPrefix(data.serviceCharge), summaryX_Value, y, { align: 'right' });
     y += lineHeight;
@@ -873,7 +872,7 @@ const printInvoice = (data: InvoiceData) => {
           </div>
            
            <div class="flex justify-between mb-1 text-sm">
-            <span>Service Charge (10%):</span>
+            <span>Service Charge:</span>
             <span class="font-bold">${formatMoneyWithPrefix(data.serviceCharge)}</span>
           </div>
            
@@ -1019,7 +1018,7 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
       ` : ''}
       
       <div class="row">
-        <div class="col-left">Service Charge (10%)</div>
+        <div class="col-left">Service Charge</div>
         <div class="col-right">${symbol}${formatMoney(data.serviceCharge)}</div>
       </div>
 
@@ -1422,9 +1421,9 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
       
       const taxableAmount = sub - data.discount - data.holidaySpecialDiscount;
       
-      // 10% Service Charge on the net amount.
-      // Service Charge is NOT included in the rate, so it is added on top.
-      const serviceCharge = Math.round(Math.max(0, taxableAmount * 0.10));
+      // Service Charge Set to Zero for now
+      // const serviceCharge = Math.round(Math.max(0, taxableAmount * 0.10));
+      const serviceCharge = 0;
       
       // Tax of 7.5% is INCLUDED in the rack rate.
       // So we calculate it backwards for display, but DO NOT add it to the total (because it's already in taxableAmount).
@@ -1718,7 +1717,7 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
               <div className="flex justify-between mb-3 items-center"><input type="text" className="w-32 border border-gray-400 rounded p-1 text-xs bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.holidaySpecialDiscountName} onChange={e => setData({...data, holidaySpecialDiscountName: e.target.value})} /><input type="number" className="w-24 border border-gray-400 rounded p-1 text-right text-sm bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.holidaySpecialDiscount} onChange={e => setData({...data, holidaySpecialDiscount: parseFloat(e.target.value) || 0})} /></div>
               
               <div className="flex justify-between mb-3 border-t border-gray-300 pt-2">
-                  <span className="text-gray-600 text-sm">Service Charge (10%)</span>
+                  <span className="text-gray-600 text-sm">Service Charge</span>
                   <span className="text-gray-600 text-sm">{formatCurrencyWithCode(totals.serviceCharge, data.currency)}</span>
               </div>
               <div className="flex justify-between mb-3 border-b border-gray-300 pb-2">
@@ -1808,8 +1807,10 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
   }, [guestName, currency, discount, charges, amountPaid]);
 
   const subtotal = charges.reduce((sum, c) => sum + c.amount, 0);
-  // 10% Service Charge
-  const serviceCharge = Math.round(Math.max(0, (subtotal - discount) * 0.10));
+  
+  // Service Charge Set to Zero
+  // const serviceCharge = Math.round(Math.max(0, (subtotal - discount) * 0.10));
+  const serviceCharge = 0;
   
   // Tax of 7.5% is INCLUDED in rate. Calculate backward for display.
   // Rate = Base + Tax. Base = Rate/1.075. Tax = Rate - Base.
@@ -1951,7 +1952,7 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
                   </div>
                   
                   <div className="flex justify-between text-sm mb-1 text-gray-600">
-                    <span>Service Charge (10%):</span>
+                    <span>Service Charge:</span>
                     <span>{currency === 'NGN' ? '₦' : '$'} {serviceCharge.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
                   <div className="flex justify-between text-sm mb-1 text-gray-600 border-b border-gray-200 pb-1">
