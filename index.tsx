@@ -664,8 +664,29 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         doc.setFont('helvetica', 'bold');
         doc.setTextColor('#38A169'); 
         doc.text('Payment Received – Thank you for your business.', margin, y);
+        y += 10;
     }
     
+    // Signatures
+    checkPageBreak(35);
+    y += 10; 
+    
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(0, 0, 0); // Black lines
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor('#000000');
+
+    // Guest Signature
+    doc.line(margin, y, margin + 60, y); 
+    doc.text("Guest Signature", margin, y + 5);
+
+    // Cashier Signature
+    // Page width 210. Margin 14. Right margin 196. 
+    // Line end 196. Length 60. Start 136.
+    doc.line(136, y, 196, y); 
+    doc.text("Cashier/Receptionist Signature", 136, y + 5);
+
     // Footer
     // Always printed at the absolute bottom of the *current* page
     doc.setFontSize(8);
@@ -881,6 +902,17 @@ const printInvoice = (data: InvoiceData) => {
         </div>
       ` : ''}
       
+      <div class="flex justify-between mt-12 mb-8 text-sm">
+        <div class="text-center">
+            <div class="border-b border-gray-400 w-48 mb-2"></div>
+            <p class="font-bold text-gray-700">Guest Signature</p>
+        </div>
+        <div class="text-center">
+            <div class="border-b border-gray-400 w-48 mb-2"></div>
+            <p class="font-bold text-gray-700">Cashier/Receptionist Signature</p>
+        </div>
+      </div>
+      
       <div class="text-center text-xs text-gray-500 mt-12">
         <p>Thank you for choosing Tidè Hotels and Resorts.</p>
       </div>
@@ -1016,6 +1048,16 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
       </div>
 
       <div class="dashed"></div>
+
+      <div style="margin-top: 30px;">
+        <div style="border-bottom: 1px solid #000; width: 100%; margin-bottom: 5px;"></div>
+        <div class="text-center bold">Guest Signature</div>
+      </div>
+      
+      <div style="margin-top: 30px;">
+        <div style="border-bottom: 1px solid #000; width: 100%; margin-bottom: 5px;"></div>
+        <div class="text-center bold">Cashier Signature</div>
+      </div>
       
       <div class="text-center footer">
         Thank you for visiting.<br>
@@ -1378,7 +1420,7 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
       const taxableAmount = sub - data.discount - data.holidaySpecialDiscount;
       
       // 10% Service Charge on the net amount
-      const serviceCharge = Math.max(0, taxableAmount * 0.10);
+      const serviceCharge = Math.round(Math.max(0, taxableAmount * 0.10));
       
       // 7.5% Tax on the net amount + service charge (as is standard in many jurisdictions)
       const tax = Math.max(0, (taxableAmount + serviceCharge) * 0.075); 
@@ -1732,7 +1774,7 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
 
   const subtotal = charges.reduce((sum, c) => sum + c.amount, 0);
   // 10% Service Charge
-  const serviceCharge = Math.max(0, (subtotal - discount) * 0.10);
+  const serviceCharge = Math.round(Math.max(0, (subtotal - discount) * 0.10));
   // 7.5% Tax
   const tax = Math.max(0, (subtotal - discount + serviceCharge) * 0.075);
   
