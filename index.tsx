@@ -310,7 +310,13 @@ const calculateNights = (checkIn: string, checkOut: string): number => {
     try {
         const startDate = new Date(checkIn);
         const endDate = new Date(checkOut);
+        
+        // Ensure we are comparing dates without time interference
+        startDate.setHours(12, 0, 0, 0);
+        endDate.setHours(12, 0, 0, 0);
+
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || endDate <= startDate) return 0;
+        
         const diffTime = endDate.getTime() - startDate.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays > 0 ? diffDays : 0;
@@ -1484,7 +1490,23 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
               if (b.id === id) {
                   const updated = { ...b, [field]: value };
                   if (field === 'roomType') updated.ratePerNight = rates[value as RoomType];
-                  if (field === 'checkIn' || field === 'checkOut') updated.nights = calculateNights(updated.checkIn, updated.checkOut);
+                  
+                  // Auto-calculate nights when dates change
+                  if (field === 'checkIn' || field === 'checkOut') {
+                      updated.nights = calculateNights(updated.checkIn, updated.checkOut);
+                  }
+                  
+                  // Auto-calculate CheckOut when nights change
+                  if (field === 'nights') {
+                       const n = parseInt(value) || 0;
+                       updated.nights = n;
+                       if (updated.checkIn) {
+                           const d = new Date(updated.checkIn);
+                           d.setDate(d.getDate() + n);
+                           updated.checkOut = d.toISOString().split('T')[0];
+                       }
+                  }
+                  
                   updated.subtotal = updated.nights * updated.quantity * updated.ratePerNight;
                   return updated;
               }
@@ -1620,7 +1642,7 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
                           <td className="p-2"><input type="number" min="1" className="w-full border border-gray-400 rounded p-1 text-center bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={b.quantity} onChange={e => updateBooking(b.id, 'quantity', parseInt(e.target.value))} /></td>
                           <td className="p-2"><input type="date" className="w-full border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={b.checkIn} onChange={e => updateBooking(b.id, 'checkIn', e.target.value)} /></td>
                           <td className="p-2"><input type="date" className="w-full border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={b.checkOut} onChange={e => updateBooking(b.id, 'checkOut', e.target.value)} /></td>
-                          <td className="p-2 text-center bg-gray-100 text-gray-900 font-medium">{b.nights}</td>
+                          <td className="p-2"><input type="number" min="0" className="w-full border border-gray-400 rounded p-1 text-center bg-gray-50 text-gray-900 focus:border-[#c4a66a] outline-none" value={b.nights} onChange={e => updateBooking(b.id, 'nights', e.target.value)} /></td>
                           <td className="p-2 text-right text-gray-900">{b.ratePerNight.toLocaleString()}</td>
                           <td className="p-2 text-right font-bold text-gray-900">{b.subtotal.toLocaleString()}</td>
                           <td className="p-2 text-center text-red-500 cursor-pointer" onClick={() => setData(prev => ({...prev, bookings: prev.bookings.filter(x => x.id !== b.id)}))}>×</td>
