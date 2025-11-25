@@ -552,12 +552,12 @@ const createInvoiceDoc = (data: InvoiceData): any => {
       y += lineHeight;
     }
 
-    // Service Charge (Set to 0)
-    doc.setFont('helvetica', 'normal');
-    doc.text('Service Charge:', summaryX_Label, y, { align: 'right' });
-    doc.setFont('helvetica', 'bold');
-    doc.text(formatMoneyWithPrefix(data.serviceCharge), summaryX_Value, y, { align: 'right' });
-    y += lineHeight;
+    // Service Charge (HIDDEN ON PRINT as requested, but included in total)
+    // doc.setFont('helvetica', 'normal');
+    // doc.text('Service Charge:', summaryX_Label, y, { align: 'right' });
+    // doc.setFont('helvetica', 'bold');
+    // doc.text(formatMoneyWithPrefix(data.serviceCharge), summaryX_Value, y, { align: 'right' });
+    // y += lineHeight;
     
     // Tax
     // Tax of 7.5% is INCLUDED in the rack rate. Displayed for information only.
@@ -871,10 +871,7 @@ const printInvoice = (data: InvoiceData) => {
             <span class="font-bold">${formatMoneyWithPrefix(-data.holidaySpecialDiscount)}</span>
           </div>
            
-           <div class="flex justify-between mb-1 text-sm">
-            <span>Service Charge:</span>
-            <span class="font-bold">${formatMoneyWithPrefix(data.serviceCharge)}</span>
-          </div>
+           <!-- Service Charge Hidden on Print -->
            
            <div class="flex justify-between mb-2 text-sm border-b border-gray-300 pb-1">
             <span>Tax (7.5% Inclusive):</span>
@@ -1017,10 +1014,7 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
       </div>
       ` : ''}
       
-      <div class="row">
-        <div class="col-left">Service Charge</div>
-        <div class="col-right">${symbol}${formatMoney(data.serviceCharge)}</div>
-      </div>
+      <!-- Service Charge HIDDEN on Print -->
 
       <div class="row">
         <div class="col-left">Tax (7.5% Inclusive)</div>
@@ -1414,6 +1408,21 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
       };
   });
 
+  // Auto-calculate 5% Service Charge when subtotal items change
+  useEffect(() => {
+      let sub = 0;
+      data.bookings.forEach(b => sub += b.subtotal);
+      data.additionalChargeItems.forEach(c => sub += c.amount);
+      const taxable = Math.max(0, sub - data.discount - data.holidaySpecialDiscount);
+      const autoServiceCharge = Math.round(taxable * 0.05);
+
+      setData(prev => {
+          // Prevent infinite loop: only update if value is different
+          if (prev.serviceCharge === autoServiceCharge) return prev;
+          return { ...prev, serviceCharge: autoServiceCharge };
+      });
+  }, [data.bookings, data.additionalChargeItems, data.discount, data.holidaySpecialDiscount]);
+
   const totals = useMemo(() => {
       let sub = 0;
       data.bookings.forEach(b => sub += b.subtotal);
@@ -1421,13 +1430,11 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
       
       const taxableAmount = sub - data.discount - data.holidaySpecialDiscount;
       
-      // Service Charge Set to Zero for now
-      // const serviceCharge = Math.round(Math.max(0, taxableAmount * 0.10));
-      const serviceCharge = 0;
+      // Use the serviceCharge from state (which is auto-calculated or manually edited)
+      const serviceCharge = data.serviceCharge || 0;
       
       // Tax of 7.5% is INCLUDED in the rack rate.
       // So we calculate it backwards for display, but DO NOT add it to the total (because it's already in taxableAmount).
-      // Rate = Base + Tax.  Base = Rate / 1.075. Tax = Rate - Base.
       const tax = Math.max(0, taxableAmount - (taxableAmount / 1.075)); 
       
       // Total Amount = Subtotal (inclusive of tax) + Service Charge (not included).
@@ -1446,7 +1453,7 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
           status: received >= total ? InvoiceStatus.PAID : (received > 0 ? InvoiceStatus.PARTIAL : InvoiceStatus.PENDING),
           amountInWords: convertAmountToWords(received, data.currency)
       };
-  }, [data.bookings, data.additionalChargeItems, data.payments, data.discount, data.holidaySpecialDiscount, data.currency]);
+  }, [data.bookings, data.additionalChargeItems, data.payments, data.discount, data.holidaySpecialDiscount, data.currency, data.serviceCharge]);
 
   useEffect(() => {
       const timer = setTimeout(() => {
@@ -1716,9 +1723,14 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
               <div className="flex justify-between mb-3 items-center"><span>Discount</span><input type="number" className="w-24 border border-gray-400 rounded p-1 text-right text-sm bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.discount} onChange={e => setData({...data, discount: parseFloat(e.target.value) || 0})} /></div>
               <div className="flex justify-between mb-3 items-center"><input type="text" className="w-32 border border-gray-400 rounded p-1 text-xs bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.holidaySpecialDiscountName} onChange={e => setData({...data, holidaySpecialDiscountName: e.target.value})} /><input type="number" className="w-24 border border-gray-400 rounded p-1 text-right text-sm bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.holidaySpecialDiscount} onChange={e => setData({...data, holidaySpecialDiscount: parseFloat(e.target.value) || 0})} /></div>
               
-              <div className="flex justify-between mb-3 border-t border-gray-300 pt-2">
-                  <span className="text-gray-600 text-sm">Service Charge</span>
-                  <span className="text-gray-600 text-sm">{formatCurrencyWithCode(totals.serviceCharge, data.currency)}</span>
+              <div className="flex justify-between mb-3 border-t border-gray-300 pt-2 items-center">
+                  <span className="text-gray-600 text-sm">Service Charge (5%)</span>
+                  <input 
+                      type="number" 
+                      className="w-24 border border-gray-400 rounded p-1 text-right text-sm bg-white text-gray-900 focus:border-[#c4a66a] outline-none" 
+                      value={data.serviceCharge} 
+                      onChange={e => setData({...data, serviceCharge: parseFloat(e.target.value) || 0})} 
+                  />
               </div>
               <div className="flex justify-between mb-3 border-b border-gray-300 pb-2">
                   <span className="text-gray-600 text-sm">Tax (7.5% Inclusive)</span>
@@ -1771,6 +1783,7 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
   const [discount, setDiscount] = useState(0);
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [userEditedPayment, setUserEditedPayment] = useState(false);
+  const [serviceCharge, setServiceCharge] = useState(0);
   const [charges, setCharges] = useState<WalkInChargeItem[]>([{
       id: uuid(),
       date: new Date().toISOString().split('T')[0],
@@ -1789,6 +1802,7 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
             setCurrency(parsed.currency || 'NGN');
             setDiscount(parsed.discount || 0);
             setCharges(parsed.charges || []);
+            setServiceCharge(parsed.serviceCharge || 0);
             if (parsed.amountPaid !== undefined) {
                 setAmountPaid(parsed.amountPaid);
                 setUserEditedPayment(true);
@@ -1799,18 +1813,21 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
 
   // Autosave draft
   useEffect(() => {
-    const stateToSave = { guestName, currency, discount, charges, amountPaid };
+    const stateToSave = { guestName, currency, discount, charges, amountPaid, serviceCharge };
     const timer = setTimeout(() => {
         localStorage.setItem(WALK_IN_DRAFT_KEY, JSON.stringify(stateToSave));
     }, 1000);
     return () => clearTimeout(timer);
-  }, [guestName, currency, discount, charges, amountPaid]);
+  }, [guestName, currency, discount, charges, amountPaid, serviceCharge]);
 
   const subtotal = charges.reduce((sum, c) => sum + c.amount, 0);
   
-  // Service Charge Set to Zero
-  // const serviceCharge = Math.round(Math.max(0, (subtotal - discount) * 0.10));
-  const serviceCharge = 0;
+  // Auto-calc 5% Service Charge
+  useEffect(() => {
+      const taxable = Math.max(0, subtotal - discount);
+      const autoSC = Math.round(taxable * 0.05);
+      setServiceCharge(autoSC);
+  }, [subtotal, discount]);
   
   // Tax of 7.5% is INCLUDED in rate. Calculate backward for display.
   // Rate = Base + Tax. Base = Rate/1.075. Tax = Rate - Base.
@@ -1952,8 +1969,13 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
                   </div>
                   
                   <div className="flex justify-between text-sm mb-1 text-gray-600">
-                    <span>Service Charge:</span>
-                    <span>{currency === 'NGN' ? '₦' : '$'} {serviceCharge.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span>Service Charge (5%):</span>
+                     <input 
+                      type="number" 
+                      className="w-20 border border-gray-300 rounded p-1 text-right text-sm outline-none focus:border-[#c4a66a]" 
+                      value={serviceCharge} 
+                      onChange={e => setServiceCharge(parseFloat(e.target.value) || 0)}
+                    />
                   </div>
                   <div className="flex justify-between text-sm mb-1 text-gray-600 border-b border-gray-200 pb-1">
                     <span>Tax (7.5% Inclusive):</span>
