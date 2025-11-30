@@ -129,7 +129,7 @@ export interface InvoiceData {
   discount: number;
   holidaySpecialDiscountName: string;
   holidaySpecialDiscount: number;
-  serviceCharge: number; // Added Service Charge
+  serviceCharge: number; 
   taxPercentage: number;
   taxAmount: number;
   totalAmountDue: number;
@@ -147,8 +147,7 @@ export interface InvoiceData {
 export enum WalkInService {
   RESTAURANT = 'Restaurant',
   BAR = 'Bar',
-  GYM = 'Gym',
-  SWIMMING_POOL = 'Swimming Pool',
+  LAUNDRY = 'Laundry',
   OTHER = 'Other',
 }
 
@@ -168,8 +167,8 @@ export interface WalkInTransaction {
   currency: 'NGN' | 'USD';
   subtotal: number;
   discount: number;
-  serviceCharge: number; // Added Service Charge
-  tax: number; // Added Tax
+  serviceCharge: number;
+  tax: number; 
   amountPaid: number;
   balance: number;
   cashier: string;
@@ -212,7 +211,6 @@ const ROOM_RATES_USD: Record<RoomType, number> = {
 // UTILITY FUNCTIONS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-// Standard UUID generator polyfill
 const uuid = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -290,7 +288,6 @@ const formatDateForDisplay = (dateString: string): string => {
   try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return dateString;
-      // Simply format the date string to show DD MMM
       const parts = dateString.split('-');
       if (parts.length !== 3) return dateString;
       const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
@@ -310,8 +307,6 @@ const calculateNights = (checkIn: string, checkOut: string): number => {
     try {
         const startDate = new Date(checkIn);
         const endDate = new Date(checkOut);
-        
-        // Ensure we are comparing dates without time interference
         startDate.setHours(12, 0, 0, 0);
         endDate.setHours(12, 0, 0, 0);
 
@@ -334,20 +329,14 @@ const formatCurrencyWithCode = (amount: number, currency: 'NGN' | 'USD') => {
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 const createInvoiceDoc = (data: InvoiceData): any => {
   try {
-    // Access jsPDF from global window object
     const jsPDF = (window as any).jsPDF;
-    
     if (!jsPDF) {
-      console.error("jsPDF library not loaded");
       alert("PDF Library not loaded. Please refresh the page and try again.");
       return null;
     }
     
     const doc = new jsPDF();
-
-    // Check if autoTable is available
     if (typeof doc.autoTable !== 'function') {
-      console.error("jsPDF AutoTable plugin not loaded correctly.");
       alert("PDF Plugin error. Please refresh the page.");
       return null;
     }
@@ -363,32 +352,33 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         return amount < 0 ? `-${symbol} ${formattedAbs}` : `${symbol} ${formattedAbs}`;
     }
 
-    // Header
+    // Header (Compact)
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor('#c4a66a');
-    doc.text('TIDE HOTELS AND RESORTS', 105, 20, { align: 'center' });
+    doc.text('TIDE HOTELS AND RESORTS', 105, 15, { align: 'center' }); // Reduced Y
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor('#2c3e50');
-    doc.text('Where Boldness Meets Elegance.', 105, 27, { align: 'center' });
+    doc.text('Where Boldness Meets Elegance.', 105, 22, { align: 'center' }); // Reduced Y
     doc.setFontSize(9);
-    doc.text('38 S.O Williams Street Off Anthony Enahoro Street Utako Abuja', 105, 32, { align: 'center' });
+    doc.text('38 S.O Williams Street Off Anthony Enahoro Street Utako Abuja', 105, 27, { align: 'center' }); // Reduced Y
     doc.setLineWidth(0.5);
-    doc.line(80, 35, 130, 35);
+    doc.line(80, 30, 130, 30); // Reduced Y
 
     // Document Title
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(isReservation ? '#E53E3E' : '#2c3e50');
+    doc.text(isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT', 105, 40, { align: 'center' }); // Reduced Y
     doc.setTextColor('#2c3e50');
-    doc.text(isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT', 105, 45, { align: 'center' });
 
     // Document Info
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`${isReservation ? 'Invoice No:' : 'Receipt No:'} ${data.receiptNo}`, 14, 55);
-    doc.text(`Date: ${formatDateForDisplay(data.date)}`, 196, 55, { align: 'right' });
-    let finalY = 55;
+    doc.text(`${isReservation ? 'Invoice No:' : 'Receipt No:'} ${data.receiptNo}`, 14, 50); // Reduced Y
+    doc.text(`Date: ${formatDateForDisplay(data.date)}`, 196, 50, { align: 'right' });
+    let finalY = 50;
 
     // Verification Info
     if (data.verificationDetails && !isReservation) {
@@ -398,7 +388,7 @@ const createInvoiceDoc = (data: InvoiceData): any => {
             ['Date Verified:', data.verificationDetails.dateVerified],
         ];
         doc.autoTable({
-            startY: finalY + 5,
+            startY: finalY + 4,
             body: verificationInfo,
             theme: 'plain',
             styles: { font: 'helvetica', fontSize: 10, cellPadding: 1, fillColor: '#f0fff4' },
@@ -416,7 +406,7 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         ['Room Number(s):', data.roomNumber],
     ];
     doc.autoTable({
-        startY: finalY + (data.verificationDetails && !isReservation ? 2 : 5),
+        startY: finalY + (data.verificationDetails && !isReservation ? 2 : 4),
         body: guestInfo,
         theme: 'plain',
         styles: { font: 'helvetica', fontSize: 10, cellPadding: 1.5 },
@@ -428,7 +418,7 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     // Booking Table
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('Bookings', 14, finalY + 10);
+    doc.text('Bookings', 14, finalY + 8); // Reduced gap
 
     const bookingTableColumn = ["S/N", "Room Type", "Qty", "Duration", "Check-In", "Check-Out", "Nights", `Rate/Night`, `Subtotal (${symbol})`];
     const bookingTableRows = data.bookings.map((booking, index) => [
@@ -444,12 +434,12 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     ]);
     
     doc.autoTable({
-      startY: finalY + 14,
+      startY: finalY + 11,
       head: [bookingTableColumn],
       body: bookingTableRows,
       theme: 'grid',
       headStyles: { fillColor: '#2c3e50', fontSize: 8 },
-      styles: { font: 'helvetica', fontSize: 8, cellPadding: 2 },
+      styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.5 }, // Reduced padding
       columnStyles: { 2: { halign: 'center' }, 6: { halign: 'center' }, 7: { halign: 'right' }, 8: { halign: 'right' } }
     });
     finalY = doc.lastAutoTable.finalY;
@@ -463,19 +453,19 @@ const createInvoiceDoc = (data: InvoiceData): any => {
 
     // Additional Charges Table
     if (data.additionalChargeItems.length > 0) {
-        finalY += 5;
+        finalY += 4;
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text('Additional Charges', 14, finalY + 10);
+        doc.text('Additional Charges', 14, finalY + 8);
         const chargesColumn = ["S/N", "Description", `Amount (${symbol})`];
         const chargesRows = data.additionalChargeItems.map((item, index) => [index+1, item.description, formatMoney(item.amount)]);
         doc.autoTable({
-          startY: finalY + 14,
+          startY: finalY + 11,
           head: [chargesColumn],
           body: chargesRows,
           theme: 'grid',
           headStyles: { fillColor: '#2c3e50' },
-          styles: { font: 'helvetica', fontSize: 9 },
+          styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.5 },
           columnStyles: { 2: { halign: 'right' } }
         });
         finalY = doc.lastAutoTable.finalY;
@@ -483,42 +473,36 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     
     // Payments Table
     if (data.payments.length > 0) {
-        finalY += 5;
+        finalY += 4;
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text('Payments Received', 14, finalY + 10);
+        doc.text('Payments Received', 14, finalY + 8);
         const paymentsColumn = ["Date", "Method", "Reference", `Amount (${symbol})`];
         const paymentsRows = data.payments.map(item => [item.date, item.paymentMethod, item.reference || 'N/A', formatMoney(item.amount)]);
         doc.autoTable({
-          startY: finalY + 14,
+          startY: finalY + 11,
           head: [paymentsColumn],
           body: paymentsRows,
           theme: 'grid',
           headStyles: { fillColor: '#16a34a' },
-          styles: { font: 'helvetica', fontSize: 9 },
+          styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.5 },
           columnStyles: { 3: { halign: 'right' } }
         });
         finalY = doc.lastAutoTable.finalY;
     }
 
-    // =========================================================
-    // REFACTORED LAYOUT SYSTEM (FLOW-BASED)
-    // =========================================================
-    
     const pageHeight = doc.internal.pageSize.height;
     const margin = 14;
-    let y = finalY + 10; // Start cursor below the last table
+    let y = finalY + 8; // Reduced gap
 
-    // Helper to check and trigger page break if content won't fit
     const checkPageBreak = (heightNeeded: number) => {
-        if (y + heightNeeded > pageHeight - 20) { // 20mm bottom margin
+        if (y + heightNeeded > pageHeight - 15) {
             doc.addPage();
-            y = 20; // Reset cursor to top of new page
+            y = 20;
         }
     };
 
-    // 1. SUMMARY SECTION (Subtotal, Discount, Tax, Total, etc.)
-    // Calculate approximate height needed: 7-8 lines * 6mm = ~50mm
+    // 1. SUMMARY SECTION
     checkPageBreak(65);
 
     const summaryX_Label = 155;
@@ -528,13 +512,11 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
 
-    // Subtotal
     doc.text('Subtotal:', summaryX_Label, y, { align: 'right' });
     doc.setFont('helvetica', 'bold');
     doc.text(formatMoneyWithPrefix(data.subtotal), summaryX_Value, y, { align: 'right' });
     y += lineHeight;
 
-    // Discount
     if (data.discount > 0) {
       doc.setFont('helvetica', 'normal');
       doc.text('Discount:', summaryX_Label, y, { align: 'right' });
@@ -543,7 +525,6 @@ const createInvoiceDoc = (data: InvoiceData): any => {
       y += lineHeight;
     }
     
-    // Holiday/Special
     if (data.holidaySpecialDiscount > 0) {
       doc.setFont('helvetica', 'normal');
       doc.text(`${data.holidaySpecialDiscountName}:`, summaryX_Label, y, { align: 'right' });
@@ -552,111 +533,98 @@ const createInvoiceDoc = (data: InvoiceData): any => {
       y += lineHeight;
     }
 
-    // Service Charge (HIDDEN ON PRINT as requested, but included in total)
-    // doc.setFont('helvetica', 'normal');
-    // doc.text('Service Charge:', summaryX_Label, y, { align: 'right' });
-    // doc.setFont('helvetica', 'bold');
-    // doc.text(formatMoneyWithPrefix(data.serviceCharge), summaryX_Value, y, { align: 'right' });
-    // y += lineHeight;
-    
-    // Tax
-    // Tax of 7.5% is INCLUDED in the rack rate. Displayed for information only.
     doc.setFont('helvetica', 'normal');
     doc.text('Tax (7.5% Inclusive):', summaryX_Label, y, { align: 'right' });
     doc.setFont('helvetica', 'bold');
     doc.text(formatMoneyWithPrefix(data.taxAmount), summaryX_Value, y, { align: 'right' });
     y += 2;
     
-    // Separator
     doc.setLineWidth(0.3);
     doc.line(summaryX_Label - 35, y, summaryX_Value, y);
     y += 5;
 
-    // Total Amount Due
     doc.setFont('helvetica', 'bold');
     doc.text('TOTAL AMOUNT DUE:', summaryX_Label, y, { align: 'right' });
     doc.text(formatMoneyWithPrefix(data.totalAmountDue), summaryX_Value, y, { align: 'right' });
     y += lineHeight;
 
-    // Amount Received
     doc.text('AMOUNT RECEIVED:', summaryX_Label, y, { align: 'right' });
     doc.text(formatMoneyWithPrefix(amountReceived), summaryX_Value, y, { align: 'right' });
     y += 2;
 
-    // Separator
     doc.setLineWidth(0.3);
     doc.line(summaryX_Label - 35, y, summaryX_Value, y);
     y += 5;
     
-    // Balance
     const balanceLabel = data.balance > 0 ? 'BALANCE DUE:' : data.balance < 0 ? 'CREDIT:' : 'BALANCE:';
     doc.text(balanceLabel, summaryX_Label, y, { align: 'right' });
     if (data.balance < 0) doc.setTextColor('#38A169'); 
     else if (data.balance > 0) doc.setTextColor('#E53E3E'); 
     doc.text(formatMoneyWithPrefix(Math.abs(data.balance)), summaryX_Value, y, { align: 'right' });
-    doc.setTextColor('#2c3e50'); // Reset color
+    doc.setTextColor('#2c3e50');
     
-    y += 10; // Space after summary before next section
+    y += 8;
 
     // 2. AMOUNT IN WORDS SECTION
-    // Ensure it flows naturally and doesn't overlap summary
-    checkPageBreak(20); // Needs about 20mm
+    checkPageBreak(20);
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     const amountReceivedText = amountReceived > 0 ? data.amountInWords : 'Zero Naira only';
     const wordsLabel = `Amount in Words (for Amount Received): ${amountReceivedText}`;
-    // Wrap text to fit within margins (approx 180mm width)
     const splitAmountWords = doc.splitTextToSize(wordsLabel, 180); 
     doc.text(splitAmountWords, margin, y);
-    y += (splitAmountWords.length * 6) + 8; // Add height based on lines + padding
+    y += (splitAmountWords.length * 6) + 6;
 
     // 3. PAYMENT STATUS & BANK DETAILS BLOCK
-    // This entire block should stay together on one page if possible.
-    // Needs approx 60-70mm
-    
     if (data.status !== InvoiceStatus.PAID) {
-        checkPageBreak(70);
+        checkPageBreak(60);
 
-        // Status Message
         if (data.status === InvoiceStatus.PARTIAL) {
              doc.setFont('helvetica', 'bold');
              doc.setTextColor('#E53E3E'); 
              doc.text('Partial Payment Received.', margin, y);
-             y += 6;
+             y += 5;
              doc.setTextColor(44, 62, 80); 
              doc.setFont('helvetica', 'normal');
              doc.text('Kindly settle the outstanding balance using the bank details below.', margin, y);
-             y += 8;
+             y += 6;
         } else {
-            // Default / Reservation Pending
             doc.setFont('helvetica', 'bold');
             doc.setTextColor('#f59e0b'); 
             doc.text(`Payment Status: Pending`, margin, y);
-            y += 6;
+            y += 5;
             doc.setTextColor(44, 62, 80); 
             doc.setFont('helvetica', 'normal');
             doc.text('Kindly complete your payment using the bank details below.', margin, y);
-            y += 8;
+            y += 6;
         }
 
-        // Bank Details Grid
-        const bankStartY = y;
-        const lh = 5;
+        // Use autoTable for bank details to avoid overlap
+        doc.autoTable({
+            startY: y,
+            body: [
+                ['MONIEPOINT MFB', 'PROVIDUS BANK'],
+                ['Account Number: 5169200615', 'Account Number: 1306538190'],
+                ['Account Name: TIDE HOTELS & RESORTS', "Account Name: TIDE' HOTELS AND RESORTS"]
+            ],
+            theme: 'plain',
+            styles: { font: 'helvetica', fontSize: 9, cellPadding: 1, textColor: '#2c3e50' },
+            columnStyles: {
+                0: { halign: 'left', fontStyle: 'bold' },
+                1: { halign: 'right', fontStyle: 'bold' }
+            },
+            // Overwrite specific rows to be normal font if needed, but bold looks good for visibility
+            didParseCell: function(data: any) {
+                if (data.row.index > 0) {
+                     data.cell.styles.fontStyle = 'normal';
+                }
+            },
+            margin: { left: 14, right: 14 }
+        });
         
-        // Moniepoint (Left)
-        doc.setFont('helvetica', 'bold'); doc.text('MONIEPOINT MFB', margin, bankStartY);
-        doc.setFont('helvetica', 'normal'); doc.text('Account Number: 5169200615', margin, bankStartY + lh);
-        doc.text('Account Name: TIDE HOTELS & RESORTS', margin, bankStartY + (lh * 2));
-        
-        // Providus (Right/Center) - Align at x=105 center
-        doc.setFont('helvetica', 'bold'); doc.text('PROVIDUS BANK', 105, bankStartY, {align: 'center'});
-        doc.setFont('helvetica', 'normal'); doc.text('Account Number: 1306538190', 105, bankStartY + lh, {align: 'center'});
-        doc.text("Account Name: TIDE' HOTELS AND RESORTS", 105, bankStartY + (lh * 2), {align: 'center'});
+        y = (doc as any).lastAutoTable.finalY + 5;
 
-        y += (lh * 3) + 8;
-
-        // Disclaimer Note
         doc.setFontSize(8);
         doc.setFont('helvetica', 'italic');
         const noteText = 'Please make your payment using any of the accounts above and include your invoice reference number for confirmation.';
@@ -664,36 +632,33 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         doc.text(splitNote, 105, y, { align: 'center', maxWidth: 180 });
         
     } else {
-        // Fully Paid
-        checkPageBreak(20);
+        checkPageBreak(25);
+        y += 5;
         doc.setFont('helvetica', 'bold');
         doc.setTextColor('#38A169'); 
-        doc.text('Payment Received – Thank you for your business.', margin, y);
+        doc.setFontSize(12);
+        doc.text('FULL PAYMENT RECEIVED. THANK YOU FOR YOUR PATRONAGE.', 105, y, { align: 'center' });
         y += 10;
+        doc.setTextColor('#2c3e50');
     }
     
     // Signatures
-    checkPageBreak(35);
+    checkPageBreak(30);
     y += 10; 
     
     doc.setLineWidth(0.5);
-    doc.setDrawColor(0, 0, 0); // Black lines
+    doc.setDrawColor(0, 0, 0); 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor('#000000');
 
-    // Guest Signature
     doc.line(margin, y, margin + 60, y); 
     doc.text("Guest Signature", margin, y + 5);
 
-    // Cashier Signature
-    // Page width 210. Margin 14. Right margin 196. 
-    // Line end 196. Length 60. Start 136.
     doc.line(136, y, 196, y); 
     doc.text("Cashier/Receptionist Signature", 136, y + 5);
 
-    // Footer
-    // Always printed at the absolute bottom of the *current* page
+    // Footer note moved to bottom of page regardless of flow
     doc.setFontSize(8);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor('#7f8c8d');
@@ -701,7 +666,6 @@ const createInvoiceDoc = (data: InvoiceData): any => {
 
     return doc;
   } catch (e) {
-    console.error("Error creating PDF", e);
     alert("An error occurred while generating the PDF. Please check console for details.");
     return null;
   }
@@ -755,7 +719,7 @@ const printInvoice = (data: InvoiceData) => {
         <p>Account Number: 5169200615</p>
         <p>Account Name: TIDE HOTELS & RESORTS</p>
       </div>
-      <div class="text-center">
+      <div class="text-right">
         <p class="font-bold text-gray-800">PROVIDUS BANK</p>
         <p>Account Number: 1306538190</p>
         <p>Account Name: TIDE' HOTELS AND RESORTS</p>
@@ -771,7 +735,7 @@ const printInvoice = (data: InvoiceData) => {
       <script src="https://cdn.tailwindcss.com"></script>
       <style> @media print { body { -webkit-print-color-adjust: exact; } } </style>
     </head>
-    <body class="p-8 bg-white max-w-4xl mx-auto">
+    <body class="p-8 bg-white max-w-4xl mx-auto text-gray-900">
       <div class="text-center mb-6">
         <h1 class="text-3xl font-bold text-[#c4a66a]">TIDÈ HOTELS AND RESORTS</h1>
         <p class="text-[#2c3e50] text-sm">Where Boldness Meets Elegance.</p>
@@ -780,7 +744,7 @@ const printInvoice = (data: InvoiceData) => {
       </div>
       
       <div class="mb-6">
-        <h2 class="text-xl font-bold text-center text-[#2c3e50] mb-4">${isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT'}</h2>
+        <h2 class="text-xl font-bold text-center ${isReservation ? 'text-red-700' : 'text-[#2c3e50]'} mb-4">${isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT'}</h2>
         <div class="flex justify-between text-sm">
           <div>
             <p><span class="font-bold">${isReservation ? 'Invoice No:' : 'Receipt No:'}</span> ${data.receiptNo}</p>
@@ -871,8 +835,6 @@ const printInvoice = (data: InvoiceData) => {
             <span class="font-bold">${formatMoneyWithPrefix(-data.holidaySpecialDiscount)}</span>
           </div>
            
-           <!-- Service Charge Hidden on Print -->
-           
            <div class="flex justify-between mb-2 text-sm border-b border-gray-300 pb-1">
             <span>Tax (7.5% Inclusive):</span>
             <span class="font-bold">${formatMoneyWithPrefix(data.taxAmount)}</span>
@@ -901,7 +863,11 @@ const printInvoice = (data: InvoiceData) => {
           <h3 class="font-bold text-[#2c3e50] mb-2">Bank Details for Payment</h3>
           ${bankDetailsHtml}
         </div>
-      ` : ''}
+      ` : `
+        <div class="mb-8 text-center p-4 rounded border border-green-200 bg-green-50">
+            <h3 class="font-bold text-green-700 text-lg">FULL PAYMENT RECEIVED. THANK YOU FOR YOUR PATRONAGE.</h3>
+        </div>
+      `}
       
       <div class="flex justify-between mt-12 mb-8 text-sm">
         <div class="text-center">
@@ -940,7 +906,6 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
     </div>
   `).join('');
 
-  // Tax is inclusive, so Total Due is Subtotal - Discount + Service Charge
   const totalDue = data.subtotal - data.discount + data.serviceCharge;
 
   const html = `
@@ -958,13 +923,14 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
             background: #fff;
             color: #000;
             padding: 10px;
+            box-sizing: border-box;
         }
         .text-center { text-align: center; }
         .bold { font-weight: bold; }
-        .dashed { border-bottom: 1px dashed #000; margin: 10px 0; }
-        .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-        .col-left { text-align: left; max-width: 70%; }
-        .col-right { text-align: right; flex: 1; }
+        .dashed { border-bottom: 1px dashed #000; margin: 10px 0; display: block; width: 100%; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 4px; width: 100%; }
+        .col-left { text-align: left; max-width: 70%; word-break: break-all; }
+        .col-right { text-align: right; flex: 1; white-space: nowrap; margin-left: 5px; }
         .title { font-size: 14px; margin-bottom: 5px; }
         .footer { font-size: 10px; margin-top: 20px; }
       </style>
@@ -1014,7 +980,10 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
       </div>
       ` : ''}
       
-      <!-- Service Charge HIDDEN on Print -->
+      <div class="row">
+        <div class="col-left">Service Charge</div>
+        <div class="col-right">${symbol}${formatMoney(data.serviceCharge)}</div>
+      </div>
 
       <div class="row">
         <div class="col-left">Tax (7.5% Inclusive)</div>
@@ -1296,8 +1265,8 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
                 <button onClick={handleExportCSV} className="bg-[#c4a66a] text-white border border-[#c4a66a] px-4 py-2 rounded text-sm hover:bg-[#b39556] font-bold shadow-sm">Export CSV</button>
             </div>
             <div className="flex gap-4 mb-4">
-                <input type="text" placeholder="Search by ID, Name, Email, Phone..." className="flex-1 border rounded p-2 text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                <select className="border rounded p-2 text-sm min-w-[150px]" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+                <input type="text" placeholder="Search by ID, Name, Email, Phone..." className="flex-1 border rounded p-2 text-sm bg-white text-gray-900" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <select className="border rounded p-2 text-sm min-w-[150px] bg-white text-gray-900" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
                     <option value="All Types">All Types</option>
                     <option value="Hotel Stay">Hotel Stay</option>
                     <option value="Walk-In">Walk-In</option>
@@ -1318,12 +1287,12 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
                                 if (t.type === 'Hotel Stay') {
                                     const d = t.data as InvoiceData;
                                     statusText = d.status;
-                                    if (d.status === InvoiceStatus.PAID) statusColor = 'bg-green-100 text-green-800';
-                                    else if (d.status === InvoiceStatus.PARTIAL) statusColor = 'bg-yellow-100 text-yellow-800';
-                                    else statusColor = 'bg-red-100 text-red-800';
+                                    if (d.status === InvoiceStatus.PAID) statusColor = 'bg-green-100 text-green-800 border border-green-200';
+                                    else if (d.status === InvoiceStatus.PARTIAL) statusColor = 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+                                    else statusColor = 'bg-red-50 text-red-700 border border-red-200 font-bold';
                                 } else {
                                     statusText = 'Paid';
-                                    if (t.balance > 0) { statusText = 'Partial/Pending'; statusColor = 'bg-red-100 text-red-800'; }
+                                    if (t.balance > 0) { statusText = 'Partial/Pending'; statusColor = 'bg-red-50 text-red-700 border border-red-200 font-bold'; }
                                     else { statusColor = 'bg-green-100 text-green-800'; }
                                 }
                                 return (
@@ -1362,6 +1331,7 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
 
 const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
   const DRAFT_KEY = 'tide_invoice_draft';
+  const [isAutoServiceCharge, setIsAutoServiceCharge] = useState(true);
 
   const [data, setData] = useState<InvoiceData>(() => {
       if (initialData) return initialData;
@@ -1408,8 +1378,10 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
       };
   });
 
-  // Auto-calculate 5% Service Charge when subtotal items change
   useEffect(() => {
+      if (!isAutoServiceCharge && initialData) return; 
+      if (!isAutoServiceCharge) return;
+
       let sub = 0;
       data.bookings.forEach(b => sub += b.subtotal);
       data.additionalChargeItems.forEach(c => sub += c.amount);
@@ -1417,11 +1389,10 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
       const autoServiceCharge = Math.round(taxable * 0.05);
 
       setData(prev => {
-          // Prevent infinite loop: only update if value is different
           if (prev.serviceCharge === autoServiceCharge) return prev;
           return { ...prev, serviceCharge: autoServiceCharge };
       });
-  }, [data.bookings, data.additionalChargeItems, data.discount, data.holidaySpecialDiscount]);
+  }, [data.bookings, data.additionalChargeItems, data.discount, data.holidaySpecialDiscount, isAutoServiceCharge, initialData]);
 
   const totals = useMemo(() => {
       let sub = 0;
@@ -1430,14 +1401,8 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
       
       const taxableAmount = sub - data.discount - data.holidaySpecialDiscount;
       
-      // Use the serviceCharge from state (which is auto-calculated or manually edited)
       const serviceCharge = data.serviceCharge || 0;
-      
-      // Tax of 7.5% is INCLUDED in the rack rate.
-      // So we calculate it backwards for display, but DO NOT add it to the total (because it's already in taxableAmount).
       const tax = Math.max(0, taxableAmount - (taxableAmount / 1.075)); 
-      
-      // Total Amount = Subtotal (inclusive of tax) + Service Charge (not included).
       const total = Math.max(0, taxableAmount + serviceCharge);
       
       let received = 0;
@@ -1459,16 +1424,13 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
       const timer = setTimeout(() => {
           const fullData = { ...data, ...totals };
           if (initialData) {
-              // Autosave to main transaction list if editing an existing invoice
-              // Only if it has valid compulsory fields to avoid corrupting list
               if (fullData.guestName && fullData.receiptNo) {
                   onSave(fullData, true);
               }
           } else {
-              // Save as draft if creating a new invoice
               localStorage.setItem(DRAFT_KEY, JSON.stringify(fullData));
           }
-      }, 2000); // 2 second debounce for autosave
+      }, 2000); 
       return () => clearTimeout(timer);
   }, [data, totals, initialData, onSave]);
 
@@ -1497,16 +1459,10 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
           const newBookings = prev.bookings.map(b => {
               if (b.id === id) {
                   const updated = { ...b, [field]: value };
-                  
-                  // If changing room type, default the rate, but user can change it later
                   if (field === 'roomType') updated.ratePerNight = rates[value as RoomType];
-                  
-                  // Auto-calculate nights when dates change
                   if (field === 'checkIn' || field === 'checkOut') {
                       updated.nights = calculateNights(updated.checkIn, updated.checkOut);
                   }
-                  
-                  // Auto-calculate CheckOut when nights change
                   if (field === 'nights') {
                        const n = parseInt(value) || 0;
                        updated.nights = n;
@@ -1516,8 +1472,6 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
                            updated.checkOut = d.toISOString().split('T')[0];
                        }
                   }
-                  
-                  // Recalculate subtotal whenever quantity, nights, or rate changes
                   updated.subtotal = updated.nights * updated.quantity * updated.ratePerNight;
                   return updated;
               }
@@ -1552,601 +1506,640 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
           id: uuid(),
           date: new Date().toISOString().split('T')[0],
           amount: 0,
-          paymentMethod: PaymentMethod.BANK_TRANSFER,
-          recordedBy: data.receivedBy
+          paymentMethod: PaymentMethod.CASH,
+          recordedBy: user.name
       };
       setData(prev => ({ ...prev, payments: [...prev.payments, newPayment] }));
   };
 
-  const getFinalData = (): InvoiceData => {
-      return {
-          ...data,
-          ...totals
-      };
+  const removeBooking = (id: string) => {
+      setData(prev => ({ ...prev, bookings: prev.bookings.filter(b => b.id !== id) }));
+  };
+
+  const removeCharge = (id: string) => {
+      setData(prev => ({ ...prev, additionalChargeItems: prev.additionalChargeItems.filter(c => c.id !== id) }));
+  };
+
+  const removePayment = (id: string) => {
+      setData(prev => ({ ...prev, payments: prev.payments.filter(p => p.id !== id) }));
+  };
+
+  const updatePayment = (id: string, field: string, value: any) => {
+      setData(prev => ({
+          ...prev,
+          payments: prev.payments.map(p => p.id === id ? { ...p, [field]: value } : p)
+      }));
+  };
+  
+  const updateCharge = (id: string, field: string, value: any) => {
+      setData(prev => ({
+          ...prev,
+          additionalChargeItems: prev.additionalChargeItems.map(c => c.id === id ? { ...c, [field]: value } : c)
+      }));
   };
 
   const handleSave = () => {
-      if (!data.guestName || !data.guestEmail || !data.phoneContact || !data.roomNumber) {
-        alert("Please fill in all compulsory fields:\n- Guest Name\n- Email\n- Phone Number\n- Room Number");
-        return;
-      }
-      if (!initialData) localStorage.removeItem(DRAFT_KEY);
-      onSave(getFinalData(), false);
+      const fullData = { ...data, ...totals };
+      if (!fullData.guestName) { alert('Guest Name is required.'); return; }
+      onSave(fullData);
+      localStorage.removeItem(DRAFT_KEY);
   };
-
-  const handleCancel = () => {
-      if (!initialData) localStorage.removeItem(DRAFT_KEY);
-      onCancel();
-  };
-
+  
   const handlePrint = () => {
-      const d = getFinalData();
-      onSave(d, true); // Auto-save on print
-      printInvoice(d);
+      const fullData = { ...data, ...totals };
+      if (!fullData.guestName) { alert('Guest Name is required.'); return; }
+      // Auto-save before printing (pass true for isAutoSave to prevent navigating away)
+      onSave(fullData, true);
+      printInvoice(fullData);
   };
 
-  const handleDownloadPDF = () => {
-      const doc = createInvoiceDoc(getFinalData());
-      if (doc) {
-          doc.save(`${data.documentType}_${data.receiptNo}.pdf`);
-      }
+  const handleGeneratePdf = () => {
+      const fullData = { ...data, ...totals };
+      if (!fullData.guestName) { alert('Guest Name is required.'); return; }
+      // Auto-save before generating PDF
+      onSave(fullData, true);
+      const doc = createInvoiceDoc(fullData);
+      if (doc) doc.save(`${fullData.receiptNo}_${fullData.guestName}.pdf`);
   };
+
+  const symbol = data.currency === 'NGN' ? '₦' : '$';
 
   return (
-    <div className="bg-white p-8 rounded-lg shadow-lg max-w-5xl mx-auto my-8">
-      <div className="flex justify-between mb-6 border-b pb-4">
-          <h2 className="text-2xl font-bold text-[#c4a66a]">{data.id ? 'Edit Invoice / Receipt' : 'New Reservation Invoice'}</h2>
-          <div className="flex gap-2">
-              <button onClick={handlePrint} className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">Print</button>
-              <button onClick={handleDownloadPDF} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Download PDF</button>
-              <button onClick={handleSave} className="bg-[#2c3e50] text-white px-4 py-2 rounded hover:bg-[#34495e]">Save & Close</button>
-              <button onClick={handleCancel} className="text-gray-500 px-4 py-2 hover:text-gray-700">Cancel</button>
-          </div>
-      </div>
+    <div className="bg-white min-h-screen p-8 text-gray-900 font-sans pb-20">
+       {/* Header */}
+       <div className="flex justify-between items-center mb-8">
+           <h1 className="text-3xl font-bold text-[#c4a66a]">
+               {initialData ? 'Edit Invoice / Receipt' : 'New Invoice / Receipt'}
+           </h1>
+           <div className="flex gap-2">
+               <button onClick={handlePrint} className="bg-[#2c3e50] text-white px-4 py-2 rounded hover:bg-[#34495e] text-sm">Print</button>
+               <button onClick={handleGeneratePdf} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">Download PDF</button>
+               <button onClick={handleSave} className="bg-[#2c3e50] text-white px-4 py-2 rounded hover:bg-[#34495e] text-sm">Save & Close</button>
+               <button onClick={onCancel} className="text-gray-500 hover:text-gray-700 px-4 py-2 text-sm">Cancel</button>
+           </div>
+       </div>
 
-      <div className="grid grid-cols-2 gap-6 mb-6">
-          <div>
-              <label className="block text-sm font-bold mb-1 text-gray-700">Document Type</label>
-              <select className="w-full border border-gray-400 p-2 rounded bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.documentType} onChange={e => setData({...data, documentType: e.target.value as any})}>
-                  <option value="reservation">Reservation Invoice</option>
-                  <option value="receipt">Official Receipt</option>
-              </select>
-          </div>
-          <div>
-               <label className="block text-sm font-bold mb-1 text-gray-700">Currency</label>
-               <select className="w-full border border-gray-400 p-2 rounded bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.currency} onChange={e => handleCurrencyChange(e.target.value as any)}>
-                  <option value="NGN">NGN (Naira)</option>
-                  <option value="USD">USD (Dollar)</option>
-              </select>
-          </div>
-          <div className="col-span-2 grid grid-cols-2 gap-4 border border-gray-300 p-5 rounded bg-gray-100">
-               <div className="col-span-2 flex justify-between items-center border-b border-gray-300 pb-2">
-                   <h3 className="font-bold text-gray-800 text-lg">Guest Information</h3>
+       <div className="max-w-5xl mx-auto space-y-8">
+           {/* Document Type & Currency */}
+           <div className="grid grid-cols-2 gap-8 mb-6">
+               <div>
+                   <label className="block text-xs font-bold text-gray-500 uppercase">Document Type</label>
+                   <select 
+                     className="w-full mt-1 border rounded p-2 bg-white text-gray-900"
+                     value={data.documentType} 
+                     onChange={(e) => setData({...data, documentType: e.target.value as any})}
+                   >
+                       <option value="reservation">Reservation Invoice</option>
+                       <option value="receipt">Official Receipt</option>
+                   </select>
+               </div>
+               <div>
+                   <label className="block text-xs font-bold text-gray-500 uppercase">Currency</label>
+                   <select 
+                     className="w-full mt-1 border rounded p-2 bg-white text-gray-900"
+                     value={data.currency} 
+                     onChange={(e) => handleCurrencyChange(e.target.value as 'NGN' | 'USD')}
+                   >
+                       <option value="NGN">NGN (Naira)</option>
+                       <option value="USD">USD (Dollars)</option>
+                   </select>
+               </div>
+           </div>
+
+           {/* Guest Information Panel */}
+           <div className="border border-gray-200 rounded">
+               <div className="bg-gray-100 p-3 border-b border-gray-200 flex justify-between items-center">
+                   <h3 className="font-bold text-gray-800">Guest Information</h3>
                    <div className="flex items-center gap-2">
-                       <label className="text-sm font-bold text-gray-700">Date:</label>
+                       <span className="text-sm text-gray-600">Date:</span>
                        <input 
                          type="date" 
-                         className="border border-gray-400 p-1 rounded bg-white text-gray-900 text-sm focus:border-[#c4a66a] outline-none cursor-pointer"
-                         value={data.date}
-                         onChange={e => setData({...data, date: e.target.value})}
+                         className="border rounded p-1 text-sm bg-white text-gray-900" 
+                         value={data.date} 
+                         onChange={(e) => setData({...data, date: e.target.value})} 
                        />
                    </div>
                </div>
-               <div><label className="block text-sm font-semibold mb-1 text-gray-700">Guest Name <span className="text-red-500">*</span></label><input type="text" className="w-full border border-gray-400 p-2 rounded bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.guestName} onChange={e => setData({...data, guestName: e.target.value})} /></div>
-               <div><label className="block text-sm font-semibold mb-1 text-gray-700">Email <span className="text-red-500">*</span></label><input type="email" className="w-full border border-gray-400 p-2 rounded bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.guestEmail} onChange={e => setData({...data, guestEmail: e.target.value})} /></div>
-               <div><label className="block text-sm font-semibold mb-1 text-gray-700">Phone <span className="text-red-500">*</span></label><input type="text" className="w-full border border-gray-400 p-2 rounded bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.phoneContact} onChange={e => setData({...data, phoneContact: e.target.value})} /></div>
-               <div><label className="block text-sm font-semibold mb-1 text-gray-700">Room Number Assigned <span className="text-red-500">*</span></label><input type="text" className="w-full border border-gray-400 p-2 rounded bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.roomNumber} onChange={e => setData({...data, roomNumber: e.target.value})} /></div>
-          </div>
-      </div>
-
-      <div className="mb-6">
-          <div className="flex justify-between items-center mb-2"><h3 className="font-bold text-gray-700">Room Bookings</h3><button onClick={addBooking} className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded">+ Add Room</button></div>
-          <div className="overflow-x-auto">
-          <table className="w-full text-sm border border-gray-200">
-              <thead className="bg-[#2c3e50] text-white">
-                  <tr><th className="p-2 text-left">Room Type</th><th className="p-2 w-16">Qty</th><th className="p-2">Check In</th><th className="p-2">Check Out</th><th className="p-2 w-16">Nights</th><th className="p-2 text-right">Rate</th><th className="p-2 text-right">Subtotal</th><th className="p-2 w-10"></th></tr>
-              </thead>
-              <tbody>
-                  {data.bookings.map((b) => (
-                      <tr key={b.id} className="border-t">
-                          <td className="p-2"><select className="w-full border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={b.roomType} onChange={(e) => updateBooking(b.id, 'roomType', e.target.value)}>{Object.values(RoomType).map(r => <option key={r} value={r}>{r}</option>)}</select></td>
-                          <td className="p-2"><input type="number" min="1" className="w-full border border-gray-400 rounded p-1 text-center bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={b.quantity} onChange={e => updateBooking(b.id, 'quantity', parseInt(e.target.value))} /></td>
-                          <td className="p-2"><input type="date" className="w-full border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={b.checkIn} onChange={e => updateBooking(b.id, 'checkIn', e.target.value)} /></td>
-                          <td className="p-2"><input type="date" className="w-full border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={b.checkOut} onChange={e => updateBooking(b.id, 'checkOut', e.target.value)} /></td>
-                          <td className="p-2"><input type="number" min="0" className="w-full border border-gray-400 rounded p-1 text-center bg-gray-50 text-gray-900 focus:border-[#c4a66a] outline-none" value={b.nights} onChange={e => updateBooking(b.id, 'nights', e.target.value)} /></td>
-                          <td className="p-2">
-                             <input 
-                                type="number" 
-                                min="0"
-                                className="w-full border border-gray-400 rounded p-1 text-right bg-white text-gray-900 focus:border-[#c4a66a] outline-none" 
-                                value={b.ratePerNight} 
-                                onChange={e => updateBooking(b.id, 'ratePerNight', parseFloat(e.target.value) || 0)} 
-                             />
-                          </td>
-                          <td className="p-2 text-right font-bold text-gray-900">{b.subtotal.toLocaleString()}</td>
-                          <td className="p-2 text-center text-red-500 cursor-pointer" onClick={() => setData(prev => ({...prev, bookings: prev.bookings.filter(x => x.id !== b.id)}))}>×</td>
-                      </tr>
-                  ))}
-              </tbody>
-          </table>
-          </div>
-      </div>
-
-      <div className="mb-6">
-          <div className="flex justify-between items-center mb-2"><h3 className="font-bold text-gray-700">Additional Charges</h3><button onClick={addCharge} className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded">+ Add Charge</button></div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border border-gray-200">
-                <thead className="bg-[#2c3e50] text-white">
-                    <tr><th className="p-2 text-left">Description</th><th className="p-2 w-32 text-right">Amount</th><th className="p-2 w-10"></th></tr>
-                </thead>
-                <tbody>
-                    {data.additionalChargeItems.map((item, idx) => (
-                        <tr key={item.id} className="border-t">
-                            <td className="p-2"><input type="text" className="w-full border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={item.description} onChange={e => { const newItems = [...data.additionalChargeItems]; newItems[idx].description = e.target.value; setData({...data, additionalChargeItems: newItems}); }} /></td>
-                            <td className="p-2"><input type="number" className="w-full border border-gray-400 rounded p-1 text-right bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={item.amount} onChange={e => { const newItems = [...data.additionalChargeItems]; newItems[idx].amount = parseFloat(e.target.value) || 0; setData({...data, additionalChargeItems: newItems}); }} /></td>
-                            <td className="p-2 text-center text-red-500 cursor-pointer" onClick={() => setData(prev => ({...prev, additionalChargeItems: prev.additionalChargeItems.filter(x => x.id !== item.id)}))}>×</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-          </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-8">
-          <div>
-              <div className="flex justify-between items-center mb-2"><h3 className="font-bold text-gray-700">Payments</h3><button onClick={addPayment} className="text-sm bg-green-50 text-green-600 px-3 py-1 rounded">+ Add Payment</button></div>
-              <div className="border border-gray-300 rounded p-2 max-h-64 overflow-y-auto bg-gray-50">
-                  {data.payments.map((p, idx) => (
-                      <div key={p.id} className="mb-2 p-2 bg-white rounded border border-gray-300 text-sm shadow-sm">
-                          <div className="grid grid-cols-2 gap-2 mb-1">
-                              <input type="date" className="border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={p.date} onChange={e => { const newP = [...data.payments]; newP[idx].date = e.target.value; setData({...data, payments: newP}); }} />
-                              <input type="number" className="border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" placeholder="Amount" value={p.amount} onChange={e => { const newP = [...data.payments]; newP[idx].amount = parseFloat(e.target.value) || 0; setData({...data, payments: newP}); }} />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                              <select className="border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={p.paymentMethod} onChange={e => { const newP = [...data.payments]; newP[idx].paymentMethod = e.target.value as PaymentMethod; setData({...data, payments: newP}); }}>{Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}</select>
-                              <input type="text" className="border border-gray-400 rounded p-1 bg-white text-gray-900 focus:border-[#c4a66a] outline-none" placeholder="Ref/Transaction ID" value={p.reference} onChange={e => { const newP = [...data.payments]; newP[idx].reference = e.target.value; setData({...data, payments: newP}); }} />
-                          </div>
-                          <button className="text-red-500 text-xs mt-1 hover:underline" onClick={() => setData({...data, payments: data.payments.filter(x => x.id !== p.id)})}>Remove</button>
-                      </div>
-                  ))}
-              </div>
-              <div className="mt-4 border border-gray-300 p-4 rounded bg-blue-50">
-                   <h3 className="font-bold text-gray-700 mb-2">Payment Verification (Office Use)</h3>
-                   <div className="grid grid-cols-1 gap-2">
-                       <input type="text" placeholder="Verified Payment Reference" className="border border-gray-400 rounded p-2 text-sm bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.verificationDetails?.paymentReference || ''} onChange={e => setData({...data, verificationDetails: { ...data.verificationDetails, paymentReference: e.target.value, verifiedBy: data.verificationDetails?.verifiedBy || user.name, dateVerified: new Date().toISOString().split('T')[0] } as any })} />
+               <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div>
+                       <label className="block text-xs font-bold text-gray-500 uppercase">Guest Name <span className="text-red-500">*</span></label>
+                       <input type="text" className="w-full mt-1 border rounded p-2 bg-white text-gray-900" value={data.guestName} onChange={(e) => setData({...data, guestName: e.target.value})} placeholder="Full Name" />
                    </div>
-              </div>
-          </div>
+                   <div>
+                       <label className="block text-xs font-bold text-gray-500 uppercase">Email</label>
+                       <input type="email" className="w-full mt-1 border rounded p-2 bg-white text-gray-900" value={data.guestEmail} onChange={(e) => setData({...data, guestEmail: e.target.value})} placeholder="guest@example.com" />
+                   </div>
+                   <div>
+                       <label className="block text-xs font-bold text-gray-500 uppercase">Phone</label>
+                       <input type="text" className="w-full mt-1 border rounded p-2 bg-white text-gray-900" value={data.phoneContact} onChange={(e) => setData({...data, phoneContact: e.target.value})} placeholder="+234..." />
+                   </div>
+                   <div>
+                       <label className="block text-xs font-bold text-gray-500 uppercase">Room Number Assigned <span className="text-red-500">*</span></label>
+                       <input type="text" className="w-full mt-1 border rounded p-2 bg-white text-gray-900" value={data.roomNumber} onChange={(e) => setData({...data, roomNumber: e.target.value})} placeholder="e.g. 101, 102" />
+                   </div>
+               </div>
+           </div>
 
-          <div className="bg-gray-100 border border-gray-200 p-6 rounded h-fit text-gray-900">
-              <div className="flex justify-between mb-3"><span>Subtotal</span><span className="font-bold">{formatCurrencyWithCode(totals.subtotal, data.currency)}</span></div>
-              <div className="flex justify-between mb-3 items-center"><span>Discount</span><input type="number" className="w-24 border border-gray-400 rounded p-1 text-right text-sm bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.discount} onChange={e => setData({...data, discount: parseFloat(e.target.value) || 0})} /></div>
-              <div className="flex justify-between mb-3 items-center"><input type="text" className="w-32 border border-gray-400 rounded p-1 text-xs bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.holidaySpecialDiscountName} onChange={e => setData({...data, holidaySpecialDiscountName: e.target.value})} /><input type="number" className="w-24 border border-gray-400 rounded p-1 text-right text-sm bg-white text-gray-900 focus:border-[#c4a66a] outline-none" value={data.holidaySpecialDiscount} onChange={e => setData({...data, holidaySpecialDiscount: parseFloat(e.target.value) || 0})} /></div>
-              
-              <div className="flex justify-between mb-3 border-t border-gray-300 pt-2 items-center">
-                  <span className="text-gray-600 text-sm">Service Charge (5%)</span>
-                  <input 
-                      type="number" 
-                      className="w-24 border border-gray-400 rounded p-1 text-right text-sm bg-white text-gray-900 focus:border-[#c4a66a] outline-none" 
-                      value={data.serviceCharge} 
-                      onChange={e => setData({...data, serviceCharge: parseFloat(e.target.value) || 0})} 
-                  />
-              </div>
-              <div className="flex justify-between mb-3 border-b border-gray-300 pb-2">
-                  <span className="text-gray-600 text-sm">Tax (7.5% Inclusive)</span>
-                  <span className="text-gray-600 text-sm">{formatCurrencyWithCode(totals.taxAmount, data.currency)}</span>
-              </div>
+           {/* Room Bookings */}
+           <div>
+               <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-bold text-lg text-[#2c3e50]">Room Bookings</h3>
+                    <button onClick={addBooking} className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded hover:bg-blue-200">+ Add Room</button>
+               </div>
+               <div className="overflow-x-auto">
+                   <table className="w-full text-sm">
+                       <thead className="bg-[#2c3e50] text-white">
+                           <tr>
+                               <th className="p-2 text-left">Room Type</th>
+                               <th className="p-2 text-center w-16">Qty</th>
+                               <th className="p-2 text-left">Check In</th>
+                               <th className="p-2 text-left">Check Out</th>
+                               <th className="p-2 text-center w-16">Nights</th>
+                               <th className="p-2 text-right w-24">Rate</th>
+                               <th className="p-2 text-right w-28">Subtotal</th>
+                               <th className="p-2 w-10"></th>
+                           </tr>
+                       </thead>
+                       <tbody className="divide-y text-gray-900 border border-gray-200">
+                           {data.bookings.map(b => (
+                               <tr key={b.id}>
+                                   <td className="p-2">
+                                       <select className="w-full border rounded p-1 bg-white text-gray-900" value={b.roomType} onChange={(e) => updateBooking(b.id, 'roomType', e.target.value)}>
+                                           {Object.values(RoomType).map(rt => <option key={rt} value={rt}>{rt}</option>)}
+                                       </select>
+                                   </td>
+                                   <td className="p-2"><input type="number" min="1" className="w-full border rounded p-1 text-center bg-white text-gray-900" value={b.quantity} onChange={(e) => updateBooking(b.id, 'quantity', parseInt(e.target.value))} /></td>
+                                   <td className="p-2"><input type="date" className="w-full border rounded p-1 bg-white text-gray-900" value={b.checkIn} onChange={(e) => updateBooking(b.id, 'checkIn', e.target.value)} /></td>
+                                   <td className="p-2"><input type="date" className="w-full border rounded p-1 bg-white text-gray-900" value={b.checkOut} onChange={(e) => updateBooking(b.id, 'checkOut', e.target.value)} /></td>
+                                   <td className="p-2"><input type="number" min="0" className="w-full border rounded p-1 text-center bg-gray-100 text-gray-900" value={b.nights} onChange={(e) => updateBooking(b.id, 'nights', e.target.value)} /></td>
+                                   <td className="p-2"><input type="number" className="w-full border rounded p-1 text-right bg-white text-gray-900" value={b.ratePerNight} onChange={(e) => updateBooking(b.id, 'ratePerNight', parseFloat(e.target.value))} /></td>
+                                   <td className="p-2 text-right font-medium">{formatCurrencyWithCode(b.subtotal, data.currency)}</td>
+                                   <td className="p-2"><button onClick={() => removeBooking(b.id)} className="text-red-500 hover:text-red-700 font-bold">✕</button></td>
+                               </tr>
+                           ))}
+                           {data.bookings.length === 0 && <tr><td colSpan={8} className="p-4 text-center text-gray-500 italic">No rooms added.</td></tr>}
+                       </tbody>
+                   </table>
+               </div>
+           </div>
 
-              <div className="flex justify-between mb-4 text-lg font-bold"><span>Total Due</span><span>{formatCurrencyWithCode(totals.totalAmountDue, data.currency)}</span></div>
-              <div className="flex justify-between mb-3 text-green-700 items-center">
-                  <span>Amount Paid</span>
-                  {data.payments.length <= 1 ? (
-                      <input 
-                          type="number" 
-                          className="w-24 border border-gray-400 rounded p-1 text-right text-sm bg-white text-gray-900 focus:border-[#c4a66a] outline-none font-bold"
-                          value={totals.amountReceived}
-                          onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              setData(prev => {
-                                  const newPayments = [...prev.payments];
-                                  if (newPayments.length === 0) {
-                                      newPayments.push({
-                                          id: uuid(),
-                                          date: prev.date,
-                                          amount: val,
-                                          paymentMethod: PaymentMethod.CASH, // Default
-                                          recordedBy: prev.receivedBy
-                                      });
-                                  } else {
-                                      newPayments[0].amount = val;
-                                  }
-                                  return { ...prev, payments: newPayments };
-                              });
-                          }}
-                      />
-                  ) : (
-                      <span>{formatCurrencyWithCode(totals.amountReceived, data.currency)}</span>
-                  )}
-              </div>
-              <div className="flex justify-between mb-2 text-xl font-bold border-t border-gray-300 pt-3"><span>{totals.balance > 0 ? 'Balance To Pay' : 'Balance'}</span><span className={totals.balance > 0 ? 'text-red-600' : 'text-green-600'}>{formatCurrencyWithCode(Math.abs(totals.balance), data.currency)}</span></div>
-          </div>
-      </div>
+           {/* Additional Charges */}
+           <div>
+               <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-bold text-lg text-[#2c3e50]">Additional Charges</h3>
+                    <button onClick={addCharge} className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded hover:bg-blue-200">+ Add Charge</button>
+               </div>
+               <table className="w-full text-sm">
+                   <thead className="bg-[#2c3e50] text-white">
+                       <tr>
+                           <th className="p-2 text-left">Description</th>
+                           <th className="p-2 text-right w-32">Amount</th>
+                           <th className="p-2 w-10"></th>
+                       </tr>
+                   </thead>
+                   <tbody className="divide-y text-gray-900 border border-gray-200">
+                       {data.additionalChargeItems.map(c => (
+                           <tr key={c.id}>
+                               <td className="p-2"><input type="text" className="w-full border rounded p-1 bg-white text-gray-900" placeholder="Item description" value={c.description} onChange={(e) => updateCharge(c.id, 'description', e.target.value)} /></td>
+                               <td className="p-2"><input type="number" className="w-full border rounded p-1 text-right bg-white text-gray-900" value={c.amount} onChange={(e) => updateCharge(c.id, 'amount', parseFloat(e.target.value))} /></td>
+                               <td className="p-2"><button onClick={() => removeCharge(c.id)} className="text-red-500 hover:text-red-700 font-bold">✕</button></td>
+                           </tr>
+                       ))}
+                   </tbody>
+               </table>
+           </div>
+
+           {/* Payments & Summary Grid */}
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               {/* Left: Payments & Verification */}
+               <div>
+                   <div className="flex justify-between items-center mb-2">
+                        <h3 className="font-bold text-lg text-[#2c3e50]">Payments</h3>
+                        <button onClick={addPayment} className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded hover:bg-green-200">+ Add Payment</button>
+                   </div>
+                   <div className="border rounded mb-4">
+                       <table className="w-full text-sm">
+                           <thead className="bg-gray-100 border-b text-gray-700">
+                               <tr>
+                                   <th className="p-2 text-left w-28">Date</th>
+                                   <th className="p-2 text-left">Method</th>
+                                   <th className="p-2 text-right w-24">Amount</th>
+                                   <th className="p-2 w-8"></th>
+                               </tr>
+                           </thead>
+                           <tbody className="divide-y text-gray-900">
+                               {data.payments.map(p => (
+                                   <tr key={p.id}>
+                                       <td className="p-2"><input type="date" className="w-full border rounded p-1 bg-white text-gray-900 text-xs" value={p.date} onChange={(e) => updatePayment(p.id, 'date', e.target.value)} /></td>
+                                       <td className="p-2">
+                                           <select className="w-full border rounded p-1 bg-white text-gray-900 text-xs" value={p.paymentMethod} onChange={(e) => updatePayment(p.id, 'paymentMethod', e.target.value)}>
+                                               {Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}
+                                           </select>
+                                           <input type="text" className="w-full border rounded p-1 bg-white text-gray-900 text-xs mt-1" placeholder="Ref" value={p.reference || ''} onChange={(e) => updatePayment(p.id, 'reference', e.target.value)} />
+                                       </td>
+                                       <td className="p-2"><input type="number" className="w-full border rounded p-1 text-right bg-white text-gray-900" value={p.amount} onChange={(e) => updatePayment(p.id, 'amount', parseFloat(e.target.value))} /></td>
+                                       <td className="p-2"><button onClick={() => removePayment(p.id)} className="text-red-500 hover:text-red-700">✕</button></td>
+                                   </tr>
+                               ))}
+                           </tbody>
+                       </table>
+                   </div>
+
+                   <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                        <h4 className="font-bold text-blue-800 text-sm mb-2">Payment Verification (Office Use)</h4>
+                        <div className="space-y-2">
+                             <input 
+                                type="text" 
+                                className="w-full border rounded p-2 text-sm bg-white text-gray-900" 
+                                placeholder="Verified Payment Reference"
+                                value={data.verificationDetails?.paymentReference || ''} 
+                                onChange={(e) => setData({
+                                    ...data, 
+                                    verificationDetails: { 
+                                        paymentReference: e.target.value, 
+                                        verifiedBy: data.verificationDetails?.verifiedBy || user.name, 
+                                        dateVerified: data.verificationDetails?.dateVerified || new Date().toISOString().split('T')[0]
+                                    }
+                                })} 
+                             />
+                        </div>
+                   </div>
+               </div>
+               
+               {/* Right: Summary */}
+               <div className="bg-gray-50 p-6 rounded border border-gray-200">
+                   <div className="grid grid-cols-2 gap-y-3 text-sm">
+                       <div className="text-gray-600 self-center">Subtotal</div>
+                       <div className="text-right font-bold">{formatCurrencyWithCode(totals.subtotal, data.currency)}</div>
+                       
+                       <div className="text-gray-600 self-center">Discount</div>
+                       <div className="flex justify-end">
+                           <input type="number" className="w-24 border rounded p-1 text-right text-sm bg-white text-gray-900" value={data.discount} onChange={(e) => setData({...data, discount: parseFloat(e.target.value) || 0})} />
+                       </div>
+
+                       <div className="text-gray-600 self-center">
+                           <input 
+                             type="text" 
+                             className="border-b border-gray-300 bg-transparent text-gray-600 w-full text-xs" 
+                             value={data.holidaySpecialDiscountName}
+                             onChange={(e) => setData({...data, holidaySpecialDiscountName: e.target.value})}
+                           />
+                       </div>
+                       <div className="flex justify-end">
+                           <input type="number" className="w-24 border rounded p-1 text-right text-sm bg-white text-gray-900" value={data.holidaySpecialDiscount} onChange={(e) => setData({...data, holidaySpecialDiscount: parseFloat(e.target.value) || 0})} />
+                       </div>
+
+                       <div className="text-gray-600 self-center">Service Charge (5%)</div>
+                       <div className="flex justify-end">
+                           <input 
+                                type="number" 
+                                className="w-24 border rounded p-1 text-right text-sm bg-white text-gray-900" 
+                                value={data.serviceCharge} 
+                                onChange={(e) => {
+                                    setData({...data, serviceCharge: parseFloat(e.target.value) || 0});
+                                    setIsAutoServiceCharge(false); 
+                                }} 
+                           />
+                       </div>
+
+                       <div className="text-gray-600 self-center">Tax (7.5% Inclusive)</div>
+                       <div className="text-right text-gray-500">{formatCurrencyWithCode(totals.taxAmount, data.currency)}</div>
+
+                       <div className="col-span-2 border-t border-gray-300 my-1"></div>
+
+                       <div className="font-bold text-[#2c3e50] self-center">Total Due</div>
+                       <div className="text-right font-bold text-[#2c3e50] text-lg">{formatCurrencyWithCode(totals.totalAmountDue, data.currency)}</div>
+
+                       <div className="text-green-700 self-center">Amount Paid</div>
+                       <div className="flex justify-end">
+                           <div className="text-right font-medium text-green-700 py-1">{formatCurrencyWithCode(totals.amountReceived, data.currency)}</div>
+                       </div>
+                       
+                       <div className="col-span-2 border-t border-gray-300 my-1"></div>
+                       
+                       <div className="font-bold self-center text-lg">Balance</div>
+                       <div className={`text-right font-bold text-lg ${totals.balance === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                           {formatCurrencyWithCode(Math.abs(totals.balance), data.currency)}
+                       </div>
+                   </div>
+               </div>
+           </div>
+       </div>
     </div>
   );
 };
 
 const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
-  const WALK_IN_DRAFT_KEY = 'tide_walkin_draft';
+    const [guestName, setGuestName] = useState('Walk-In Guest');
+    const [currency, setCurrency] = useState<'NGN'|'USD'>('NGN');
+    const [items, setItems] = useState<WalkInChargeItem[]>([
+        { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: PaymentMethod.POS }
+    ]);
+    const [discount, setDiscount] = useState(0);
+    const [customServiceCharge, setCustomServiceCharge] = useState<number | null>(null);
+    const [tenderedAmount, setTenderedAmount] = useState<number | string>('');
 
-  const [guestName, setGuestName] = useState('Walk-In Guest');
-  const [currency, setCurrency] = useState<'NGN'|'USD'>('NGN');
-  const [discount, setDiscount] = useState(0);
-  const [amountPaid, setAmountPaid] = useState<number>(0);
-  const [userEditedPayment, setUserEditedPayment] = useState(false);
-  const [serviceCharge, setServiceCharge] = useState(0);
-  const [charges, setCharges] = useState<WalkInChargeItem[]>([{
-      id: uuid(),
-      date: new Date().toISOString().split('T')[0],
-      service: WalkInService.RESTAURANT,
-      amount: 0,
-      paymentMethod: PaymentMethod.POS
-  }]);
+    const addItem = () => {
+        setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: PaymentMethod.POS }]);
+    };
 
-  // Initialize state from draft if available
-  useEffect(() => {
-    const draft = localStorage.getItem(WALK_IN_DRAFT_KEY);
-    if (draft) {
-        try {
-            const parsed = JSON.parse(draft);
-            setGuestName(parsed.guestName || 'Walk-In Guest');
-            setCurrency(parsed.currency || 'NGN');
-            setDiscount(parsed.discount || 0);
-            setCharges(parsed.charges || []);
-            setServiceCharge(parsed.serviceCharge || 0);
-            if (parsed.amountPaid !== undefined) {
-                setAmountPaid(parsed.amountPaid);
-                setUserEditedPayment(true);
-            }
-        } catch (e) { console.error("Failed to load walk-in draft", e); }
-    }
-  }, []);
+    const removeItem = (id: string) => {
+        if (items.length > 1) setItems(items.filter(i => i.id !== id));
+        else setItems([{ ...items[0], amount: 0, service: WalkInService.RESTAURANT }]);
+    };
 
-  // Autosave draft
-  useEffect(() => {
-    const stateToSave = { guestName, currency, discount, charges, amountPaid, serviceCharge };
-    const timer = setTimeout(() => {
-        localStorage.setItem(WALK_IN_DRAFT_KEY, JSON.stringify(stateToSave));
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [guestName, currency, discount, charges, amountPaid, serviceCharge]);
+    const updateItem = (id: string, field: keyof WalkInChargeItem, value: any) => {
+        setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i));
+    };
 
-  const subtotal = charges.reduce((sum, c) => sum + c.amount, 0);
-  
-  // Auto-calc 5% Service Charge
-  useEffect(() => {
-      const taxable = Math.max(0, subtotal - discount);
-      const autoSC = Math.round(taxable * 0.05);
-      setServiceCharge(autoSC);
-  }, [subtotal, discount]);
-  
-  // Tax of 7.5% is INCLUDED in rate. Calculate backward for display.
-  // Rate = Base + Tax. Base = Rate/1.075. Tax = Rate - Base.
-  const tax = Math.max(0, (subtotal - discount) - ((subtotal - discount) / 1.075));
-  
-  // Final Total = Subtotal (inclusive of tax) + Service Charge.
-  const finalTotal = Math.max(0, (subtotal - discount) + serviceCharge);
+    const subtotal = items.reduce((sum, i) => sum + (i.amount || 0), 0);
+    const taxable = Math.max(0, subtotal - discount);
+    
+    const calculatedServiceCharge = Math.round(taxable * 0.05);
+    const serviceCharge = customServiceCharge !== null ? customServiceCharge : calculatedServiceCharge;
+    
+    const tax = Math.max(0, taxable - (taxable / 1.075));
+    const totalDue = Math.max(0, taxable + serviceCharge);
+    
+    const paid = tenderedAmount === '' ? 0 : parseFloat(tenderedAmount as string);
+    const balance = paid - totalDue;
 
-  useEffect(() => {
-      if (!userEditedPayment) {
-        setAmountPaid(finalTotal);
-      }
-  }, [finalTotal, userEditedPayment]);
+    const handleSave = () => {
+        if (!guestName) { alert('Guest Name is required'); return; }
+        
+        const transaction: WalkInTransaction = {
+            id: `WIG-${Date.now().toString().slice(-6)}`,
+            transactionDate: new Date().toISOString(),
+            charges: items,
+            currency,
+            subtotal,
+            discount,
+            serviceCharge,
+            tax,
+            amountPaid: paid, 
+            balance: balance < 0 ? balance : 0,
+            cashier: user.name,
+            paymentMethod: items[0].paymentMethod
+        };
+        onSave(transaction, guestName);
+    };
 
-  const balance = finalTotal - amountPaid;
+    const symbol = currency === 'NGN' ? '₦' : '$';
 
-  const handleSave = () => {
-      if (!guestName.trim()) {
-          alert("Please enter a Guest Name or Descriptor.");
-          return;
-      }
-
-      const transaction: WalkInTransaction = {
-          id: uuid(),
-          transactionDate: new Date().toISOString(),
-          charges,
-          currency,
-          subtotal: subtotal,
-          discount: discount,
-          serviceCharge: serviceCharge,
-          tax: tax,
-          amountPaid: amountPaid,
-          balance: balance,
-          cashier: user?.name || 'Francis',
-          paymentMethod: PaymentMethod.POS
-      };
-      
-      // Clear draft before saving
-      localStorage.removeItem(WALK_IN_DRAFT_KEY);
-
-      // Print first, then save and close
-      printWalkInReceipt(transaction, guestName);
-      onSave(transaction, guestName);
-  };
-
-  const handleClose = () => {
-    // If the user cancels, do we keep the draft? Usually if they explicitly cancel, we might clear it, 
-    // but for safety we can leave it or clear it. Let's clear it to avoid confusion next time.
-    if (confirm("Are you sure you want to close? Any unsaved changes will be cleared.")) {
-        localStorage.removeItem(WALK_IN_DRAFT_KEY);
-        onClose();
-    }
-  };
-
-  return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-lg w-[600px] max-h-[90vh] overflow-y-auto shadow-2xl relative animate-fade-in-up">
-              <button onClick={handleClose} className="absolute top-4 right-4 text-gray-500 hover:text-red-600">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-              </button>
-              
-              <h2 className="text-xl font-bold mb-6 text-[#c4a66a]">New Walk-In Guest Charge</h2>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-bold text-gray-700 mb-1">Guest Name / Descriptor <span className="text-red-500">*</span></label>
-                <input type="text" className="w-full border border-gray-300 p-2 rounded focus:border-[#c4a66a] outline-none text-gray-900" value={guestName} onChange={e => setGuestName(e.target.value)} />
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-bold text-gray-700 mb-1">Currency</label>
-                <select className="w-full border border-gray-300 p-2 rounded focus:border-[#c4a66a] outline-none text-gray-900 bg-white" value={currency} onChange={e => setCurrency(e.target.value as any)}>
-                  <option value="NGN">NGN (Naira)</option>
-                  <option value="USD">USD (Dollar)</option>
-                </select>
-              </div>
-              
-              <div className="mb-6 border-t border-gray-200 pt-4">
-                  {charges.map((charge, idx) => (
-                      <div key={charge.id} className="flex flex-col gap-2 mb-4 bg-gray-50 p-3 rounded border border-gray-200">
-                          <div className="flex gap-2 items-start">
-                              <div className="flex-1">
-                                  <label className="text-xs font-bold text-gray-700 block mb-1">Service</label>
-                                  <select 
-                                    className="w-full border border-gray-300 p-2 rounded text-sm bg-white text-gray-900 focus:border-[#c4a66a] outline-none" 
-                                    value={charge.service} 
-                                    onChange={e => { const newC = [...charges]; newC[idx].service = e.target.value as any; setCharges(newC); }}
-                                  >
-                                    {Object.values(WalkInService).map(s => <option key={s} value={s}>{s}</option>)}
-                                  </select>
-                              </div>
-                              <div className="w-32">
-                                  <label className="text-xs font-bold text-gray-700 block mb-1">Amount</label>
-                                  <input 
-                                    type="number" 
-                                    className="w-full border border-gray-300 p-2 rounded text-sm text-right bg-white text-gray-900 focus:border-[#c4a66a] outline-none" 
-                                    value={charge.amount} 
-                                    onChange={e => { const newC = [...charges]; newC[idx].amount = parseFloat(e.target.value) || 0; setCharges(newC); }} 
-                                  />
-                              </div>
-                              <button className="text-red-500 hover:bg-red-100 p-1 rounded mt-5" onClick={() => setCharges(charges.filter(c => c.id !== charge.id))}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                </svg>
-                              </button>
-                          </div>
-                          
-                          {charge.service === WalkInService.OTHER && (
-                            <div className="mt-1 w-full">
-                                <input 
-                                    type="text" 
-                                    placeholder="Please specify service details..."
-                                    className="w-full border border-gray-300 p-2 rounded text-sm bg-white text-gray-900 focus:border-[#c4a66a] outline-none"
-                                    value={charge.otherServiceDescription || ''}
-                                    onChange={e => { const newC = [...charges]; newC[idx].otherServiceDescription = e.target.value; setCharges(newC); }}
-                                />
-                            </div>
-                          )}
-                      </div>
-                  ))}
-                  <button className="text-sm text-blue-600 font-medium hover:underline" onClick={() => setCharges([...charges, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: PaymentMethod.POS }])}>+ Add Another Service</button>
-              </div>
-              
-              <div className="flex justify-between items-center pt-4 border-t border-gray-200 mt-4">
-                <div className="text-lg font-bold text-gray-800 w-1/2">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Subtotal:</span>
-                    <span>{currency === 'NGN' ? '₦' : '$'} {subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                  </div>
-                   <div className="flex justify-between text-sm mb-2 items-center">
-                    <span>Discount:</span>
-                    <input 
-                      type="number" 
-                      className="w-20 border border-gray-300 rounded p-1 text-right text-sm outline-none focus:border-[#c4a66a]" 
-                      value={discount} 
-                      onChange={e => setDiscount(parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-                  
-                  <div className="flex justify-between text-sm mb-1 text-gray-600">
-                    <span>Service Charge (5%):</span>
-                     <input 
-                      type="number" 
-                      className="w-20 border border-gray-300 rounded p-1 text-right text-sm outline-none focus:border-[#c4a66a]" 
-                      value={serviceCharge} 
-                      onChange={e => setServiceCharge(parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-                  <div className="flex justify-between text-sm mb-1 text-gray-600 border-b border-gray-200 pb-1">
-                    <span>Tax (7.5% Inclusive):</span>
-                    <span>{currency === 'NGN' ? '₦' : '$'} {tax.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                  </div>
-
-                   <div className="flex justify-between text-xl mt-2">
-                    <span>Total Due:</span>
-                    <span className="text-[#c4a66a]">{currency === 'NGN' ? '₦' : '$'} {finalTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                  </div>
-                  <div className="flex justify-between text-sm mb-2 items-center mt-2">
-                    <span>Amount Paid:</span>
-                    <input 
-                      type="number" 
-                      className="w-24 border border-gray-300 rounded p-1 text-right text-sm outline-none focus:border-[#c4a66a]" 
-                      value={amountPaid} 
-                      onChange={e => { setAmountPaid(parseFloat(e.target.value) || 0); setUserEditedPayment(true); }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-lg font-bold mt-1 border-t border-gray-200 pt-2">
-                    <span>Balance:</span>
-                    <span className={balance > 0 ? 'text-red-600' : 'text-green-600'}>
-                        {currency === 'NGN' ? '₦' : '$'} {Math.abs(balance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                        <span className="text-xs font-normal text-gray-500 ml-1">{balance > 0 ? '(Owing)' : '(Change)'}</span>
-                    </span>
-                  </div>
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 text-gray-900">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden">
+                <div className="p-6 pb-2 flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-[#c4a66a]">New Walk-In Guest Charge</h2>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
                 </div>
-                <div className="flex gap-3 items-end">
-                    <button onClick={handleClose} className="px-4 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 font-bold">Cancel</button>
-                    <button onClick={handleSave} className="px-6 py-2 bg-[#2c3e50] text-white rounded shadow hover:bg-[#34495e] font-bold">Process Payment & Print</button>
+
+                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Guest Name / Descriptor <span className="text-red-500">*</span></label>
+                        <input type="text" className="w-full border border-gray-300 rounded p-2 bg-white text-gray-900" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Walk-In Guest" />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Currency</label>
+                        <select className="w-full border border-gray-300 rounded p-2 bg-white text-gray-900" value={currency} onChange={(e) => setCurrency(e.target.value as any)}>
+                            <option value="NGN">NGN (Naira)</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </div>
+
+                    <div className="border rounded p-4 bg-gray-50">
+                        {items.map((item, index) => (
+                           <div key={item.id} className={`flex flex-col gap-2 ${index < items.length - 1 ? 'border-b border-gray-200 pb-3 mb-3' : ''}`}>
+                               <div className="flex gap-3 items-end">
+                                   <div className="flex-grow">
+                                       <label className="block text-xs font-bold text-gray-700 mb-1">Service</label>
+                                       <select className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900" value={item.service} onChange={(e) => updateItem(item.id, 'service', e.target.value)}>
+                                            {Object.values(WalkInService).map(s => <option key={s} value={s}>{s}</option>)}
+                                       </select>
+                                   </div>
+                                   <div className="w-24">
+                                       <label className="block text-xs font-bold text-gray-700 mb-1">Amount</label>
+                                       <input type="number" className="w-full border border-gray-300 rounded p-2 text-right text-sm bg-white text-gray-900" value={item.amount} onChange={(e) => updateItem(item.id, 'amount', parseFloat(e.target.value))} />
+                                   </div>
+                                   <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700 p-2 mb-1">
+                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                   </button>
+                               </div>
+                               {item.service === WalkInService.OTHER && (
+                                   <div>
+                                       <input 
+                                          type="text" 
+                                          className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900 placeholder-gray-500" 
+                                          placeholder="Description" 
+                                          value={item.otherServiceDescription || ''} 
+                                          onChange={(e) => updateItem(item.id, 'otherServiceDescription', e.target.value)} 
+                                       />
+                                   </div>
+                               )}
+                           </div>
+                        ))}
+                    </div>
+                    
+                    <button onClick={addItem} className="text-[#3182ce] font-medium text-sm hover:underline">+ Add Another Service</button>
+
+                    <div className="mt-6 border-t pt-4 space-y-2">
+                        <div className="flex justify-between text-sm font-bold">
+                            <span>Subtotal:</span>
+                            <span>{symbol} {subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm items-center">
+                            <span className="font-bold">Discount:</span>
+                            <input type="number" className="w-20 border rounded p-1 text-right text-sm bg-white text-gray-900" value={discount} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} />
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-600 items-center">
+                            <span className="font-bold">Service Charge (Flexible):</span>
+                            <input 
+                                type="number" 
+                                className="w-20 border rounded p-1 text-right text-sm bg-white text-gray-900" 
+                                value={serviceCharge} 
+                                onChange={(e) => setCustomServiceCharge(parseFloat(e.target.value) || 0)} 
+                            />
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-600 font-bold">
+                            <span>Tax (7.5% Inclusive):</span>
+                            <span>{symbol}{tax.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-xl font-bold text-[#c4a66a] mt-2 border-t pt-2">
+                            <span>Total Due:</span>
+                            <span>{symbol}{totalDue.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center mt-2">
+                             <span className="font-bold text-sm">Amount Paid:</span>
+                             <input type="number" className="w-32 border rounded p-2 text-right font-bold bg-white text-gray-900" value={tenderedAmount} onChange={(e) => setTenderedAmount(e.target.value)} />
+                        </div>
+                    </div>
                 </div>
-              </div>
-          </div>
-      </div>
-  );
+
+                <div className="p-6 pt-0 flex justify-between items-end">
+                     <div className="flex-1 mr-4">
+                        <div className="flex justify-between items-center text-lg font-bold">
+                            <span>Balance:</span>
+                            <span className={balance >= 0 ? "text-green-600" : "text-red-600"}>
+                                {symbol} {balance.toLocaleString(undefined, {minimumFractionDigits: 2})} 
+                                <span className="text-xs font-normal text-gray-500 ml-1">(Change)</span>
+                            </span>
+                        </div>
+                     </div>
+
+                     <div className="flex gap-2">
+                        <button onClick={onClose} className="px-4 py-2 border border-red-200 text-red-600 rounded hover:bg-red-50 font-bold">Cancel</button>
+                        <button onClick={handleSave} className="px-6 py-3 bg-[#2c3e50] text-white rounded font-bold shadow hover:bg-[#34495e]">Process Payment & Print</button>
+                     </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 const App = () => {
-  const [user, setUser] = useState<any>(null);
-  const [showWelcome, setShowWelcome] = useState(true);
-  const [view, setView] = useState<'dashboard' | 'invoice-form' | 'walk-in'>('dashboard');
-  const [transactions, setTransactions] = useState<RecordedTransaction[]>([]);
-  const [currentInvoice, setCurrentInvoice] = useState<InvoiceData | null>(null);
-  const [showWalkInModal, setShowWalkInModal] = useState(false);
+    const [showWelcome, setShowWelcome] = useState(true);
+    const [user, setUser] = useState<any>(null);
+    const [view, setView] = useState<'login' | 'dashboard' | 'invoice'>('login');
+    const [transactions, setTransactions] = useState<RecordedTransaction[]>([]);
+    const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(null);
+    const [showWalkInModal, setShowWalkInModal] = useState(false);
 
-  useEffect(() => {
-      try {
-          const stored = localStorage.getItem('tide_transactions');
-          if (stored) { 
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) {
-                setTransactions(parsed);
-            }
-          }
-      } catch (e) { console.error('Failed to load transactions', e); }
-  }, []);
+    useEffect(() => {
+        const stored = localStorage.getItem('tide_transactions');
+        if (stored) {
+            try { setTransactions(JSON.parse(stored)); } catch(e) { console.error(e); }
+        }
+        
+        const storedUser = localStorage.getItem('tide_user');
+        if (storedUser) {
+             setUser(JSON.parse(storedUser));
+        }
+    }, []);
 
-  const saveTransactions = (newTransactions: RecordedTransaction[]) => {
-      setTransactions(newTransactions);
-      localStorage.setItem('tide_transactions', JSON.stringify(newTransactions));
-  };
+    useEffect(() => {
+        localStorage.setItem('tide_transactions', JSON.stringify(transactions));
+    }, [transactions]);
 
-  const handleLogin = (u: any) => {
-      setUser(u);
-  };
+    const handleLogin = (u: any) => {
+        setUser(u);
+        localStorage.setItem('tide_user', JSON.stringify(u));
+        setView('dashboard');
+    };
 
-  const handleLogout = () => {
-      setUser(null);
-      setView('dashboard');
-  };
+    const handleLogout = () => {
+        setUser(null);
+        localStorage.removeItem('tide_user');
+        setView('login');
+    };
 
-  const handleDeleteTransaction = (id: string) => {
-      const updated = transactions.filter(t => t.id !== id);
-      saveTransactions(updated);
-  };
+    const handleCreateInvoice = () => {
+        setEditingInvoice(null);
+        setView('invoice');
+    };
 
-  const handleEditTransaction = (t: RecordedTransaction) => {
-      if (t.type === 'Hotel Stay') {
-          setCurrentInvoice(t.data as InvoiceData);
-          setView('invoice-form');
-      } else {
-          alert("Editing Walk-In transactions is not supported in this view. Please delete and recreate if necessary.");
-      }
-  };
+    const handleEditTransaction = (t: RecordedTransaction) => {
+        if (t.type === 'Hotel Stay') {
+            setEditingInvoice(t.data as InvoiceData);
+            setView('invoice');
+        } else {
+            printWalkInReceipt(t.data as WalkInTransaction, t.guestName);
+        }
+    };
 
-  const handleSaveInvoice = (data: InvoiceData, isAutoSave: boolean) => {
-      // Find if exists
-      const existingIdx = transactions.findIndex(t => t.id === data.id);
-      
-      const record: RecordedTransaction = {
-          id: data.id,
-          type: 'Hotel Stay',
-          date: data.date,
-          guestName: data.guestName,
-          amount: data.totalAmountDue,
-          balance: data.balance,
-          currency: data.currency,
-          data: data
-      };
+    const handleSaveInvoice = (invoiceData: InvoiceData, isAutoSave: boolean = false) => {
+        const existingById = transactions.findIndex(t => 
+             (t.data as any).id === invoiceData.id 
+        );
 
-      let newTransactions = [...transactions];
-      if (existingIdx >= 0) {
-          newTransactions[existingIdx] = record;
-      } else {
-          newTransactions = [record, ...newTransactions];
-      }
-      
-      saveTransactions(newTransactions);
-      
-      if (!isAutoSave) {
-          setView('dashboard');
-          setCurrentInvoice(null);
-      }
-  };
+        const newRecord: RecordedTransaction = {
+            id: invoiceData.receiptNo,
+            type: 'Hotel Stay',
+            date: invoiceData.date,
+            guestName: invoiceData.guestName,
+            amount: invoiceData.totalAmountDue,
+            balance: invoiceData.balance,
+            currency: invoiceData.currency,
+            data: invoiceData
+        };
 
-  const handleWalkInSave = (data: WalkInTransaction, guestName: string) => {
-       const record: RecordedTransaction = {
-          id: data.id,
-          type: 'Walk-In',
-          date: data.transactionDate.split('T')[0],
-          guestName: guestName,
-          amount: data.subtotal - data.discount + data.serviceCharge, // Total Amount Due
-          balance: data.balance,
-          currency: data.currency,
-          data: data
-      };
-      saveTransactions([record, ...transactions]);
-      setShowWalkInModal(false);
-  };
+        if (existingById >= 0) {
+            const updated = [...transactions];
+            updated[existingById] = newRecord;
+            setTransactions(updated);
+        } else {
+            setTransactions([newRecord, ...transactions]);
+        }
 
-  if (showWelcome) {
-      return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
-  }
+        if (!isAutoSave) {
+            setView('dashboard');
+            setEditingInvoice(null);
+        }
+    };
 
-  if (!user) {
-      return <LoginScreen onLogin={handleLogin} />;
-  }
+    const handleDeleteTransaction = (id: string) => {
+        setTransactions(transactions.filter(t => t.id !== id));
+    };
 
-  return (
-      <ErrorBoundary>
-          {view === 'dashboard' && (
-              <>
-                <Dashboard 
-                    user={user} 
-                    onLogout={handleLogout} 
-                    onCreateInvoice={() => { setCurrentInvoice(null); setView('invoice-form'); }}
-                    transactions={transactions}
-                    onDeleteTransaction={handleDeleteTransaction}
-                    onEditTransaction={handleEditTransaction}
-                    onCreateWalkIn={() => setShowWalkInModal(true)}
+    const handleSaveWalkIn = (data: WalkInTransaction, guestName: string) => {
+        const newRecord: RecordedTransaction = {
+            id: data.id,
+            type: 'Walk-In',
+            date: data.transactionDate.split('T')[0],
+            guestName: guestName,
+            amount: data.amountPaid,
+            balance: 0,
+            currency: data.currency,
+            data: data
+        };
+        setTransactions([newRecord, ...transactions]);
+        setShowWalkInModal(false);
+        printWalkInReceipt(data, guestName);
+    };
+
+    if (showWelcome) {
+        return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
+    }
+
+    if (!user) {
+        return <LoginScreen onLogin={handleLogin} />;
+    }
+
+    if (view === 'invoice') {
+        return <InvoiceForm initialData={editingInvoice} onSave={handleSaveInvoice} onCancel={() => setView('dashboard')} user={user} />;
+    }
+
+    return (
+        <>
+            <Dashboard 
+                user={user} 
+                onLogout={handleLogout} 
+                onCreateInvoice={handleCreateInvoice} 
+                transactions={transactions}
+                onDeleteTransaction={handleDeleteTransaction}
+                onEditTransaction={handleEditTransaction}
+                onCreateWalkIn={() => setShowWalkInModal(true)}
+            />
+            {showWalkInModal && (
+                <WalkInGuestModal 
+                    onClose={() => setShowWalkInModal(false)}
+                    onSave={handleSaveWalkIn}
+                    user={user}
                 />
-                {showWalkInModal && (
-                    <WalkInGuestModal 
-                        onClose={() => setShowWalkInModal(false)}
-                        onSave={handleWalkInSave}
-                        user={user}
-                    />
-                )}
-              </>
-          )}
-          {view === 'invoice-form' && (
-              <InvoiceForm 
-                  initialData={currentInvoice} 
-                  onSave={handleSaveInvoice}
-                  onCancel={() => { setView('dashboard'); setCurrentInvoice(null); }}
-                  user={user}
-              />
-          )}
-      </ErrorBoundary>
-  );
+            )}
+        </>
+    );
 };
 
-const root = createRoot(document.getElementById('root')!);
-root.render(<App />);
+const rootElement = document.getElementById('root');
+if (rootElement) {
+  const root = createRoot(rootElement);
+  root.render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+}
