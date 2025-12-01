@@ -574,56 +574,67 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     const wordsLabel = `Amount in Words (for Amount Received): ${amountReceivedText}`;
     const splitAmountWords = doc.splitTextToSize(wordsLabel, 180); 
     doc.text(splitAmountWords, margin, y);
-    y += (splitAmountWords.length * 6) + 6;
+    y += (splitAmountWords.length * 6) + 4;
 
     // 3. PAYMENT STATUS & BANK DETAILS BLOCK
     if (data.status !== InvoiceStatus.PAID) {
-        checkPageBreak(60);
+        // Ensure there is enough space for status and bank details table to stay together
+        // Reduced height threshold to avoid unnecessary page break
+        checkPageBreak(70); 
 
         if (data.status === InvoiceStatus.PARTIAL) {
              doc.setFont('helvetica', 'bold');
              doc.setTextColor('#E53E3E'); 
              doc.text('Partial Payment Received.', margin, y);
-             y += 5;
+             y += 4;
              doc.setTextColor(44, 62, 80); 
              doc.setFont('helvetica', 'normal');
              doc.text('Kindly settle the outstanding balance using the bank details below.', margin, y);
-             y += 6;
+             y += 2;
         } else {
             doc.setFont('helvetica', 'bold');
             doc.setTextColor('#f59e0b'); 
             doc.text(`Payment Status: Pending`, margin, y);
-            y += 5;
+            y += 4;
             doc.setTextColor(44, 62, 80); 
             doc.setFont('helvetica', 'normal');
             doc.text('Kindly complete your payment using the bank details below.', margin, y);
-            y += 6;
+            y += 2;
         }
+
+        const usdDetails = 'USD\nBeneficiary Bank Swift Code: UMPLNGLA\nBeneficiary Bank Name: Providus Account\n(F59) Beneficiary Account: 1308430669\nBeneficiary Name: Tide` Hotels and Resorts\nBeneficiary Address: No. 38 S.O Williams Street, Utako, Abuja';
+        const gbpDetails = 'GBP\nBeneficiary Bank Swift Code: UMPLNGLA\nBeneficiary Bank Name: Providus Account\n(F59) Beneficiary Account: 1308430676\nBeneficiary Name: Tide` Hotels and Resorts';
+        const euroDetails = 'EURO\nBeneficiary Bank Swift Code: UMPLNGLA\nBeneficiary Bank Name: Providus Account\n(F59) Beneficiary Account: 1308430683\nBeneficiary Name: Tide` Hotels and Resorts\nBeneficiary Address: No. 38 S.O Williams Street, Utako, Abuja';
 
         // Use autoTable for bank details to avoid overlap
         doc.autoTable({
             startY: y,
+            head: [['NAIRA ACCOUNTS', 'DOMICILIARY ACCOUNTS (PROVIDUS BANK)']],
             body: [
-                ['MONIEPOINT MFB', 'PROVIDUS BANK'],
-                ['Account Number: 5169200615', 'Account Number: 1306538190'],
-                ['Account Name: TIDE HOTELS & RESORTS', "Account Name: TIDE' HOTELS AND RESORTS"]
+                [
+                    'MONIEPOINT MFB\nAccount Number: 5169200615\nAccount Name: TIDE HOTELS & RESORTS', 
+                    usdDetails
+                ],
+                [
+                    'PROVIDUS BANK\nAccount Number: 1306538190\nAccount Name: TIDE\' HOTELS AND RESORTS',
+                    gbpDetails
+                ],
+                [
+                    '',
+                    euroDetails
+                ]
             ],
-            theme: 'plain',
-            styles: { font: 'helvetica', fontSize: 9, cellPadding: 1, textColor: '#2c3e50' },
+            theme: 'grid',
+            styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.5, textColor: '#2c3e50', valign: 'top' },
+            headStyles: { fillColor: '#e2e8f0', textColor: '#2c3e50', fontStyle: 'bold', halign: 'center', fontSize: 8 },
             columnStyles: {
-                0: { halign: 'left', fontStyle: 'bold' },
-                1: { halign: 'right', fontStyle: 'bold' }
-            },
-            // Overwrite specific rows to be normal font if needed, but bold looks good for visibility
-            didParseCell: function(data: any) {
-                if (data.row.index > 0) {
-                     data.cell.styles.fontStyle = 'normal';
-                }
+                0: { cellWidth: 70 },
+                1: { cellWidth: 'auto' }
             },
             margin: { left: 14, right: 14 }
         });
         
-        y = (doc as any).lastAutoTable.finalY + 5;
+        y = (doc as any).lastAutoTable.finalY + 3;
 
         doc.setFontSize(8);
         doc.setFont('helvetica', 'italic');
@@ -713,16 +724,48 @@ const printInvoice = (data: InvoiceData) => {
   `).join('');
   
   const bankDetailsHtml = `
-    <div class="grid grid-cols-2 gap-4 text-sm" style="page-break-inside: avoid;">
-      <div>
-        <p class="font-bold text-gray-800">MONIEPOINT MFB</p>
-        <p>Account Number: 5169200615</p>
-        <p>Account Name: TIDE HOTELS & RESORTS</p>
+    <div class="grid grid-cols-2 gap-2 text-[10px] leading-snug">
+      <div class="border-r border-gray-200 pr-2">
+        <h4 class="font-bold underline mb-1 text-[#c4a66a] uppercase">Naira Accounts</h4>
+        <div class="mb-2">
+            <p class="font-bold text-gray-800">MONIEPOINT MFB</p>
+            <p>Account No: 5169200615</p>
+            <p>Name: TIDE HOTELS & RESORTS</p>
+        </div>
+        <div>
+            <p class="font-bold text-gray-800">PROVIDUS BANK</p>
+            <p>Account No: 1306538190</p>
+            <p>Name: TIDE' HOTELS AND RESORTS</p>
+        </div>
       </div>
-      <div class="text-right">
-        <p class="font-bold text-gray-800">PROVIDUS BANK</p>
-        <p>Account Number: 1306538190</p>
-        <p>Account Name: TIDE' HOTELS AND RESORTS</p>
+      <div class="pl-2">
+        <h4 class="font-bold underline mb-1 text-[#c4a66a] uppercase">Domiciliary Accounts (Providus)</h4>
+        
+        <div class="mb-2 border-b border-gray-100 pb-1">
+            <p class="font-bold text-gray-800">USD</p>
+            <p>Beneficiary Bank Swift Code: UMPLNGLA</p>
+            <p>Beneficiary Bank Name: Providus Account</p>
+            <p>(F59) Beneficiary Account: 1308430669</p>
+            <p>Beneficiary Name: Tide\` Hotels and Resorts</p>
+            <p class="text-[9px] text-gray-500">Beneficiary Address: No. 38 S.O Williams Street, Utako, Abuja</p>
+        </div>
+        
+        <div class="mb-2 border-b border-gray-100 pb-1">
+            <p class="font-bold text-gray-800">GBP</p>
+            <p>Beneficiary Bank Swift Code: UMPLNGLA</p>
+            <p>Beneficiary Bank Name: Providus Account</p>
+            <p>(F59) Beneficiary Account: 1308430676</p>
+            <p>Beneficiary Name: Tide\` Hotels and Resorts</p>
+        </div>
+
+        <div>
+            <p class="font-bold text-gray-800">EURO</p>
+            <p>Beneficiary Bank Swift Code: UMPLNGLA</p>
+            <p>Beneficiary Bank Name: Providus Account</p>
+            <p>(F59) Beneficiary Account: 1308430683</p>
+            <p>Beneficiary Name: Tide\` Hotels and Resorts</p>
+            <p class="text-[9px] text-gray-500">Beneficiary Address: No. 38 S.O Williams Street, Utako, Abuja</p>
+        </div>
       </div>
     </div>
   `;
@@ -743,8 +786,8 @@ const printInvoice = (data: InvoiceData) => {
         <div class="border-b border-gray-300 w-1/2 mx-auto mt-2"></div>
       </div>
       
-      <div class="mb-6">
-        <h2 class="text-xl font-bold text-center ${isReservation ? 'text-red-700' : 'text-[#2c3e50]'} mb-4">${isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT'}</h2>
+      <div class="mb-4">
+        <h2 class="text-xl font-bold text-center ${isReservation ? 'text-red-700' : 'text-[#2c3e50]'} mb-2">${isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT'}</h2>
         <div class="flex justify-between text-sm">
           <div>
             <p><span class="font-bold">${isReservation ? 'Invoice No:' : 'Receipt No:'}</span> ${data.receiptNo}</p>
@@ -762,7 +805,7 @@ const printInvoice = (data: InvoiceData) => {
         </div>
       </div>
       
-      <div class="mb-6 border border-gray-200 rounded p-4 text-sm">
+      <div class="mb-4 border border-gray-200 rounded p-3 text-sm">
         <p><span class="font-bold">Guest Name:</span> ${data.guestName}</p>
         <p><span class="font-bold">Email:</span> ${data.guestEmail}</p>
         <p><span class="font-bold">Phone:</span> ${data.phoneContact}</p>
@@ -771,7 +814,7 @@ const printInvoice = (data: InvoiceData) => {
       
       <div class="mb-2">
         <h3 class="font-bold text-[#2c3e50] mb-2">Bookings</h3>
-        <table class="w-full text-sm mb-4">
+        <table class="w-full text-sm mb-2">
           <thead class="bg-[#2c3e50] text-white">
             <tr>
               <th class="px-2 py-1">S/N</th>
@@ -788,7 +831,7 @@ const printInvoice = (data: InvoiceData) => {
       </div>
       
       ${data.additionalChargeItems.length > 0 ? `
-        <div class="mb-6">
+        <div class="mb-4">
           <h3 class="font-bold text-[#2c3e50] mb-2">Additional Charges</h3>
           <table class="w-full text-sm">
             <thead class="bg-[#2c3e50] text-white">
@@ -804,7 +847,7 @@ const printInvoice = (data: InvoiceData) => {
       ` : ''}
       
       ${data.payments.length > 0 ? `
-        <div class="mb-6">
+        <div class="mb-4">
           <h3 class="font-bold text-[#2c3e50] mb-2">Payments Received</h3>
           <table class="w-full text-sm">
             <thead class="bg-green-600 text-white">
@@ -820,7 +863,7 @@ const printInvoice = (data: InvoiceData) => {
         </div>
       ` : ''}
       
-      <div class="flex justify-end mb-8">
+      <div class="flex justify-end mb-6">
         <div class="w-1/2">
           <div class="flex justify-between mb-1 text-sm">
             <span>Subtotal:</span>
@@ -854,13 +897,13 @@ const printInvoice = (data: InvoiceData) => {
         </div>
       </div>
       
-      <div class="mb-8 text-sm">
+      <div class="mb-2 text-sm">
         <p><span class="font-bold">Amount in Words (for Amount Received):</span> ${data.amountReceived > 0 ? data.amountInWords : 'Zero Naira only'}</p>
       </div>
       
       ${data.status !== InvoiceStatus.PAID ? `
-        <div class="mb-8 bg-gray-50 p-4 rounded border border-gray-200">
-          <h3 class="font-bold text-[#2c3e50] mb-2">Bank Details for Payment</h3>
+        <div class="mb-2 bg-gray-50 p-1 rounded border border-gray-200" style="page-break-inside: avoid; break-inside: avoid;">
+          <h3 class="font-bold text-[#2c3e50] mb-1 text-sm">Bank Details for Payment</h3>
           ${bankDetailsHtml}
         </div>
       ` : `
@@ -869,7 +912,7 @@ const printInvoice = (data: InvoiceData) => {
         </div>
       `}
       
-      <div class="flex justify-between mt-12 mb-8 text-sm">
+      <div class="flex justify-between mt-8 mb-4 text-sm">
         <div class="text-center">
             <div class="border-b border-gray-400 w-48 mb-2"></div>
             <p class="font-bold text-gray-700">Guest Signature</p>
@@ -880,7 +923,7 @@ const printInvoice = (data: InvoiceData) => {
         </div>
       </div>
       
-      <div class="text-center text-xs text-gray-500 mt-12">
+      <div class="text-center text-xs text-gray-500 mt-8">
         <p>Thank you for choosing Tidè Hotels and Resorts.</p>
       </div>
       <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }</script>
@@ -1081,7 +1124,8 @@ const USERS = [
 
 const WelcomeScreen = ({ onComplete }: { onComplete: () => void }) => {
   useEffect(() => {
-    const timer = setTimeout(onComplete, 4000);
+    // Reduced to 1500 for faster load
+    const timer = setTimeout(onComplete, 1500);
     return () => clearTimeout(timer);
   }, [onComplete]);
 
@@ -1832,6 +1876,7 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
 const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
     const [guestName, setGuestName] = useState('Walk-In Guest');
     const [currency, setCurrency] = useState<'NGN'|'USD'>('NGN');
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.POS);
     const [items, setItems] = useState<WalkInChargeItem[]>([
         { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: PaymentMethod.POS }
     ]);
@@ -1840,7 +1885,7 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
     const [tenderedAmount, setTenderedAmount] = useState<number | string>('');
 
     const addItem = () => {
-        setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: PaymentMethod.POS }]);
+        setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: paymentMethod }]);
     };
 
     const removeItem = (id: string) => {
@@ -1867,10 +1912,13 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
     const handleSave = () => {
         if (!guestName) { alert('Guest Name is required'); return; }
         
+        // Sync item payment methods with global transaction method for consistency
+        const updatedItems = items.map(i => ({...i, paymentMethod: paymentMethod}));
+
         const transaction: WalkInTransaction = {
             id: `WIG-${Date.now().toString().slice(-6)}`,
             transactionDate: new Date().toISOString(),
-            charges: items,
+            charges: updatedItems,
             currency,
             subtotal,
             discount,
@@ -1879,7 +1927,7 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
             amountPaid: paid, 
             balance: balance < 0 ? balance : 0,
             cashier: user.name,
-            paymentMethod: items[0].paymentMethod
+            paymentMethod: paymentMethod
         };
         onSave(transaction, guestName);
     };
@@ -1888,13 +1936,13 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 text-gray-900">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden">
-                <div className="p-6 pb-2 flex justify-between items-center">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="p-6 pb-2 flex justify-between items-center bg-white z-10">
                     <h2 className="text-xl font-bold text-[#c4a66a]">New Walk-In Guest Charge</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
                 </div>
 
-                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div className="p-6 space-y-4 overflow-y-auto flex-grow">
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Guest Name / Descriptor <span className="text-red-500">*</span></label>
                         <input type="text" className="w-full border border-gray-300 rounded p-2 bg-white text-gray-900" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Walk-In Guest" />
@@ -1974,12 +2022,23 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
                              <span className="font-bold text-sm">Amount Paid:</span>
                              <input type="number" className="w-32 border rounded p-2 text-right font-bold bg-white text-gray-900" value={tenderedAmount} onChange={(e) => setTenderedAmount(e.target.value)} />
                         </div>
+
+                        <div className="flex justify-between items-center mt-2 bg-yellow-50 p-2 rounded border border-yellow-100">
+                             <span className="font-bold text-sm">Payment Method:</span>
+                             <select 
+                                className="w-32 border rounded p-2 bg-white text-gray-900 text-sm font-bold"
+                                value={paymentMethod}
+                                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                             >
+                                 {Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}
+                             </select>
+                        </div>
                     </div>
                 </div>
 
-                <div className="p-6 pt-0 flex justify-between items-end">
-                     <div className="flex-1 mr-4">
-                        <div className="flex justify-between items-center text-lg font-bold">
+                <div className="p-6 pt-2 bg-gray-50 border-t border-gray-200">
+                     <div className="flex justify-between items-end mb-4">
+                        <div className="flex justify-between items-center text-lg font-bold w-full">
                             <span>Balance:</span>
                             <span className={balance >= 0 ? "text-green-600" : "text-red-600"}>
                                 {symbol} {balance.toLocaleString(undefined, {minimumFractionDigits: 2})} 
@@ -1988,9 +2047,11 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
                         </div>
                      </div>
 
-                     <div className="flex gap-2">
+                     <div className="flex gap-2 justify-end">
                         <button onClick={onClose} className="px-4 py-2 border border-red-200 text-red-600 rounded hover:bg-red-50 font-bold">Cancel</button>
-                        <button onClick={handleSave} className="px-6 py-3 bg-[#2c3e50] text-white rounded font-bold shadow hover:bg-[#34495e]">Process Payment & Print</button>
+                        <button onClick={handleSave} className="px-6 py-3 bg-[#2c3e50] text-white rounded font-bold shadow hover:bg-[#34495e] min-w-[120px]">
+                           Print & Save
+                        </button>
                      </div>
                 </div>
             </div>
