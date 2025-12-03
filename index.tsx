@@ -286,19 +286,26 @@ function convertAmountToWords(amount: number, currency: 'NGN' | 'USD'): string {
 const formatDateForDisplay = (dateString: string): string => {
   if (!dateString) return '';
   try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString;
-      const parts = dateString.split('-');
-      if (parts.length !== 3) return dateString;
-      const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      let d = new Date(dateString);
+      
+      // If it looks like YYYY-MM-DD, parse manually to be safe on timezone
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+          const parts = dateString.split('-');
+          d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      }
+
+      if (isNaN(d.getTime())) return dateString;
       
       const day = d.getDate();
       const month = d.toLocaleString('default', { month: 'short' });
+      const year = d.getFullYear();
       let suffix = 'th';
       if (day % 10 === 1 && day !== 11) suffix = 'st';
       else if (day % 10 === 2 && day !== 12) suffix = 'nd';
       else if (day % 10 === 3 && day !== 13) suffix = 'rd';
-      return `${day}${suffix} ${month}`;
+      
+      // Returns format like "Dec 3rd 2025"
+      return `${month} ${day}${suffix} ${year}`;
   } catch (e) { return dateString; }
 };
 
@@ -385,7 +392,7 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         const verificationInfo = [
             ['Payment Reference:', data.verificationDetails.paymentReference || 'N/A'],
             ['Verified By:', data.verificationDetails.verifiedBy],
-            ['Date Verified:', data.verificationDetails.dateVerified],
+            ['Date Verified:', formatDateForDisplay(data.verificationDetails.dateVerified)],
         ];
         doc.autoTable({
             startY: finalY + 4,
@@ -478,7 +485,7 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         doc.setFont('helvetica', 'bold');
         doc.text('Payments Received', 14, finalY + 8);
         const paymentsColumn = ["Date", "Method", "Reference", `Amount (${symbol})`];
-        const paymentsRows = data.payments.map(item => [item.date, item.paymentMethod, item.reference || 'N/A', formatMoney(item.amount)]);
+        const paymentsRows = data.payments.map(item => [formatDateForDisplay(item.date), item.paymentMethod, item.reference || 'N/A', formatMoney(item.amount)]);
         doc.autoTable({
           startY: finalY + 11,
           head: [paymentsColumn],
@@ -716,7 +723,7 @@ const printInvoice = (data: InvoiceData) => {
   
   const paymentRows = data.payments.map(item => `
     <tr>
-      <td class="px-2 py-1 border-b border-gray-200">${item.date}</td>
+      <td class="px-2 py-1 border-b border-gray-200">${formatDateForDisplay(item.date)}</td>
       <td class="px-2 py-1 border-b border-gray-200">${item.paymentMethod}</td>
       <td class="px-2 py-1 border-b border-gray-200">${item.reference || '-'}</td>
       <td class="px-2 py-1 border-b border-gray-200 text-right">${formatMoney(item.amount)}</td>
@@ -795,7 +802,7 @@ const printInvoice = (data: InvoiceData) => {
                 <div class="mt-2 bg-green-50 p-2 rounded">
                     <p><span class="font-bold">Payment Ref:</span> ${data.verificationDetails.paymentReference}</p>
                     <p><span class="font-bold">Verified By:</span> ${data.verificationDetails.verifiedBy}</p>
-                    <p><span class="font-bold">Date:</span> ${data.verificationDetails.dateVerified}</p>
+                    <p><span class="font-bold">Date:</span> ${formatDateForDisplay(data.verificationDetails.dateVerified)}</p>
                 </div>
             ` : ''}
           </div>
@@ -984,7 +991,7 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
         <div>Utako, Abuja</div>
         <div class="dashed"></div>
         <div class="bold">WALK-IN DOCKET</div>
-        <div>${data.transactionDate.split('T')[0]} | ${new Date(data.transactionDate).toLocaleTimeString()}</div>
+        <div>${formatDateForDisplay(data.transactionDate.split('T')[0])} | ${new Date(data.transactionDate).toLocaleTimeString()}</div>
         <div class="dashed"></div>
       </div>
 
