@@ -958,6 +958,26 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
 
   const totalDue = data.subtotal - data.discount + data.serviceCharge;
 
+  let bankDetailsHtml = '';
+  // Check for negative balance (which means owing in Walk-In module)
+  if (data.balance < 0) {
+      bankDetailsHtml = `
+      <div class="dashed"></div>
+      <div class="text-center bold" style="margin-bottom: 5px;">BANK DETAILS FOR PAYMENT</div>
+      
+      <div class="bold" style="text-decoration: underline; margin-top: 5px;">NAIRA ACCOUNTS</div>
+      <div class="row"><div class="col-left">Moniepoint:</div><div class="col-right">5169200615</div></div>
+      <div class="row"><div class="col-left">Providus:</div><div class="col-right">1306538190</div></div>
+      <div style="font-size: 10px; margin-bottom: 5px;">Name: Tide Hotels & Resorts</div>
+
+      <div class="bold" style="text-decoration: underline; margin-top: 5px;">DOMICILIARY (Providus)</div>
+      <div class="row"><div class="col-left">USD:</div><div class="col-right">1308430669</div></div>
+      <div class="row"><div class="col-left">GBP:</div><div class="col-right">1308430676</div></div>
+      <div class="row"><div class="col-left">EURO:</div><div class="col-right">1308430683</div></div>
+      <div style="font-size: 10px;">Swift Code: UMPLNGLA</div>
+      `;
+  }
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -1061,6 +1081,8 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
         <div class="col-left">Payment Method:</div>
         <div class="col-right">${data.paymentMethod}</div>
       </div>
+
+      ${bankDetailsHtml}
 
       <div class="dashed"></div>
 
@@ -2157,7 +2179,7 @@ const App = () => {
             date: data.transactionDate.split('T')[0],
             guestName: guestName,
             amount: data.amountPaid,
-            balance: 0,
+            balance: Math.abs(data.balance),
             currency: data.currency,
             data: data
         };
