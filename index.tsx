@@ -960,6 +960,7 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
 
   let bankDetailsHtml = '';
   // Check for negative balance (which means owing in Walk-In module)
+  // balance = paid - total. If paid < total, balance is negative.
   if (data.balance < 0) {
       bankDetailsHtml = `
       <div class="dashed"></div>
@@ -1073,7 +1074,7 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
       </div>
 
       <div class="row bold">
-        <div class="col-left">Balance</div>
+        <div class="col-left">${data.balance < 0 ? 'Balance (Owing)' : 'Balance'}</div>
         <div class="col-right">${symbol}${formatMoney(data.balance)}</div>
       </div>
       
@@ -1118,7 +1119,10 @@ const generateCSV = (transactions: RecordedTransaction[]): string => {
             const d = t.data as InvoiceData;
             status = d.status;
             amountDue = d.totalAmountDue;
-        } else { status = 'Walk-In'; }
+        } else { 
+            // Walk-In status logic for CSV
+            status = t.balance < 0 ? 'Owing' : 'Paid';
+        }
         return [t.id, t.type, t.date, `"${t.guestName}"`, amountDue.toFixed(2), t.balance.toFixed(2), status, t.currency].join(',');
     });
     return [headers.join(','), ...rows].join('\n');
@@ -1262,17 +1266,35 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
     .filter((t: RecordedTransaction) => t.currency === 'NGN')
     .reduce((sum: number, t: RecordedTransaction) => sum + (t.type === 'Hotel Stay' ? (t.data as InvoiceData).amountReceived : (t.data as WalkInTransaction).amountPaid), 0);
     
-  const revenueTodayUSD = todaysTransactions
-    .filter((t: RecordedTransaction) => t.currency === 'USD')
-    .reduce((sum: number, t: RecordedTransaction) => sum + (t.type === 'Hotel Stay' ? (t.data as InvoiceData).amountReceived : (t.data as WalkInTransaction).amountPaid), 0);
+  // const revenueTodayUSD = todaysTransactions
+  //   .filter((t: RecordedTransaction) => t.currency === 'USD')
+  //   .reduce((sum: number, t: RecordedTransaction) => sum + (t.type === 'Hotel Stay' ? (t.data as InvoiceData).amountReceived : (t.data as WalkInTransaction).amountPaid), 0);
 
+  // Correct calculation for total owing:
+  // For Hotel Stay: Positive balance is owing.
+  // For Walk-In: Negative balance is owing (balance = paid - total).
   const totalOwingNGN = transactions
-    .filter((t: RecordedTransaction) => t.currency === 'NGN' && t.balance > 0)
-    .reduce((sum: number, t: RecordedTransaction) => sum + t.balance, 0);
+    .filter((t: RecordedTransaction) => t.currency === 'NGN')
+    .reduce((sum: number, t: RecordedTransaction) => {
+        if (t.type === 'Hotel Stay') {
+            return sum + (t.balance > 0 ? t.balance : 0);
+        } else {
+            return sum + (t.balance < 0 ? Math.abs(t.balance) : 0);
+        }
+    }, 0);
 
+  // Correct calculation for total credit (hotel owes guest):
+  // For Hotel Stay: Negative balance is credit.
+  // For Walk-In: Positive balance is change/credit.
   const totalCreditNGN = transactions
-    .filter((t: RecordedTransaction) => t.currency === 'NGN' && t.balance < 0)
-    .reduce((sum: number, t: RecordedTransaction) => sum + Math.abs(t.balance), 0);
+    .filter((t: RecordedTransaction) => t.currency === 'NGN')
+    .reduce((sum: number, t: RecordedTransaction) => {
+        if (t.type === 'Hotel Stay') {
+             return sum + (t.balance < 0 ? Math.abs(t.balance) : 0);
+        } else {
+             return sum + (t.balance > 0 ? t.balance : 0);
+        }
+    }, 0);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All Types');
@@ -1364,9 +1386,15 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
                                     else if (d.status === InvoiceStatus.PARTIAL) statusColor = 'bg-yellow-100 text-yellow-800 border border-yellow-200';
                                     else statusColor = 'bg-red-50 text-red-700 border border-red-200 font-bold';
                                 } else {
-                                    statusText = 'Paid';
-                                    if (t.balance > 0) { statusText = 'Partial/Pending'; statusColor = 'bg-red-50 text-red-700 border border-red-200 font-bold'; }
-                                    else { statusColor = 'bg-green-100 text-green-800'; }
+                                    // Walk-In Status Logic
+                                    // Balance < 0 means owing (Paid less than total due)
+                                    if (t.balance < 0) { 
+                                        statusText = 'Pending Payment'; 
+                                        statusColor = 'bg-red-50 text-red-700 border border-red-200 font-bold'; 
+                                    } else { 
+                                        statusText = 'Paid'; 
+                                        statusColor = 'bg-green-100 text-green-800'; 
+                                    }
                                 }
                                 return (
                                     <tr key={t.id} className="hover:bg-gray-50">
@@ -1376,12 +1404,20 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
                                         <td className="px-4 py-3">{t.guestName}</td>
                                         <td className="px-4 py-3">{formatCurrencyWithCode(t.amount, t.currency)}</td>
                                         <td className="px-4 py-3 font-medium">
-                                          {t.balance > 0 ? (
-                                            <span className="text-red-600 font-bold">{formatCurrencyWithCode(t.balance, t.currency)} (Owing)</span>
-                                          ) : t.balance < 0 ? (
-                                            <span className="text-green-600 font-bold">{formatCurrencyWithCode(Math.abs(t.balance), t.currency)} (Credit)</span>
+                                          {t.type === 'Hotel Stay' ? (
+                                              // Hotel Stay: Positive Balance = Owing
+                                              t.balance > 0 ? (
+                                                <span className="text-red-600 font-bold">{formatCurrencyWithCode(t.balance, t.currency)} (Owing)</span>
+                                              ) : t.balance < 0 ? (
+                                                <span className="text-green-600 font-bold">{formatCurrencyWithCode(Math.abs(t.balance), t.currency)} (Credit)</span>
+                                              ) : <span className="text-gray-500">-</span>
                                           ) : (
-                                            <span className="text-gray-500">-</span>
+                                              // Walk-In: Negative Balance = Owing
+                                              t.balance < 0 ? (
+                                                <span className="text-red-600 font-bold">{formatCurrencyWithCode(Math.abs(t.balance), t.currency)} (Owing)</span>
+                                              ) : t.balance > 0 ? (
+                                                <span className="text-green-600 font-bold">{formatCurrencyWithCode(t.balance, t.currency)} (Change)</span>
+                                              ) : <span className="text-gray-500">-</span>
                                           )}
                                         </td>
                                         <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}>{statusText}</span></td>
@@ -1902,16 +1938,16 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
   );
 };
 
-const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
-    const [guestName, setGuestName] = useState('Walk-In Guest');
-    const [currency, setCurrency] = useState<'NGN'|'USD'>('NGN');
-    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.POS);
-    const [items, setItems] = useState<WalkInChargeItem[]>([
+const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName }: any) => {
+    const [guestName, setGuestName] = useState(initialGuestName || 'Walk-In Guest');
+    const [currency, setCurrency] = useState<'NGN'|'USD'>(initialData?.currency || 'NGN');
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(initialData?.paymentMethod || PaymentMethod.POS);
+    const [items, setItems] = useState<WalkInChargeItem[]>(initialData?.charges || [
         { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: PaymentMethod.POS }
     ]);
-    const [discount, setDiscount] = useState(0);
-    const [customServiceCharge, setCustomServiceCharge] = useState<number | null>(null);
-    const [tenderedAmount, setTenderedAmount] = useState<number | string>('');
+    const [discount, setDiscount] = useState(initialData?.discount || 0);
+    const [customServiceCharge, setCustomServiceCharge] = useState<number | null>(initialData ? initialData.serviceCharge : null);
+    const [tenderedAmount, setTenderedAmount] = useState<number | string>(initialData ? initialData.amountPaid : '');
 
     const addItem = () => {
         setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: paymentMethod }]);
@@ -1945,8 +1981,8 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
         const updatedItems = items.map(i => ({...i, paymentMethod: paymentMethod}));
 
         const transaction: WalkInTransaction = {
-            id: `WIG-${Date.now().toString().slice(-6)}`,
-            transactionDate: new Date().toISOString(),
+            id: initialData?.id || `WIG-${Date.now().toString().slice(-6)}`,
+            transactionDate: initialData?.transactionDate || new Date().toISOString(),
             charges: updatedItems,
             currency,
             subtotal,
@@ -1967,7 +2003,7 @@ const WalkInGuestModal = ({ onClose, onSave, user }: any) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 text-gray-900">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
                 <div className="p-6 pb-2 flex justify-between items-center bg-white z-10">
-                    <h2 className="text-xl font-bold text-[#c4a66a]">New Walk-In Guest Charge</h2>
+                    <h2 className="text-xl font-bold text-[#c4a66a]">{initialData ? 'Edit Walk-In Charge' : 'New Walk-In Guest Charge'}</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
                 </div>
 
@@ -2095,6 +2131,7 @@ const App = () => {
     const [transactions, setTransactions] = useState<RecordedTransaction[]>([]);
     const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(null);
     const [showWalkInModal, setShowWalkInModal] = useState(false);
+    const [editingWalkIn, setEditingWalkIn] = useState<{data: WalkInTransaction, guestName: string} | null>(null);
 
     useEffect(() => {
         const stored = localStorage.getItem('tide_transactions');
@@ -2134,7 +2171,8 @@ const App = () => {
             setEditingInvoice(t.data as InvoiceData);
             setView('invoice');
         } else {
-            printWalkInReceipt(t.data as WalkInTransaction, t.guestName);
+            setEditingWalkIn({ data: t.data as WalkInTransaction, guestName: t.guestName });
+            setShowWalkInModal(true);
         }
     };
 
@@ -2173,18 +2211,29 @@ const App = () => {
     };
 
     const handleSaveWalkIn = (data: WalkInTransaction, guestName: string) => {
+        const existingIndex = transactions.findIndex(t => t.id === data.id);
+        
         const newRecord: RecordedTransaction = {
             id: data.id,
             type: 'Walk-In',
             date: data.transactionDate.split('T')[0],
             guestName: guestName,
             amount: data.amountPaid,
-            balance: Math.abs(data.balance),
+            balance: data.balance,
             currency: data.currency,
             data: data
         };
-        setTransactions([newRecord, ...transactions]);
+
+        if (existingIndex >= 0) {
+            const updated = [...transactions];
+            updated[existingIndex] = newRecord;
+            setTransactions(updated);
+        } else {
+            setTransactions([newRecord, ...transactions]);
+        }
+        
         setShowWalkInModal(false);
+        setEditingWalkIn(null);
         printWalkInReceipt(data, guestName);
     };
 
@@ -2209,13 +2258,15 @@ const App = () => {
                 transactions={transactions}
                 onDeleteTransaction={handleDeleteTransaction}
                 onEditTransaction={handleEditTransaction}
-                onCreateWalkIn={() => setShowWalkInModal(true)}
+                onCreateWalkIn={() => { setEditingWalkIn(null); setShowWalkInModal(true); }}
             />
             {showWalkInModal && (
                 <WalkInGuestModal 
-                    onClose={() => setShowWalkInModal(false)}
+                    onClose={() => { setShowWalkInModal(false); setEditingWalkIn(null); }}
                     onSave={handleSaveWalkIn}
                     user={user}
+                    initialData={editingWalkIn?.data}
+                    initialGuestName={editingWalkIn?.guestName}
                 />
             )}
         </>
