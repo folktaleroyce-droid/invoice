@@ -160,6 +160,13 @@ export interface WalkInChargeItem {
   paymentMethod: PaymentMethod;
 }
 
+export interface WalkInPayment {
+  id: string;
+  amount: number;
+  method: PaymentMethod;
+  reference?: string;
+}
+
 export interface WalkInTransaction {
   id: string;
   transactionDate: string;
@@ -172,7 +179,8 @@ export interface WalkInTransaction {
   amountPaid: number;
   balance: number;
   cashier: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PaymentMethod; // Deprecated but kept for backward compatibility if needed, or used as 'Mixed'
+  payments: WalkInPayment[]; // New field for multiple payments
 }
 
 export interface RecordedTransaction {
@@ -958,6 +966,33 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
 
   const totalDue = data.subtotal - data.discount + data.serviceCharge;
 
+  // Payments rendering logic: Handle legacy (single) and new (multiple) structures
+  let paymentsHtml = '';
+  if (data.payments && data.payments.length > 0) {
+      // New structure with multiple payments
+      const rows = data.payments.map(p => `
+        <div class="row">
+          <div class="col-left">${p.method} ${p.reference ? `(#${p.reference})` : ''}</div>
+          <div class="col-right">${symbol}${formatMoney(p.amount)}</div>
+        </div>
+      `).join('');
+      paymentsHtml = `
+        <div class="dashed"></div>
+        <div class="row bold" style="margin-bottom: 2px;">
+            <div class="col-left">Payments Received</div>
+        </div>
+        ${rows}
+      `;
+  } else {
+      // Legacy structure
+      paymentsHtml = `
+      <div class="row">
+        <div class="col-left">Payment Method:</div>
+        <div class="col-right">${data.paymentMethod}</div>
+      </div>
+      `;
+  }
+
   let bankDetailsHtml = '';
   // Check for negative balance (which means owing in Walk-In module)
   // balance = paid - total. If paid < total, balance is negative.
@@ -1068,19 +1103,18 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
         <div class="col-right">${symbol}${formatMoney(totalDue)}</div>
       </div>
 
+      ${paymentsHtml}
+
+      <div class="dashed"></div>
+
       <div class="row">
-        <div class="col-left">Amount Paid</div>
+        <div class="col-left">Total Paid</div>
         <div class="col-right">${symbol}${formatMoney(data.amountPaid)}</div>
       </div>
 
       <div class="row bold">
         <div class="col-left">${data.balance < 0 ? 'Balance (Owing)' : 'Balance'}</div>
         <div class="col-right">${symbol}${formatMoney(data.balance)}</div>
-      </div>
-      
-      <div class="row">
-        <div class="col-left">Payment Method:</div>
-        <div class="col-right">${data.paymentMethod}</div>
       </div>
 
       ${bankDetailsHtml}
@@ -1266,10 +1300,6 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
     .filter((t: RecordedTransaction) => t.currency === 'NGN')
     .reduce((sum: number, t: RecordedTransaction) => sum + (t.type === 'Hotel Stay' ? (t.data as InvoiceData).amountReceived : (t.data as WalkInTransaction).amountPaid), 0);
     
-  // const revenueTodayUSD = todaysTransactions
-  //   .filter((t: RecordedTransaction) => t.currency === 'USD')
-  //   .reduce((sum: number, t: RecordedTransaction) => sum + (t.type === 'Hotel Stay' ? (t.data as InvoiceData).amountReceived : (t.data as WalkInTransaction).amountPaid), 0);
-
   // Correct calculation for total owing:
   // For Hotel Stay: Positive balance is owing.
   // For Walk-In: Negative balance is owing (balance = paid - total).
@@ -1941,16 +1971,28 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
 const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName }: any) => {
     const [guestName, setGuestName] = useState(initialGuestName || 'Walk-In Guest');
     const [currency, setCurrency] = useState<'NGN'|'USD'>(initialData?.currency || 'NGN');
-    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(initialData?.paymentMethod || PaymentMethod.POS);
     const [items, setItems] = useState<WalkInChargeItem[]>(initialData?.charges || [
         { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: PaymentMethod.POS }
     ]);
+    const [payments, setPayments] = useState<WalkInPayment[]>(initialData?.payments || []);
+    
+    // Legacy support: if editing old data that doesn't have payments array but has amountPaid
+    useEffect(() => {
+        if (initialData && (!initialData.payments || initialData.payments.length === 0) && initialData.amountPaid > 0 && payments.length === 0) {
+             setPayments([{
+                 id: uuid(),
+                 amount: initialData.amountPaid,
+                 method: initialData.paymentMethod || PaymentMethod.CASH,
+                 reference: ''
+             }]);
+        }
+    }, [initialData]);
+
     const [discount, setDiscount] = useState(initialData?.discount || 0);
     const [customServiceCharge, setCustomServiceCharge] = useState<number | null>(initialData ? initialData.serviceCharge : null);
-    const [tenderedAmount, setTenderedAmount] = useState<number | string>(initialData ? initialData.amountPaid : '');
 
     const addItem = () => {
-        setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: paymentMethod }]);
+        setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: PaymentMethod.POS }]);
     };
 
     const removeItem = (id: string) => {
@@ -1962,6 +2004,19 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
         setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i));
     };
 
+    // Payment Logic
+    const addPayment = () => {
+        setPayments([...payments, { id: uuid(), amount: 0, method: PaymentMethod.POS, reference: '' }]);
+    };
+    
+    const removePayment = (id: string) => {
+        setPayments(payments.filter(p => p.id !== id));
+    };
+
+    const updatePayment = (id: string, field: keyof WalkInPayment, value: any) => {
+        setPayments(payments.map(p => p.id === id ? { ...p, [field]: value } : p));
+    };
+
     const subtotal = items.reduce((sum, i) => sum + (i.amount || 0), 0);
     const taxable = Math.max(0, subtotal - discount);
     
@@ -1971,14 +2026,17 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
     const tax = Math.max(0, taxable - (taxable / 1.075));
     const totalDue = Math.max(0, taxable + serviceCharge);
     
-    const paid = tenderedAmount === '' ? 0 : parseFloat(tenderedAmount as string);
-    const balance = paid - totalDue;
+    const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const balance = totalPaid - totalDue;
 
     const handleSave = () => {
         if (!guestName) { alert('Guest Name is required'); return; }
         
-        // Sync item payment methods with global transaction method for consistency
-        const updatedItems = items.map(i => ({...i, paymentMethod: paymentMethod}));
+        // Sync legacy paymentMethod field to the first payment method if available, or Pending
+        const legacyMethod = payments.length > 0 ? payments[0].method : PaymentMethod.PENDING;
+        
+        // Sync item payment methods just for consistency in charge items, use the first payment method
+        const updatedItems = items.map(i => ({...i, paymentMethod: legacyMethod}));
 
         const transaction: WalkInTransaction = {
             id: initialData?.id || `WIG-${Date.now().toString().slice(-6)}`,
@@ -1989,10 +2047,11 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
             discount,
             serviceCharge,
             tax,
-            amountPaid: paid, 
+            amountPaid: totalPaid, 
             balance: balance < 0 ? balance : 0,
             cashier: user.name,
-            paymentMethod: paymentMethod
+            paymentMethod: legacyMethod, // Deprecated usage
+            payments: payments
         };
         onSave(transaction, guestName);
     };
@@ -2021,7 +2080,9 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
                         </select>
                     </div>
 
+                    {/* Services/Charges Section */}
                     <div className="border rounded p-4 bg-gray-50">
+                        <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Services / Items</h4>
                         {items.map((item, index) => (
                            <div key={item.id} className={`flex flex-col gap-2 ${index < items.length - 1 ? 'border-b border-gray-200 pb-3 mb-3' : ''}`}>
                                <div className="flex gap-3 items-end">
@@ -2052,11 +2113,11 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
                                )}
                            </div>
                         ))}
+                        <button onClick={addItem} className="text-[#3182ce] font-medium text-sm hover:underline mt-2">+ Add Item</button>
                     </div>
                     
-                    <button onClick={addItem} className="text-[#3182ce] font-medium text-sm hover:underline">+ Add Another Service</button>
-
-                    <div className="mt-6 border-t pt-4 space-y-2">
+                    {/* Totals Calculation */}
+                    <div className="pt-2 space-y-2 border-t border-gray-100">
                         <div className="flex justify-between text-sm font-bold">
                             <span>Subtotal:</span>
                             <span>{symbol} {subtotal.toFixed(2)}</span>
@@ -2082,21 +2143,49 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
                             <span>Total Due:</span>
                             <span>{symbol}{totalDue.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                         </div>
-                        
-                        <div className="flex justify-between items-center mt-2">
-                             <span className="font-bold text-sm">Amount Paid:</span>
-                             <input type="number" className="w-32 border rounded p-2 text-right font-bold bg-white text-gray-900" value={tenderedAmount} onChange={(e) => setTenderedAmount(e.target.value)} />
-                        </div>
+                    </div>
 
-                        <div className="flex justify-between items-center mt-2 bg-yellow-50 p-2 rounded border border-yellow-100">
-                             <span className="font-bold text-sm">Payment Method:</span>
-                             <select 
-                                className="w-32 border rounded p-2 bg-white text-gray-900 text-sm font-bold"
-                                value={paymentMethod}
-                                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                             >
-                                 {Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}
-                             </select>
+                    {/* Payments Section */}
+                    <div className="border rounded p-4 bg-green-50 border-green-100">
+                        <div className="flex justify-between items-center mb-2">
+                             <h4 className="text-xs font-bold text-green-700 uppercase">Payments Received</h4>
+                             <button onClick={addPayment} className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded hover:bg-green-300 font-bold">+ Split Payment</button>
+                        </div>
+                        
+                        {payments.length === 0 && <p className="text-xs text-gray-500 italic mb-2">No payments recorded.</p>}
+
+                        {payments.map((p, index) => (
+                           <div key={p.id} className="flex gap-2 mb-2 items-center">
+                               <select 
+                                  className="w-1/3 border rounded p-1.5 bg-white text-gray-900 text-xs font-bold"
+                                  value={p.method}
+                                  onChange={(e) => updatePayment(p.id, 'method', e.target.value as PaymentMethod)}
+                               >
+                                   {Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}
+                               </select>
+                               <input 
+                                  type="text"
+                                  className="w-1/4 border rounded p-1.5 bg-white text-gray-900 text-xs"
+                                  placeholder="Ref (Opt)"
+                                  value={p.reference || ''}
+                                  onChange={(e) => updatePayment(p.id, 'reference', e.target.value)}
+                               />
+                               <input 
+                                  type="number" 
+                                  className="flex-grow border rounded p-1.5 text-right font-bold bg-white text-gray-900 text-xs" 
+                                  placeholder="Amount"
+                                  value={p.amount} 
+                                  onChange={(e) => updatePayment(p.id, 'amount', parseFloat(e.target.value))} 
+                               />
+                               <button onClick={() => removePayment(p.id)} className="text-red-500 hover:text-red-700 p-1">
+                                   ✕
+                               </button>
+                           </div>
+                        ))}
+                        
+                        <div className="flex justify-between items-center mt-3 border-t border-green-200 pt-2">
+                             <span className="font-bold text-sm text-green-800">Total Paid:</span>
+                             <span className="font-bold text-lg text-green-800">{symbol}{totalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                         </div>
                     </div>
                 </div>
@@ -2107,7 +2196,9 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
                             <span>Balance:</span>
                             <span className={balance >= 0 ? "text-green-600" : "text-red-600"}>
                                 {symbol} {balance.toLocaleString(undefined, {minimumFractionDigits: 2})} 
-                                <span className="text-xs font-normal text-gray-500 ml-1">(Change)</span>
+                                <span className="text-xs font-normal text-gray-500 ml-1">
+                                    {balance < 0 ? '(Owing)' : '(Change/Paid)'}
+                                </span>
                             </span>
                         </div>
                      </div>
