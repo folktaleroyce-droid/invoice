@@ -82,6 +82,8 @@ export enum InvoiceStatus {
 export interface AdditionalChargeItem {
   id: string;
   description: string;
+  quantity: number;
+  unitPrice: number;
   amount: number;
 }
 
@@ -156,6 +158,8 @@ export interface WalkInChargeItem {
   date: string;
   service: WalkInService;
   otherServiceDescription?: string;
+  quantity: number;
+  unitPrice: number;
   amount: number;
   paymentMethod: PaymentMethod;
 }
@@ -179,8 +183,8 @@ export interface WalkInTransaction {
   amountPaid: number;
   balance: number;
   cashier: string;
-  paymentMethod: PaymentMethod; // Deprecated but kept for backward compatibility if needed, or used as 'Mixed'
-  payments: WalkInPayment[]; // New field for multiple payments
+  paymentMethod: PaymentMethod; // Deprecated but kept for backward compatibility
+  payments: WalkInPayment[]; 
 }
 
 export interface RecordedTransaction {
@@ -295,15 +299,11 @@ const formatDateForDisplay = (dateString: string): string => {
   if (!dateString) return '';
   try {
       let d = new Date(dateString);
-      
-      // If it looks like YYYY-MM-DD, parse manually to be safe on timezone
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
           const parts = dateString.split('-');
           d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
       }
-
       if (isNaN(d.getTime())) return dateString;
-      
       const day = d.getDate();
       const month = d.toLocaleString('default', { month: 'short' });
       const year = d.getFullYear();
@@ -311,8 +311,6 @@ const formatDateForDisplay = (dateString: string): string => {
       if (day % 10 === 1 && day !== 11) suffix = 'st';
       else if (day % 10 === 2 && day !== 12) suffix = 'nd';
       else if (day % 10 === 3 && day !== 13) suffix = 'rd';
-      
-      // Returns format like "Dec 3rd 2025"
       return `${month} ${day}${suffix} ${year}`;
   } catch (e) { return dateString; }
 };
@@ -367,31 +365,31 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         return amount < 0 ? `-${symbol} ${formattedAbs}` : `${symbol} ${formattedAbs}`;
     }
 
-    // Header (Compact)
+    // Header
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor('#c4a66a');
-    doc.text('TIDE HOTELS AND RESORTS', 105, 15, { align: 'center' }); // Reduced Y
+    doc.text('TIDE HOTELS AND RESORTS', 105, 15, { align: 'center' }); 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor('#2c3e50');
-    doc.text('Where Boldness Meets Elegance.', 105, 22, { align: 'center' }); // Reduced Y
+    doc.text('Where Boldness Meets Elegance.', 105, 22, { align: 'center' }); 
     doc.setFontSize(9);
-    doc.text('38 S.O Williams Street Off Anthony Enahoro Street Utako Abuja', 105, 27, { align: 'center' }); // Reduced Y
+    doc.text('38 S.O Williams Street Off Anthony Enahoro Street Utako Abuja', 105, 27, { align: 'center' }); 
     doc.setLineWidth(0.5);
-    doc.line(80, 30, 130, 30); // Reduced Y
+    doc.line(80, 30, 130, 30); 
 
     // Document Title
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(isReservation ? '#E53E3E' : '#2c3e50');
-    doc.text(isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT', 105, 40, { align: 'center' }); // Reduced Y
+    doc.text(isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT', 105, 40, { align: 'center' });
     doc.setTextColor('#2c3e50');
 
     // Document Info
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`${isReservation ? 'Invoice No:' : 'Receipt No:'} ${data.receiptNo}`, 14, 50); // Reduced Y
+    doc.text(`${isReservation ? 'Invoice No:' : 'Receipt No:'} ${data.receiptNo}`, 14, 50); 
     doc.text(`Date: ${formatDateForDisplay(data.date)}`, 196, 50, { align: 'right' });
     let finalY = 50;
 
@@ -433,7 +431,7 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     // Booking Table
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('Bookings', 14, finalY + 8); // Reduced gap
+    doc.text('Bookings', 14, finalY + 8); 
 
     const bookingTableColumn = ["S/N", "Room Type", "Qty", "Duration", "Check-In", "Check-Out", "Nights", `Rate/Night`, `Subtotal (${symbol})`];
     const bookingTableRows = data.bookings.map((booking, index) => [
@@ -454,7 +452,7 @@ const createInvoiceDoc = (data: InvoiceData): any => {
       body: bookingTableRows,
       theme: 'grid',
       headStyles: { fillColor: '#2c3e50', fontSize: 8 },
-      styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.5 }, // Reduced padding
+      styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.5 }, 
       columnStyles: { 2: { halign: 'center' }, 6: { halign: 'center' }, 7: { halign: 'right' }, 8: { halign: 'right' } }
     });
     finalY = doc.lastAutoTable.finalY;
@@ -472,8 +470,14 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text('Additional Charges', 14, finalY + 8);
-        const chargesColumn = ["S/N", "Description", `Amount (${symbol})`];
-        const chargesRows = data.additionalChargeItems.map((item, index) => [index+1, item.description, formatMoney(item.amount)]);
+        const chargesColumn = ["S/N", "Description", "Qty", `Unit Price (${symbol})`, `Amount (${symbol})`];
+        const chargesRows = data.additionalChargeItems.map((item, index) => [
+            index+1, 
+            item.description, 
+            item.quantity || 1, 
+            formatMoney(item.unitPrice || item.amount), 
+            formatMoney(item.amount)
+        ]);
         doc.autoTable({
           startY: finalY + 11,
           head: [chargesColumn],
@@ -481,7 +485,11 @@ const createInvoiceDoc = (data: InvoiceData): any => {
           theme: 'grid',
           headStyles: { fillColor: '#2c3e50' },
           styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.5 },
-          columnStyles: { 2: { halign: 'right' } }
+          columnStyles: { 
+              2: { halign: 'center' }, 
+              3: { halign: 'right' }, 
+              4: { halign: 'right' } 
+          }
         });
         finalY = doc.lastAutoTable.finalY;
     }
@@ -508,7 +516,7 @@ const createInvoiceDoc = (data: InvoiceData): any => {
 
     const pageHeight = doc.internal.pageSize.height;
     const margin = 14;
-    let y = finalY + 8; // Reduced gap
+    let y = finalY + 8;
 
     const checkPageBreak = (heightNeeded: number) => {
         if (y + heightNeeded > pageHeight - 15) {
@@ -593,8 +601,6 @@ const createInvoiceDoc = (data: InvoiceData): any => {
 
     // 3. PAYMENT STATUS & BANK DETAILS BLOCK
     if (data.status !== InvoiceStatus.PAID) {
-        // Ensure there is enough space for status and bank details table to stay together
-        // Reduced height threshold to avoid unnecessary page break
         checkPageBreak(70); 
 
         if (data.status === InvoiceStatus.PARTIAL) {
@@ -621,7 +627,6 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         const gbpDetails = 'GBP\nBeneficiary Bank Swift Code: UMPLNGLA\nBeneficiary Bank Name: Providus Account\n(F59) Beneficiary Account: 1308430676\nBeneficiary Name: Tide` Hotels and Resorts';
         const euroDetails = 'EURO\nBeneficiary Bank Swift Code: UMPLNGLA\nBeneficiary Bank Name: Providus Account\n(F59) Beneficiary Account: 1308430683\nBeneficiary Name: Tide` Hotels and Resorts\nBeneficiary Address: No. 38 S.O Williams Street, Utako, Abuja';
 
-        // Use autoTable for bank details to avoid overlap
         doc.autoTable({
             startY: y,
             head: [['NAIRA ACCOUNTS', 'DOMICILIARY ACCOUNTS (PROVIDUS BANK)']],
@@ -684,7 +689,6 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     doc.line(136, y, 196, y); 
     doc.text("Cashier/Receptionist Signature", 136, y + 5);
 
-    // Footer note moved to bottom of page regardless of flow
     doc.setFontSize(8);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor('#7f8c8d');
@@ -725,6 +729,8 @@ const printInvoice = (data: InvoiceData) => {
     <tr>
       <td class="px-2 py-1 border-b border-gray-200 text-center">${idx + 1}</td>
       <td class="px-2 py-1 border-b border-gray-200">${item.description}</td>
+      <td class="px-2 py-1 border-b border-gray-200 text-center">${item.quantity || 1}</td>
+      <td class="px-2 py-1 border-b border-gray-200 text-right">${formatMoney(item.unitPrice || item.amount)}</td>
       <td class="px-2 py-1 border-b border-gray-200 text-right">${formatMoney(item.amount)}</td>
     </tr>
   `).join('');
@@ -853,6 +859,8 @@ const printInvoice = (data: InvoiceData) => {
               <tr>
                 <th class="px-2 py-1 w-12">S/N</th>
                 <th class="px-2 py-1 text-left">Description</th>
+                <th class="px-2 py-1 text-center w-16">Qty</th>
+                <th class="px-2 py-1 text-right w-24">Unit Price</th>
                 <th class="px-2 py-1 text-right w-32">Amount (${symbol})</th>
               </tr>
             </thead>
@@ -957,19 +965,28 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) { alert('Please allow popups for this website'); return; }
 
-  const chargesRows = data.charges.map((item) => `
+  const chargesRows = data.charges.map((item) => {
+    const qty = item.quantity || 1;
+    // Format description with service type: "Restaurant: Jollof Rice"
+    let desc = item.service as string;
+    if (item.otherServiceDescription) {
+        desc = `${item.service}: ${item.otherServiceDescription}`;
+    }
+    
+    // Display format
+    const displayDesc = qty > 1 ? `${qty} x ${desc}` : desc;
+
+    return `
     <div class="row">
-      <div class="col-left">${item.service} ${item.otherServiceDescription ? `(${item.otherServiceDescription})` : ''}</div>
+      <div class="col-left">${displayDesc}</div>
       <div class="col-right">${symbol}${formatMoney(item.amount)}</div>
     </div>
-  `).join('');
+  `}).join('');
 
   const totalDue = data.subtotal - data.discount + data.serviceCharge;
 
-  // Payments rendering logic: Handle legacy (single) and new (multiple) structures
   let paymentsHtml = '';
   if (data.payments && data.payments.length > 0) {
-      // New structure with multiple payments
       const rows = data.payments.map(p => `
         <div class="row">
           <div class="col-left">${p.method} ${p.reference ? `(#${p.reference})` : ''}</div>
@@ -984,7 +1001,6 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
         ${rows}
       `;
   } else {
-      // Legacy structure
       paymentsHtml = `
       <div class="row">
         <div class="col-left">Payment Method:</div>
@@ -994,8 +1010,6 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
   }
 
   let bankDetailsHtml = '';
-  // Check for negative balance (which means owing in Walk-In module)
-  // balance = paid - total. If paid < total, balance is negative.
   if (data.balance < 0) {
       bankDetailsHtml = `
       <div class="dashed"></div>
@@ -1154,7 +1168,6 @@ const generateCSV = (transactions: RecordedTransaction[]): string => {
             status = d.status;
             amountDue = d.totalAmountDue;
         } else { 
-            // Walk-In status logic for CSV
             status = t.balance < 0 ? 'Owing' : 'Paid';
         }
         return [t.id, t.type, t.date, `"${t.guestName}"`, amountDue.toFixed(2), t.balance.toFixed(2), status, t.currency].join(',');
@@ -1191,7 +1204,6 @@ const USERS = [
 
 const WelcomeScreen = ({ onComplete }: { onComplete: () => void }) => {
   useEffect(() => {
-    // Reduced to 1500 for faster load
     const timer = setTimeout(onComplete, 1500);
     return () => clearTimeout(timer);
   }, [onComplete]);
@@ -1300,9 +1312,6 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
     .filter((t: RecordedTransaction) => t.currency === 'NGN')
     .reduce((sum: number, t: RecordedTransaction) => sum + (t.type === 'Hotel Stay' ? (t.data as InvoiceData).amountReceived : (t.data as WalkInTransaction).amountPaid), 0);
     
-  // Correct calculation for total owing:
-  // For Hotel Stay: Positive balance is owing.
-  // For Walk-In: Negative balance is owing (balance = paid - total).
   const totalOwingNGN = transactions
     .filter((t: RecordedTransaction) => t.currency === 'NGN')
     .reduce((sum: number, t: RecordedTransaction) => {
@@ -1313,9 +1322,6 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
         }
     }, 0);
 
-  // Correct calculation for total credit (hotel owes guest):
-  // For Hotel Stay: Negative balance is credit.
-  // For Walk-In: Positive balance is change/credit.
   const totalCreditNGN = transactions
     .filter((t: RecordedTransaction) => t.currency === 'NGN')
     .reduce((sum: number, t: RecordedTransaction) => {
@@ -1416,8 +1422,6 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
                                     else if (d.status === InvoiceStatus.PARTIAL) statusColor = 'bg-yellow-100 text-yellow-800 border border-yellow-200';
                                     else statusColor = 'bg-red-50 text-red-700 border border-red-200 font-bold';
                                 } else {
-                                    // Walk-In Status Logic
-                                    // Balance < 0 means owing (Paid less than total due)
                                     if (t.balance < 0) { 
                                         statusText = 'Pending Payment'; 
                                         statusColor = 'bg-red-50 text-red-700 border border-red-200 font-bold'; 
@@ -1435,14 +1439,12 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
                                         <td className="px-4 py-3">{formatCurrencyWithCode(t.amount, t.currency)}</td>
                                         <td className="px-4 py-3 font-medium">
                                           {t.type === 'Hotel Stay' ? (
-                                              // Hotel Stay: Positive Balance = Owing
                                               t.balance > 0 ? (
                                                 <span className="text-red-600 font-bold">{formatCurrencyWithCode(t.balance, t.currency)} (Owing)</span>
                                               ) : t.balance < 0 ? (
                                                 <span className="text-green-600 font-bold">{formatCurrencyWithCode(Math.abs(t.balance), t.currency)} (Credit)</span>
                                               ) : <span className="text-gray-500">-</span>
                                           ) : (
-                                              // Walk-In: Negative Balance = Owing
                                               t.balance < 0 ? (
                                                 <span className="text-red-600 font-bold">{formatCurrencyWithCode(Math.abs(t.balance), t.currency)} (Owing)</span>
                                               ) : t.balance > 0 ? (
@@ -1473,11 +1475,30 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
   const [isAutoServiceCharge, setIsAutoServiceCharge] = useState(true);
 
   const [data, setData] = useState<InvoiceData>(() => {
-      if (initialData) return initialData;
+      if (initialData) {
+          // Migration logic for editing old records
+          const migrated = { ...initialData };
+          if (migrated.additionalChargeItems) {
+              migrated.additionalChargeItems = migrated.additionalChargeItems.map((i: any) => ({
+                  ...i,
+                  quantity: i.quantity || 1,
+                  unitPrice: i.unitPrice !== undefined ? i.unitPrice : i.amount
+              }));
+          }
+          return migrated;
+      }
       try {
           const saved = localStorage.getItem(DRAFT_KEY);
           if (saved) {
               const parsed = JSON.parse(saved);
+              // Migration for drafts
+              if (parsed.additionalChargeItems) {
+                  parsed.additionalChargeItems = parsed.additionalChargeItems.map((i: any) => ({
+                      ...i,
+                      quantity: i.quantity || 1,
+                      unitPrice: i.unitPrice !== undefined ? i.unitPrice : i.amount
+                  }));
+              }
               return {
                   ...parsed,
                   receivedBy: user.name || 'Francis',
@@ -1636,7 +1657,7 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
   };
 
   const addCharge = () => {
-      const newCharge: AdditionalChargeItem = { id: uuid(), description: '', amount: 0 };
+      const newCharge: AdditionalChargeItem = { id: uuid(), description: '', quantity: 1, unitPrice: 0, amount: 0 };
       setData(prev => ({ ...prev, additionalChargeItems: [...prev.additionalChargeItems, newCharge] }));
   };
 
@@ -1673,7 +1694,16 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
   const updateCharge = (id: string, field: string, value: any) => {
       setData(prev => ({
           ...prev,
-          additionalChargeItems: prev.additionalChargeItems.map(c => c.id === id ? { ...c, [field]: value } : c)
+          additionalChargeItems: prev.additionalChargeItems.map(c => {
+              if (c.id === id) {
+                  const updated = { ...c, [field]: value };
+                  if (field === 'quantity' || field === 'unitPrice') {
+                      updated.amount = (updated.quantity || 0) * (updated.unitPrice || 0);
+                  }
+                  return updated;
+              }
+              return c;
+          })
       }));
   };
 
@@ -1687,7 +1717,6 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
   const handlePrint = () => {
       const fullData = { ...data, ...totals };
       if (!fullData.guestName) { alert('Guest Name is required.'); return; }
-      // Auto-save before printing (pass true for isAutoSave to prevent navigating away)
       onSave(fullData, true);
       printInvoice(fullData);
   };
@@ -1695,7 +1724,6 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
   const handleGeneratePdf = () => {
       const fullData = { ...data, ...totals };
       if (!fullData.guestName) { alert('Guest Name is required.'); return; }
-      // Auto-save before generating PDF
       onSave(fullData, true);
       const doc = createInvoiceDoc(fullData);
       if (doc) doc.save(`${fullData.receiptNo}_${fullData.guestName}.pdf`);
@@ -1832,6 +1860,8 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
                    <thead className="bg-[#2c3e50] text-white">
                        <tr>
                            <th className="p-2 text-left">Description</th>
+                           <th className="p-2 text-center w-20">Qty</th>
+                           <th className="p-2 text-right w-32">Unit Price</th>
                            <th className="p-2 text-right w-32">Amount</th>
                            <th className="p-2 w-10"></th>
                        </tr>
@@ -1840,7 +1870,9 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
                        {data.additionalChargeItems.map(c => (
                            <tr key={c.id}>
                                <td className="p-2"><input type="text" className="w-full border rounded p-1 bg-white text-gray-900" placeholder="Item description" value={c.description} onChange={(e) => updateCharge(c.id, 'description', e.target.value)} /></td>
-                               <td className="p-2"><input type="number" className="w-full border rounded p-1 text-right bg-white text-gray-900" value={c.amount} onChange={(e) => updateCharge(c.id, 'amount', parseFloat(e.target.value))} /></td>
+                               <td className="p-2"><input type="number" min="1" className="w-full border rounded p-1 text-center bg-white text-gray-900" value={c.quantity || 1} onChange={(e) => updateCharge(c.id, 'quantity', parseFloat(e.target.value))} /></td>
+                               <td className="p-2"><input type="number" className="w-full border rounded p-1 text-right bg-white text-gray-900" value={c.unitPrice || 0} onChange={(e) => updateCharge(c.id, 'unitPrice', parseFloat(e.target.value))} /></td>
+                               <td className="p-2"><input type="number" className="w-full border rounded p-1 text-right bg-gray-100 text-gray-600" value={c.amount} readOnly /></td>
                                <td className="p-2"><button onClick={() => removeCharge(c.id)} className="text-red-500 hover:text-red-700 font-bold">✕</button></td>
                            </tr>
                        ))}
@@ -1971,12 +2003,20 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
 const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName }: any) => {
     const [guestName, setGuestName] = useState(initialGuestName || 'Walk-In Guest');
     const [currency, setCurrency] = useState<'NGN'|'USD'>(initialData?.currency || 'NGN');
-    const [items, setItems] = useState<WalkInChargeItem[]>(initialData?.charges || [
-        { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: PaymentMethod.POS }
-    ]);
+    const [items, setItems] = useState<WalkInChargeItem[]>(() => {
+        if (initialData?.charges) {
+             return initialData.charges.map((i: any) => ({
+                 ...i,
+                 quantity: i.quantity || 1,
+                 unitPrice: i.unitPrice !== undefined ? i.unitPrice : i.amount
+             }));
+        }
+        return [
+            { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, quantity: 1, unitPrice: 0, paymentMethod: PaymentMethod.POS }
+        ];
+    });
     const [payments, setPayments] = useState<WalkInPayment[]>(initialData?.payments || []);
     
-    // Legacy support: if editing old data that doesn't have payments array but has amountPaid
     useEffect(() => {
         if (initialData && (!initialData.payments || initialData.payments.length === 0) && initialData.amountPaid > 0 && payments.length === 0) {
              setPayments([{
@@ -1992,19 +2032,27 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
     const [customServiceCharge, setCustomServiceCharge] = useState<number | null>(initialData ? initialData.serviceCharge : null);
 
     const addItem = () => {
-        setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, paymentMethod: PaymentMethod.POS }]);
+        setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, quantity: 1, unitPrice: 0, amount: 0, paymentMethod: PaymentMethod.POS }]);
     };
 
     const removeItem = (id: string) => {
         if (items.length > 1) setItems(items.filter(i => i.id !== id));
-        else setItems([{ ...items[0], amount: 0, service: WalkInService.RESTAURANT }]);
+        else setItems([{ ...items[0], quantity: 1, unitPrice: 0, amount: 0, service: WalkInService.RESTAURANT }]);
     };
 
     const updateItem = (id: string, field: keyof WalkInChargeItem, value: any) => {
-        setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i));
+        setItems(items.map(i => {
+            if (i.id === id) {
+                const updated = { ...i, [field]: value };
+                if (field === 'quantity' || field === 'unitPrice') {
+                    updated.amount = (updated.quantity || 0) * (updated.unitPrice || 0);
+                }
+                return updated;
+            }
+            return i;
+        }));
     };
 
-    // Payment Logic
     const addPayment = () => {
         setPayments([...payments, { id: uuid(), amount: 0, method: PaymentMethod.POS, reference: '' }]);
     };
@@ -2032,10 +2080,8 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
     const handleSave = () => {
         if (!guestName) { alert('Guest Name is required'); return; }
         
-        // Sync legacy paymentMethod field to the first payment method if available, or Pending
         const legacyMethod = payments.length > 0 ? payments[0].method : PaymentMethod.PENDING;
         
-        // Sync item payment methods just for consistency in charge items, use the first payment method
         const updatedItems = items.map(i => ({...i, paymentMethod: legacyMethod}));
 
         const transaction: WalkInTransaction = {
@@ -2050,7 +2096,7 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
             amountPaid: totalPaid, 
             balance: balance < 0 ? balance : 0,
             cashier: user.name,
-            paymentMethod: legacyMethod, // Deprecated usage
+            paymentMethod: legacyMethod, 
             payments: payments
         };
         onSave(transaction, guestName);
@@ -2085,32 +2131,38 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
                         <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Services / Items</h4>
                         {items.map((item, index) => (
                            <div key={item.id} className={`flex flex-col gap-2 ${index < items.length - 1 ? 'border-b border-gray-200 pb-3 mb-3' : ''}`}>
-                               <div className="flex gap-3 items-end">
+                               <div className="flex gap-2 items-end">
                                    <div className="flex-grow">
                                        <label className="block text-xs font-bold text-gray-700 mb-1">Service</label>
                                        <select className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900" value={item.service} onChange={(e) => updateItem(item.id, 'service', e.target.value)}>
                                             {Object.values(WalkInService).map(s => <option key={s} value={s}>{s}</option>)}
                                        </select>
                                    </div>
+                                   <div className="w-16">
+                                       <label className="block text-xs font-bold text-gray-700 mb-1">Qty</label>
+                                       <input type="number" min="1" className="w-full border border-gray-300 rounded p-2 text-center text-sm bg-white text-gray-900" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value))} />
+                                   </div>
+                                   <div className="w-20">
+                                       <label className="block text-xs font-bold text-gray-700 mb-1">Unit</label>
+                                       <input type="number" className="w-full border border-gray-300 rounded p-2 text-right text-sm bg-white text-gray-900" value={item.unitPrice} onChange={(e) => updateItem(item.id, 'unitPrice', parseFloat(e.target.value))} />
+                                   </div>
                                    <div className="w-24">
-                                       <label className="block text-xs font-bold text-gray-700 mb-1">Amount</label>
-                                       <input type="number" className="w-full border border-gray-300 rounded p-2 text-right text-sm bg-white text-gray-900" value={item.amount} onChange={(e) => updateItem(item.id, 'amount', parseFloat(e.target.value))} />
+                                       <label className="block text-xs font-bold text-gray-700 mb-1">Total</label>
+                                       <input type="number" className="w-full border border-gray-300 rounded p-2 text-right text-sm bg-gray-100 text-gray-600" value={item.amount} readOnly />
                                    </div>
                                    <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700 p-2 mb-1">
                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                                    </button>
                                </div>
-                               {item.service === WalkInService.OTHER && (
-                                   <div>
-                                       <input 
-                                          type="text" 
-                                          className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900 placeholder-gray-500" 
-                                          placeholder="Description" 
-                                          value={item.otherServiceDescription || ''} 
-                                          onChange={(e) => updateItem(item.id, 'otherServiceDescription', e.target.value)} 
-                                       />
-                                   </div>
-                               )}
+                               <div>
+                                   <input 
+                                      type="text" 
+                                      className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900 placeholder-gray-500" 
+                                      placeholder="Item Details (e.g. 2 Plates of Jollof Rice)" 
+                                      value={item.otherServiceDescription || ''} 
+                                      onChange={(e) => updateItem(item.id, 'otherServiceDescription', e.target.value)} 
+                                   />
+                               </div>
                            </div>
                         ))}
                         <button onClick={addItem} className="text-[#3182ce] font-medium text-sm hover:underline mt-2">+ Add Item</button>
