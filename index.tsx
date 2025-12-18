@@ -1,3 +1,4 @@
+
 import React, { Component, useState, useEffect, useMemo, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -217,6 +218,74 @@ const ROOM_RATES_USD: Record<RoomType, number> = {
   [RoomType.ODYSSEY_SUITE]: 280,
   [RoomType.TIDE_SIGNATURE_SUITE]: 350,
 };
+
+/**
+ * COMPREHENSIVE DRINK LIST
+ * Used for auto-completing prices in both Reservation and Walk-In forms.
+ */
+const DRINK_LIST = [
+  // BEERS
+  { name: 'Heineken (Can)', price: 2000, category: 'Beer' },
+  { name: 'Heineken (Bottle)', price: 2500, category: 'Beer' },
+  { name: 'Desperado', price: 1150, category: 'Beer' },
+  { name: 'Guinness Stout (Small)', price: 1500, category: 'Beer' },
+  { name: 'Guinness Stout (Large)', price: 2500, category: 'Beer' },
+  { name: 'Star Lager', price: 1500, category: 'Beer' },
+  { name: 'Gulder', price: 1500, category: 'Beer' },
+  { name: 'Budweiser', price: 1800, category: 'Beer' },
+  { name: 'Legend Extra Stout', price: 1500, category: 'Beer' },
+  { name: 'Smirnoff Double Black', price: 1150, category: 'Beer' },
+  { name: 'Trophy Lager', price: 1200, category: 'Beer' },
+  { name: 'Heros Lager', price: 1200, category: 'Beer' },
+  
+  // SOFT DRINKS & WATER
+  { name: 'Water (75cl)', price: 1000, category: 'Soft' },
+  { name: 'Water (1.5L)', price: 1500, category: 'Soft' },
+  { name: 'Coca Cola', price: 1000, category: 'Soft' },
+  { name: 'Fanta Orange', price: 1000, category: 'Soft' },
+  { name: 'Sprite', price: 1000, category: 'Soft' },
+  { name: 'Pepsi', price: 1000, category: 'Soft' },
+  { name: 'Amstel Malt', price: 700, category: 'Soft' },
+  { name: 'Maltina', price: 700, category: 'Soft' },
+  { name: 'Schweppes (Tonic/Bitter Lemon/Ginger)', price: 1200, category: 'Soft' },
+  { name: 'Bitter Lemon', price: 1000, category: 'Soft' },
+  
+  // ENERGY DRINKS
+  { name: 'Red Bull', price: 1700, category: 'Energy' },
+  { name: 'Monster Energy', price: 1800, category: 'Energy' },
+  { name: 'Power Horse', price: 1500, category: 'Energy' },
+  { name: 'Black Bullet', price: 1500, category: 'Energy' },
+  
+  // JUICES & TEAS
+  { name: 'Chi Exotic', price: 2500, category: 'Juice' },
+  { name: 'Chivita (1L)', price: 2500, category: 'Juice' },
+  { name: 'Five Alive', price: 2500, category: 'Juice' },
+  { name: 'Chi Ice Tea', price: 2000, category: 'Juice' },
+  
+  // WINES & CHAMPAGNES
+  { name: 'Chamdor (Sparkling)', price: 6000, category: 'Wine' },
+  { name: 'Andre Rose', price: 15000, category: 'Wine' },
+  { name: 'Carlo Rossi (Red/White)', price: 12000, category: 'Wine' },
+  { name: 'Moet & Chandon Imperial', price: 95000, category: 'Champagne' },
+  { name: 'Veuve Clicquot', price: 110000, category: 'Champagne' },
+  { name: 'Don Perignon', price: 450000, category: 'Champagne' },
+  
+  // SPIRITS & LIQUORS
+  { name: 'Hennessy VS', price: 75000, category: 'Spirit' },
+  { name: 'Hennessy VSOP', price: 110000, category: 'Spirit' },
+  { name: 'Martell Blue Swift', price: 95000, category: 'Spirit' },
+  { name: 'Glenfiddich 12yrs', price: 85000, category: 'Spirit' },
+  { name: 'Glenfiddich 15yrs', price: 125000, category: 'Spirit' },
+  { name: 'Jameson Irish Whiskey', price: 45000, category: 'Spirit' },
+  { name: 'Jack Daniels', price: 55000, category: 'Spirit' },
+  { name: 'Absolut Vodka', price: 35000, category: 'Spirit' },
+  { name: 'Gordon Gin (Small)', price: 4000, category: 'Spirit' },
+  { name: 'Gordon Gin (Large)', price: 25000, category: 'Spirit' },
+  { name: 'Olmeca Tequila White', price: 40000, category: 'Spirit' },
+  { name: 'Campari (Medium)', price: 35000, category: 'Spirit' },
+  { name: 'Campari (Small)', price: 13000, category: 'Spirit' },
+  { name: 'Vermouth Rosso', price: 30000, category: 'Spirit' },
+];
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -967,11 +1036,8 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
 
   const chargesRows = data.charges.map((item) => {
     const qty = item.quantity || 1;
-    // Format description with service type: "Restaurant: Jollof Rice"
-    let desc = item.service as string;
-    if (item.otherServiceDescription) {
-        desc = `${item.service}: ${item.otherServiceDescription}`;
-    }
+    // Modified description logic: Prioritize specific item name over general category
+    const desc = item.otherServiceDescription || (item.service as string);
     
     // Display format
     const displayDesc = qty > 1 ? `${qty} x ${desc}` : desc;
@@ -1273,7 +1339,7 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: any) => void }) => {
             >
               {showPassword ? (
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
                 </svg>
               ) : (
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -1696,7 +1762,19 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
           ...prev,
           additionalChargeItems: prev.additionalChargeItems.map(c => {
               if (c.id === id) {
-                  const updated = { ...c, [field]: value };
+                  let updated = { ...c, [field]: value };
+                  
+                  // Smart search for drinks: case-insensitive match on description
+                  if (field === 'description' && value) {
+                      const trimmedValue = value.toString().trim().toLowerCase();
+                      const drink = DRINK_LIST.find(d => d.name.toLowerCase() === trimmedValue);
+                      if (drink) {
+                          updated.description = drink.name; // Use standard casing
+                          updated.unitPrice = drink.price;
+                          updated.amount = (updated.quantity || 1) * drink.price;
+                      }
+                  }
+                  
                   if (field === 'quantity' || field === 'unitPrice') {
                       updated.amount = (updated.quantity || 0) * (updated.unitPrice || 0);
                   }
@@ -1733,15 +1811,24 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
 
   return (
     <div className="bg-white min-h-screen p-8 text-gray-900 font-sans pb-20">
+       <datalist id="drinks-list">
+           {DRINK_LIST.sort((a,b) => a.name.localeCompare(b.name)).map(d => (
+               <option key={d.name} value={d.name}>{d.name} (₦{d.price.toLocaleString()})</option>
+           ))}
+       </datalist>
+
        {/* Header */}
        <div className="flex justify-between items-center mb-8">
-           <h1 className="text-3xl font-bold text-[#c4a66a]">
-               {initialData ? 'Edit Invoice / Receipt' : 'New Invoice / Receipt'}
-           </h1>
+           <div className="flex items-center gap-4">
+               <div className="w-12 h-12 bg-[#c4a66a] rounded-lg flex items-center justify-center text-white font-bold text-2xl">T</div>
+               <h1 className="text-3xl font-bold text-[#c4a66a]">
+                   {initialData ? 'Edit Invoice / Receipt' : 'New Invoice / Receipt'}
+               </h1>
+           </div>
            <div className="flex gap-2">
-               <button onClick={handlePrint} className="bg-[#2c3e50] text-white px-4 py-2 rounded hover:bg-[#34495e] text-sm">Print</button>
-               <button onClick={handleGeneratePdf} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">Download PDF</button>
-               <button onClick={handleSave} className="bg-[#2c3e50] text-white px-4 py-2 rounded hover:bg-[#34495e] text-sm">Save & Close</button>
+               <button onClick={handlePrint} className="bg-[#2c3e50] text-white px-4 py-2 rounded hover:bg-[#34495e] text-sm shadow-md transition-all">Print</button>
+               <button onClick={handleGeneratePdf} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm shadow-md transition-all">Download PDF</button>
+               <button onClick={handleSave} className="bg-[#c4a66a] text-white px-4 py-2 rounded hover:bg-[#b39556] text-sm font-bold shadow-md transition-all">Save & Close</button>
                <button onClick={onCancel} className="text-gray-500 hover:text-gray-700 px-4 py-2 text-sm">Cancel</button>
            </div>
        </div>
@@ -1749,60 +1836,67 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
        <div className="max-w-5xl mx-auto space-y-8">
            {/* Document Type & Currency */}
            <div className="grid grid-cols-2 gap-8 mb-6">
-               <div>
-                   <label className="block text-xs font-bold text-gray-500 uppercase">Document Type</label>
-                   <select 
-                     className="w-full mt-1 border rounded p-2 bg-white text-gray-900"
-                     value={data.documentType} 
-                     onChange={(e) => setData({...data, documentType: e.target.value as any})}
-                   >
-                       <option value="reservation">Reservation Invoice</option>
-                       <option value="receipt">Official Receipt</option>
-                   </select>
+               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                   <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Document Type</label>
+                   <div className="flex gap-4">
+                       <label className="flex items-center gap-2 cursor-pointer">
+                           <input type="radio" checked={data.documentType === 'reservation'} onChange={() => setData({...data, documentType: 'reservation'})} className="w-4 h-4 text-[#c4a66a]" />
+                           <span className="text-sm">Reservation Invoice</span>
+                       </label>
+                       <label className="flex items-center gap-2 cursor-pointer">
+                           <input type="radio" checked={data.documentType === 'receipt'} onChange={() => setData({...data, documentType: 'receipt'})} className="w-4 h-4 text-[#c4a66a]" />
+                           <span className="text-sm">Official Receipt</span>
+                       </label>
+                   </div>
                </div>
-               <div>
-                   <label className="block text-xs font-bold text-gray-500 uppercase">Currency</label>
-                   <select 
-                     className="w-full mt-1 border rounded p-2 bg-white text-gray-900"
-                     value={data.currency} 
-                     onChange={(e) => handleCurrencyChange(e.target.value as 'NGN' | 'USD')}
-                   >
-                       <option value="NGN">NGN (Naira)</option>
-                       <option value="USD">USD (Dollars)</option>
-                   </select>
+               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                   <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Currency</label>
+                   <div className="flex gap-4">
+                       <label className="flex items-center gap-2 cursor-pointer">
+                           <input type="radio" checked={data.currency === 'NGN'} onChange={() => handleCurrencyChange('NGN')} className="w-4 h-4 text-[#c4a66a]" />
+                           <span className="text-sm">NGN (Naira)</span>
+                       </label>
+                       <label className="flex items-center gap-2 cursor-pointer">
+                           <input type="radio" checked={data.currency === 'USD'} onChange={() => handleCurrencyChange('USD')} className="w-4 h-4 text-[#c4a66a]" />
+                           <span className="text-sm">USD (Dollars)</span>
+                       </label>
+                   </div>
                </div>
            </div>
 
            {/* Guest Information Panel */}
-           <div className="border border-gray-200 rounded">
-               <div className="bg-gray-100 p-3 border-b border-gray-200 flex justify-between items-center">
-                   <h3 className="font-bold text-gray-800">Guest Information</h3>
+           <div className="border border-gray-200 rounded-lg shadow-sm">
+               <div className="bg-[#2c3e50] p-3 rounded-t-lg flex justify-between items-center text-white">
+                   <h3 className="font-bold flex items-center gap-2">
+                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>
+                       Guest Information
+                   </h3>
                    <div className="flex items-center gap-2">
-                       <span className="text-sm text-gray-600">Date:</span>
+                       <span className="text-xs uppercase opacity-80 font-bold">Document Date:</span>
                        <input 
                          type="date" 
-                         className="border rounded p-1 text-sm bg-white text-gray-900" 
+                         className="border-none rounded p-1 text-xs bg-white text-[#2c3e50] font-bold" 
                          value={data.date} 
                          onChange={(e) => setData({...data, date: e.target.value})} 
                        />
                    </div>
                </div>
-               <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-white">
                    <div>
                        <label className="block text-xs font-bold text-gray-500 uppercase">Guest Name <span className="text-red-500">*</span></label>
-                       <input type="text" className="w-full mt-1 border rounded p-2 bg-white text-gray-900" value={data.guestName} onChange={(e) => setData({...data, guestName: e.target.value})} placeholder="Full Name" />
+                       <input type="text" className="w-full mt-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-[#c4a66a] outline-none" value={data.guestName} onChange={(e) => setData({...data, guestName: e.target.value})} placeholder="Full Name" />
                    </div>
                    <div>
                        <label className="block text-xs font-bold text-gray-500 uppercase">Email</label>
-                       <input type="email" className="w-full mt-1 border rounded p-2 bg-white text-gray-900" value={data.guestEmail} onChange={(e) => setData({...data, guestEmail: e.target.value})} placeholder="guest@example.com" />
+                       <input type="email" className="w-full mt-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-[#c4a66a] outline-none" value={data.guestEmail} onChange={(e) => setData({...data, guestEmail: e.target.value})} placeholder="guest@example.com" />
                    </div>
                    <div>
                        <label className="block text-xs font-bold text-gray-500 uppercase">Phone</label>
-                       <input type="text" className="w-full mt-1 border rounded p-2 bg-white text-gray-900" value={data.phoneContact} onChange={(e) => setData({...data, phoneContact: e.target.value})} placeholder="+234..." />
+                       <input type="text" className="w-full mt-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-[#c4a66a] outline-none" value={data.phoneContact} onChange={(e) => setData({...data, phoneContact: e.target.value})} placeholder="+234..." />
                    </div>
                    <div>
                        <label className="block text-xs font-bold text-gray-500 uppercase">Room Number Assigned <span className="text-red-500">*</span></label>
-                       <input type="text" className="w-full mt-1 border rounded p-2 bg-white text-gray-900" value={data.roomNumber} onChange={(e) => setData({...data, roomNumber: e.target.value})} placeholder="e.g. 101, 102" />
+                       <input type="text" className="w-full mt-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-[#c4a66a] outline-none font-bold" value={data.roomNumber} onChange={(e) => setData({...data, roomNumber: e.target.value})} placeholder="e.g. 101, 102" />
                    </div>
                </div>
            </div>
@@ -1810,161 +1904,216 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
            {/* Room Bookings */}
            <div>
                <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-lg text-[#2c3e50]">Room Bookings</h3>
-                    <button onClick={addBooking} className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded hover:bg-blue-200">+ Add Room</button>
+                    <h3 className="font-bold text-lg text-[#2c3e50] flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
+                        Room Bookings
+                    </h3>
+                    <button onClick={addBooking} className="text-sm bg-[#c4a66a] text-white px-3 py-1 rounded hover:bg-[#b39556] font-bold shadow-sm transition-all">+ Add Room</button>
                </div>
-               <div className="overflow-x-auto">
+               <div className="overflow-x-auto shadow-sm rounded-lg border border-gray-200">
                    <table className="w-full text-sm">
                        <thead className="bg-[#2c3e50] text-white">
                            <tr>
-                               <th className="p-2 text-left">Room Type</th>
-                               <th className="p-2 text-center w-16">Qty</th>
-                               <th className="p-2 text-left">Check In</th>
-                               <th className="p-2 text-left">Check Out</th>
-                               <th className="p-2 text-center w-16">Nights</th>
-                               <th className="p-2 text-right w-24">Rate</th>
-                               <th className="p-2 text-right w-28">Subtotal</th>
-                               <th className="p-2 w-10"></th>
+                               <th className="p-3 text-left">Room Type</th>
+                               <th className="p-3 text-center w-16">Qty</th>
+                               <th className="p-3 text-left">Check In</th>
+                               <th className="p-3 text-left">Check Out</th>
+                               <th className="p-3 text-center w-16">Nights</th>
+                               <th className="p-3 text-right w-24">Rate</th>
+                               <th className="p-3 text-right w-32">Subtotal</th>
+                               <th className="p-3 w-10"></th>
                            </tr>
                        </thead>
-                       <tbody className="divide-y text-gray-900 border border-gray-200">
+                       <tbody className="divide-y text-gray-900 bg-white">
                            {data.bookings.map(b => (
-                               <tr key={b.id}>
+                               <tr key={b.id} className="hover:bg-gray-50">
                                    <td className="p-2">
-                                       <select className="w-full border rounded p-1 bg-white text-gray-900" value={b.roomType} onChange={(e) => updateBooking(b.id, 'roomType', e.target.value)}>
+                                       <select className="w-full border-none rounded p-1 bg-white text-gray-900 font-medium outline-none" value={b.roomType} onChange={(e) => updateBooking(b.id, 'roomType', e.target.value)}>
                                            {Object.values(RoomType).map(rt => <option key={rt} value={rt}>{rt}</option>)}
                                        </select>
                                    </td>
-                                   <td className="p-2"><input type="number" min="1" className="w-full border rounded p-1 text-center bg-white text-gray-900" value={b.quantity} onChange={(e) => updateBooking(b.id, 'quantity', parseInt(e.target.value))} /></td>
-                                   <td className="p-2"><input type="date" className="w-full border rounded p-1 bg-white text-gray-900" value={b.checkIn} onChange={(e) => updateBooking(b.id, 'checkIn', e.target.value)} /></td>
-                                   <td className="p-2"><input type="date" className="w-full border rounded p-1 bg-white text-gray-900" value={b.checkOut} onChange={(e) => updateBooking(b.id, 'checkOut', e.target.value)} /></td>
-                                   <td className="p-2"><input type="number" min="0" className="w-full border rounded p-1 text-center bg-gray-100 text-gray-900" value={b.nights} onChange={(e) => updateBooking(b.id, 'nights', e.target.value)} /></td>
-                                   <td className="p-2"><input type="number" className="w-full border rounded p-1 text-right bg-white text-gray-900" value={b.ratePerNight} onChange={(e) => updateBooking(b.id, 'ratePerNight', parseFloat(e.target.value))} /></td>
-                                   <td className="p-2 text-right font-medium">{formatCurrencyWithCode(b.subtotal, data.currency)}</td>
-                                   <td className="p-2"><button onClick={() => removeBooking(b.id)} className="text-red-500 hover:text-red-700 font-bold">✕</button></td>
+                                   <td className="p-2"><input type="number" min="1" className="w-full border border-gray-200 rounded p-1 text-center font-bold" value={b.quantity} onChange={(e) => updateBooking(b.id, 'quantity', parseInt(e.target.value))} /></td>
+                                   <td className="p-2"><input type="date" className="w-full border-none rounded p-1 text-xs" value={b.checkIn} onChange={(e) => updateBooking(b.id, 'checkIn', e.target.value)} /></td>
+                                   <td className="p-2"><input type="date" className="w-full border-none rounded p-1 text-xs" value={b.checkOut} onChange={(e) => updateBooking(b.id, 'checkOut', e.target.value)} /></td>
+                                   <td className="p-2"><input type="number" min="0" className="w-full border border-gray-200 rounded p-1 text-center bg-gray-50 font-bold" value={b.nights} onChange={(e) => updateBooking(b.id, 'nights', e.target.value)} /></td>
+                                   <td className="p-2"><input type="number" className="w-full border border-gray-200 rounded p-1 text-right" value={b.ratePerNight} onChange={(e) => updateBooking(b.id, 'ratePerNight', parseFloat(e.target.value))} /></td>
+                                   <td className="p-2 text-right font-bold text-[#c4a66a]">{formatCurrencyWithCode(b.subtotal, data.currency)}</td>
+                                   <td className="p-2"><button onClick={() => removeBooking(b.id)} className="text-red-400 hover:text-red-600 font-bold text-xl">✕</button></td>
                                </tr>
                            ))}
-                           {data.bookings.length === 0 && <tr><td colSpan={8} className="p-4 text-center text-gray-500 italic">No rooms added.</td></tr>}
+                           {data.bookings.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400 italic bg-gray-50">No room bookings added yet.</td></tr>}
                        </tbody>
                    </table>
                </div>
            </div>
 
-           {/* Additional Charges */}
+           {/* Additional Charges / Drink Automation */}
            <div>
                <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-lg text-[#2c3e50]">Additional Charges</h3>
-                    <button onClick={addCharge} className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded hover:bg-blue-200">+ Add Charge</button>
+                    <h3 className="font-bold text-lg text-[#2c3e50] flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" /></svg>
+                        Additional Charges (Drinks & Services)
+                    </h3>
+                    <div className="flex gap-2">
+                        <button onClick={addCharge} className="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 font-bold shadow-sm">+ Add Charge</button>
+                    </div>
                </div>
-               <table className="w-full text-sm">
-                   <thead className="bg-[#2c3e50] text-white">
-                       <tr>
-                           <th className="p-2 text-left">Description</th>
-                           <th className="p-2 text-center w-20">Qty</th>
-                           <th className="p-2 text-right w-32">Unit Price</th>
-                           <th className="p-2 text-right w-32">Amount</th>
-                           <th className="p-2 w-10"></th>
-                       </tr>
-                   </thead>
-                   <tbody className="divide-y text-gray-900 border border-gray-200">
-                       {data.additionalChargeItems.map(c => (
-                           <tr key={c.id}>
-                               <td className="p-2"><input type="text" className="w-full border rounded p-1 bg-white text-gray-900" placeholder="Item description" value={c.description} onChange={(e) => updateCharge(c.id, 'description', e.target.value)} /></td>
-                               <td className="p-2"><input type="number" min="1" className="w-full border rounded p-1 text-center bg-white text-gray-900" value={c.quantity || 1} onChange={(e) => updateCharge(c.id, 'quantity', parseFloat(e.target.value))} /></td>
-                               <td className="p-2"><input type="number" className="w-full border rounded p-1 text-right bg-white text-gray-900" value={c.unitPrice || 0} onChange={(e) => updateCharge(c.id, 'unitPrice', parseFloat(e.target.value))} /></td>
-                               <td className="p-2"><input type="number" className="w-full border rounded p-1 text-right bg-gray-100 text-gray-600" value={c.amount} readOnly /></td>
-                               <td className="p-2"><button onClick={() => removeCharge(c.id)} className="text-red-500 hover:text-red-700 font-bold">✕</button></td>
+               <div className="overflow-x-auto shadow-sm rounded-lg border border-gray-200 bg-white">
+                   <table className="w-full text-sm">
+                       <thead className="bg-[#2c3e50] text-white">
+                           <tr>
+                               <th className="p-3 text-left">Description (Start typing for Drink list)</th>
+                               <th className="p-3 text-center w-20">Qty</th>
+                               <th className="p-3 text-right w-32">Unit Price</th>
+                               <th className="p-3 text-right w-32">Amount</th>
+                               <th className="p-3 w-10"></th>
                            </tr>
-                       ))}
-                   </tbody>
-               </table>
+                       </thead>
+                       <tbody className="divide-y text-gray-900 border-t border-gray-100">
+                           {data.additionalChargeItems.map(c => (
+                               <tr key={c.id} className="hover:bg-blue-50 transition-colors">
+                                   <td className="p-2 relative">
+                                       <input 
+                                          type="text" 
+                                          list="drinks-list" 
+                                          className="w-full border border-gray-200 rounded p-1.5 focus:ring-1 focus:ring-[#c4a66a] outline-none" 
+                                          placeholder="e.g. Hennessy VS, Water, Laundry..." 
+                                          value={c.description} 
+                                          onChange={(e) => updateCharge(c.id, 'description', e.target.value)} 
+                                       />
+                                       {DRINK_LIST.find(d => d.name === c.description) && (
+                                           <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-green-100 text-green-700 text-[10px] px-1.5 rounded-full font-bold uppercase tracking-tighter">Matched</span>
+                                       )}
+                                   </td>
+                                   <td className="p-2"><input type="number" min="1" className="w-full border border-gray-200 rounded p-1.5 text-center font-bold" value={c.quantity || 1} onChange={(e) => updateCharge(c.id, 'quantity', parseFloat(e.target.value))} /></td>
+                                   <td className="p-2"><input type="number" className="w-full border border-gray-200 rounded p-1.5 text-right font-medium" value={c.unitPrice || 0} onChange={(e) => updateCharge(c.id, 'unitPrice', parseFloat(e.target.value))} /></td>
+                                   <td className="p-2"><input type="number" className="w-full border-none rounded p-1.5 text-right bg-transparent font-bold text-[#c4a66a]" value={c.amount} readOnly /></td>
+                                   <td className="p-2"><button onClick={() => removeCharge(c.id)} className="text-red-400 hover:text-red-600 font-bold text-xl">✕</button></td>
+                               </tr>
+                           ))}
+                           {data.additionalChargeItems.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-gray-400 italic">No additional charges added.</td></tr>}
+                       </tbody>
+                   </table>
+               </div>
            </div>
 
            {/* Payments & Summary Grid */}
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                {/* Left: Payments & Verification */}
-               <div>
-                   <div className="flex justify-between items-center mb-2">
-                        <h3 className="font-bold text-lg text-[#2c3e50]">Payments</h3>
-                        <button onClick={addPayment} className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded hover:bg-green-200">+ Add Payment</button>
-                   </div>
-                   <div className="border rounded mb-4">
-                       <table className="w-full text-sm">
-                           <thead className="bg-gray-100 border-b text-gray-700">
-                               <tr>
-                                   <th className="p-2 text-left w-28">Date</th>
-                                   <th className="p-2 text-left">Method</th>
-                                   <th className="p-2 text-right w-24">Amount</th>
-                                   <th className="p-2 w-8"></th>
-                               </tr>
-                           </thead>
-                           <tbody className="divide-y text-gray-900">
-                               {data.payments.map(p => (
-                                   <tr key={p.id}>
-                                       <td className="p-2"><input type="date" className="w-full border rounded p-1 bg-white text-gray-900 text-xs" value={p.date} onChange={(e) => updatePayment(p.id, 'date', e.target.value)} /></td>
-                                       <td className="p-2">
-                                           <select className="w-full border rounded p-1 bg-white text-gray-900 text-xs" value={p.paymentMethod} onChange={(e) => updatePayment(p.id, 'paymentMethod', e.target.value)}>
-                                               {Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}
-                                           </select>
-                                           <input type="text" className="w-full border rounded p-1 bg-white text-gray-900 text-xs mt-1" placeholder="Ref" value={p.reference || ''} onChange={(e) => updatePayment(p.id, 'reference', e.target.value)} />
-                                       </td>
-                                       <td className="p-2"><input type="number" className="w-full border rounded p-1 text-right bg-white text-gray-900" value={p.amount} onChange={(e) => updatePayment(p.id, 'amount', parseFloat(e.target.value))} /></td>
-                                       <td className="p-2"><button onClick={() => removePayment(p.id)} className="text-red-500 hover:text-red-700">✕</button></td>
+               <div className="space-y-6">
+                   <div>
+                       <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-bold text-lg text-[#2c3e50] flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
+                                Payments
+                            </h3>
+                            <button onClick={addPayment} className="text-sm bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 font-bold shadow-sm transition-all">+ Add Payment</button>
+                       </div>
+                       <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                           <table className="w-full text-sm">
+                               <thead className="bg-gray-100 border-b text-gray-600 uppercase text-[10px] tracking-widest font-bold">
+                                   <tr>
+                                       <th className="p-3 text-left w-28">Date</th>
+                                       <th className="p-3 text-left">Method & Ref</th>
+                                       <th className="p-3 text-right w-32">Amount</th>
+                                       <th className="p-3 w-8"></th>
                                    </tr>
-                               ))}
-                           </tbody>
-                       </table>
+                               </thead>
+                               <tbody className="divide-y text-gray-900">
+                                   {data.payments.map(p => (
+                                       <tr key={p.id} className="hover:bg-green-50">
+                                           <td className="p-2"><input type="date" className="w-full border-none rounded p-1 text-xs font-bold" value={p.date} onChange={(e) => updatePayment(p.id, 'date', e.target.value)} /></td>
+                                           <td className="p-2">
+                                               <div className="flex flex-col gap-1">
+                                                   <select className="w-full border-none rounded p-1 text-xs font-bold bg-white" value={p.paymentMethod} onChange={(e) => updatePayment(p.id, 'paymentMethod', e.target.value)}>
+                                                       {Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}
+                                                   </select>
+                                                   <input type="text" className="w-full border border-gray-100 rounded px-1.5 py-0.5 text-xs bg-gray-50" placeholder="Reference No." value={p.reference || ''} onChange={(e) => updatePayment(p.id, 'reference', e.target.value)} />
+                                               </div>
+                                           </td>
+                                           <td className="p-2"><input type="number" className="w-full border border-gray-200 rounded p-1.5 text-right font-bold text-green-700" value={p.amount} onChange={(e) => updatePayment(p.id, 'amount', parseFloat(e.target.value))} /></td>
+                                           <td className="p-2"><button onClick={() => removePayment(p.id)} className="text-red-400 hover:text-red-600 text-xl font-bold">✕</button></td>
+                                       </tr>
+                                   ))}
+                                   {data.payments.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-gray-400 italic">No payments recorded.</td></tr>}
+                               </tbody>
+                           </table>
+                       </div>
                    </div>
 
-                   <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                        <h4 className="font-bold text-blue-800 text-sm mb-2">Payment Verification (Office Use)</h4>
-                        <div className="space-y-2">
-                             <input 
-                                type="text" 
-                                className="w-full border rounded p-2 text-sm bg-white text-gray-900" 
-                                placeholder="Verified Payment Reference"
-                                value={data.verificationDetails?.paymentReference || ''} 
-                                onChange={(e) => setData({
-                                    ...data, 
-                                    verificationDetails: { 
-                                        paymentReference: e.target.value, 
-                                        verifiedBy: data.verificationDetails?.verifiedBy || user.name, 
-                                        dateVerified: data.verificationDetails?.dateVerified || new Date().toISOString().split('T')[0]
-                                    }
-                                })} 
-                             />
+                   <div className="bg-blue-50 p-5 rounded-lg border border-blue-200 shadow-sm">
+                        <h4 className="font-bold text-blue-800 text-sm mb-3 flex items-center gap-2 uppercase tracking-wide">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 4.925-3.067 9.13-7.4 10.74a11.952 11.952 0 01-1.4.459 12.004 12.004 0 01-1.4-.459C3.067 16.13 0 11.925 0 7c0-.68.056-1.35.166-2.001a11.954 11.954 0 011.634-2.887 11.954 11.954 0 011.366-1.512zM10 15a1 1 0 100-2 1 1 0 000 2zm1-8a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" /></svg>
+                            Payment Verification (Office Use)
+                        </h4>
+                        <div className="space-y-4">
+                             <div>
+                                 <label className="block text-[10px] font-bold text-blue-600 uppercase mb-1">Transaction Ref Verified</label>
+                                 <input 
+                                    type="text" 
+                                    className="w-full border border-blue-200 rounded p-2 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none" 
+                                    placeholder="Enter verified reference number"
+                                    value={data.verificationDetails?.paymentReference || ''} 
+                                    onChange={(e) => setData({
+                                        ...data, 
+                                        verificationDetails: { 
+                                            paymentReference: e.target.value, 
+                                            verifiedBy: data.verificationDetails?.verifiedBy || user.name, 
+                                            dateVerified: data.verificationDetails?.dateVerified || new Date().toISOString().split('T')[0]
+                                        }
+                                    })} 
+                                 />
+                             </div>
                         </div>
                    </div>
                </div>
                
-               {/* Right: Summary */}
-               <div className="bg-gray-50 p-6 rounded border border-gray-200">
-                   <div className="grid grid-cols-2 gap-y-3 text-sm">
-                       <div className="text-gray-600 self-center">Subtotal</div>
-                       <div className="text-right font-bold">{formatCurrencyWithCode(totals.subtotal, data.currency)}</div>
+               {/* Right: Summary Panel */}
+               <div className="bg-[#2c3e50] p-8 rounded-xl shadow-2xl text-white">
+                   <h3 className="text-xl font-bold mb-6 flex justify-between items-center border-b border-[#3e5871] pb-4">
+                       Final Summary
+                       <span className="text-[#c4a66a] text-sm uppercase font-normal">{data.currency}</span>
+                   </h3>
+                   <div className="space-y-4 text-sm">
+                       <div className="flex justify-between items-center opacity-80">
+                           <span>Subtotal:</span>
+                           <span className="font-mono text-lg">{formatCurrencyWithCode(totals.subtotal, data.currency)}</span>
+                       </div>
                        
-                       <div className="text-gray-600 self-center">Discount</div>
-                       <div className="flex justify-end">
-                           <input type="number" className="w-24 border rounded p-1 text-right text-sm bg-white text-gray-900" value={data.discount} onChange={(e) => setData({...data, discount: parseFloat(e.target.value) || 0})} />
-                       </div>
-
-                       <div className="text-gray-600 self-center">
-                           <input 
-                             type="text" 
-                             className="border-b border-gray-300 bg-transparent text-gray-600 w-full text-xs" 
-                             value={data.holidaySpecialDiscountName}
-                             onChange={(e) => setData({...data, holidaySpecialDiscountName: e.target.value})}
-                           />
-                       </div>
-                       <div className="flex justify-end">
-                           <input type="number" className="w-24 border rounded p-1 text-right text-sm bg-white text-gray-900" value={data.holidaySpecialDiscount} onChange={(e) => setData({...data, holidaySpecialDiscount: parseFloat(e.target.value) || 0})} />
-                       </div>
-
-                       <div className="text-gray-600 self-center">Service Charge (5%)</div>
-                       <div className="flex justify-end">
+                       <div className="flex justify-between items-center">
+                           <span className="opacity-80">Discount:</span>
                            <input 
                                 type="number" 
-                                className="w-24 border rounded p-1 text-right text-sm bg-white text-gray-900" 
+                                className="w-28 bg-[#3e5871] border-none rounded p-1 text-right text-sm text-red-300 font-bold focus:ring-2 focus:ring-[#c4a66a] outline-none" 
+                                value={data.discount} 
+                                onChange={(e) => setData({...data, discount: parseFloat(e.target.value) || 0})} 
+                           />
+                       </div>
+
+                       <div className="space-y-2 pt-2">
+                           <input 
+                                type="text" 
+                                className="bg-transparent border-b border-[#3e5871] text-xs w-full mb-1 italic opacity-60 focus:opacity-100 outline-none" 
+                                placeholder="Special Discount Name (e.g. Festive Offer)"
+                                value={data.holidaySpecialDiscountName}
+                                onChange={(e) => setData({...data, holidaySpecialDiscountName: e.target.value})}
+                           />
+                           <div className="flex justify-between items-center">
+                               <span className="opacity-80">Special Discount:</span>
+                               <input 
+                                    type="number" 
+                                    className="w-28 bg-[#3e5871] border-none rounded p-1 text-right text-sm text-red-300 font-bold focus:ring-2 focus:ring-[#c4a66a] outline-none" 
+                                    value={data.holidaySpecialDiscount} 
+                                    onChange={(e) => setData({...data, holidaySpecialDiscount: parseFloat(e.target.value) || 0})} 
+                               />
+                           </div>
+                       </div>
+
+                       <div className="flex justify-between items-center pt-2 border-t border-[#3e5871]">
+                           <span className="opacity-80">Service Charge (5%):</span>
+                           <input 
+                                type="number" 
+                                className="w-28 bg-[#3e5871] border-none rounded p-1 text-right text-sm text-green-300 font-bold focus:ring-2 focus:ring-[#c4a66a] outline-none" 
                                 value={data.serviceCharge} 
                                 onChange={(e) => {
                                     setData({...data, serviceCharge: parseFloat(e.target.value) || 0});
@@ -1973,24 +2122,30 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
                            />
                        </div>
 
-                       <div className="text-gray-600 self-center">Tax (7.5% Inclusive)</div>
-                       <div className="text-right text-gray-500">{formatCurrencyWithCode(totals.taxAmount, data.currency)}</div>
+                       <div className="flex justify-between items-center opacity-60 text-[11px]">
+                           <span>VAT (7.5% Inclusive):</span>
+                           <span>{formatCurrencyWithCode(totals.taxAmount, data.currency)}</span>
+                       </div>
 
-                       <div className="col-span-2 border-t border-gray-300 my-1"></div>
+                       <div className="pt-6 border-t border-[#3e5871] space-y-4">
+                           <div className="flex justify-between items-center">
+                               <span className="text-xl font-bold uppercase tracking-tighter">Total Due</span>
+                               <span className="text-2xl font-bold text-[#c4a66a] font-mono">{formatCurrencyWithCode(totals.totalAmountDue, data.currency)}</span>
+                           </div>
 
-                       <div className="font-bold text-[#2c3e50] self-center">Total Due</div>
-                       <div className="text-right font-bold text-[#2c3e50] text-lg">{formatCurrencyWithCode(totals.totalAmountDue, data.currency)}</div>
-
-                       <div className="text-green-700 self-center">Amount Paid</div>
-                       <div className="flex justify-end">
-                           <div className="text-right font-medium text-green-700 py-1">{formatCurrencyWithCode(totals.amountReceived, data.currency)}</div>
+                           <div className="flex justify-between items-center text-green-400">
+                               <span className="font-bold uppercase text-xs">Total Received</span>
+                               <span className="text-xl font-bold font-mono">{formatCurrencyWithCode(totals.amountReceived, data.currency)}</span>
+                           </div>
+                           
+                           <div className={`flex justify-between items-center p-3 rounded-lg ${totals.balance === 0 ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
+                               <span className="font-bold uppercase text-sm">Balance Due</span>
+                               <span className="text-2xl font-bold font-mono">{formatCurrencyWithCode(Math.abs(totals.balance), data.currency)}</span>
+                           </div>
                        </div>
                        
-                       <div className="col-span-2 border-t border-gray-300 my-1"></div>
-                       
-                       <div className="font-bold self-center text-lg">Balance</div>
-                       <div className={`text-right font-bold text-lg ${totals.balance === 0 ? 'text-green-600' : 'text-red-600'}`}>
-                           {formatCurrencyWithCode(Math.abs(totals.balance), data.currency)}
+                       <div className="text-[10px] italic opacity-50 text-center mt-6">
+                           "{totals.amountInWords}"
                        </div>
                    </div>
                </div>
@@ -2035,6 +2190,24 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
         setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, quantity: 1, unitPrice: 0, amount: 0, paymentMethod: PaymentMethod.POS }]);
     };
 
+    // New specific "Quick Add Drink" functionality
+    const addDrinkRow = (drinkName: string) => {
+        const drink = DRINK_LIST.find(d => d.name === drinkName);
+        if (!drink) return;
+        
+        const newItem: WalkInChargeItem = {
+            id: uuid(),
+            date: new Date().toISOString().split('T')[0],
+            service: WalkInService.BAR,
+            otherServiceDescription: drink.name,
+            quantity: 1,
+            unitPrice: drink.price,
+            amount: drink.price,
+            paymentMethod: PaymentMethod.POS
+        };
+        setItems([...items, newItem]);
+    };
+
     const removeItem = (id: string) => {
         if (items.length > 1) setItems(items.filter(i => i.id !== id));
         else setItems([{ ...items[0], quantity: 1, unitPrice: 0, amount: 0, service: WalkInService.RESTAURANT }]);
@@ -2043,7 +2216,20 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
     const updateItem = (id: string, field: keyof WalkInChargeItem, value: any) => {
         setItems(items.map(i => {
             if (i.id === id) {
-                const updated = { ...i, [field]: value };
+                let updated = { ...i, [field]: value };
+                
+                // Auto-fill price if otherServiceDescription matches a drink name
+                if (field === 'otherServiceDescription' && value) {
+                    const trimmedValue = value.toString().trim().toLowerCase();
+                    const drink = DRINK_LIST.find(d => d.name.toLowerCase() === trimmedValue);
+                    if (drink) {
+                        updated.otherServiceDescription = drink.name; // Standardize casing
+                        updated.unitPrice = drink.price;
+                        updated.service = WalkInService.BAR; // Auto-set to Bar
+                        updated.amount = (updated.quantity || 1) * drink.price;
+                    }
+                }
+                
                 if (field === 'quantity' || field === 'unitPrice') {
                     updated.amount = (updated.quantity || 0) * (updated.unitPrice || 0);
                 }
@@ -2105,159 +2291,186 @@ const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName
     const symbol = currency === 'NGN' ? '₦' : '$';
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 text-gray-900">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="p-6 pb-2 flex justify-between items-center bg-white z-10">
-                    <h2 className="text-xl font-bold text-[#c4a66a]">{initialData ? 'Edit Walk-In Charge' : 'New Walk-In Guest Charge'}</h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 text-gray-900 animate-fade-in">
+            <datalist id="walkin-drinks-list">
+                {DRINK_LIST.sort((a,b) => a.name.localeCompare(b.name)).map(d => (
+                    <option key={d.name} value={d.name}>{d.name} (₦{d.price.toLocaleString()})</option>
+                ))}
+            </datalist>
+            
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[95vh] border-t-8 border-[#c4a66a]">
+                <div className="p-6 pb-2 flex justify-between items-center bg-white border-b border-gray-100">
+                    <div className="flex flex-col">
+                        <h2 className="text-2xl font-bold text-[#2c3e50]">{initialData ? 'Edit Walk-In Charge' : 'New Walk-In Guest'}</h2>
+                        <span className="text-xs text-[#c4a66a] font-bold uppercase tracking-widest">Tidè Hotels and Resorts</span>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-3xl leading-none transition-colors">&times;</button>
                 </div>
 
-                <div className="p-6 space-y-4 overflow-y-auto flex-grow">
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Guest Name / Descriptor <span className="text-red-500">*</span></label>
-                        <input type="text" className="w-full border border-gray-300 rounded p-2 bg-white text-gray-900" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Walk-In Guest" />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Currency</label>
-                        <select className="w-full border border-gray-300 rounded p-2 bg-white text-gray-900" value={currency} onChange={(e) => setCurrency(e.target.value as any)}>
-                            <option value="NGN">NGN (Naira)</option>
-                            <option value="USD">USD</option>
-                        </select>
+                <div className="p-6 space-y-5 overflow-y-auto flex-grow custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Guest / Docket Name <span className="text-red-500">*</span></label>
+                            <input type="text" className="w-full border border-gray-200 rounded-lg p-2 bg-gray-50 text-[#2c3e50] font-bold focus:ring-2 focus:ring-[#c4a66a] outline-none" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="e.g. Table 4 Guest" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Currency</label>
+                            <select className="w-full border border-gray-200 rounded-lg p-2 bg-gray-50 text-[#2c3e50] focus:ring-2 focus:ring-[#c4a66a] outline-none" value={currency} onChange={(e) => setCurrency(e.target.value as any)}>
+                                <option value="NGN">NGN (Naira)</option>
+                                <option value="USD">USD (Dollars)</option>
+                            </select>
+                        </div>
                     </div>
 
                     {/* Services/Charges Section */}
-                    <div className="border rounded p-4 bg-gray-50">
-                        <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Services / Items</h4>
-                        {items.map((item, index) => (
-                           <div key={item.id} className={`flex flex-col gap-2 ${index < items.length - 1 ? 'border-b border-gray-200 pb-3 mb-3' : ''}`}>
-                               <div className="flex gap-2 items-end">
-                                   <div className="flex-grow">
-                                       <label className="block text-xs font-bold text-gray-700 mb-1">Service</label>
-                                       <select className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900" value={item.service} onChange={(e) => updateItem(item.id, 'service', e.target.value)}>
-                                            {Object.values(WalkInService).map(s => <option key={s} value={s}>{s}</option>)}
-                                       </select>
+                    <div className="border border-gray-100 rounded-xl p-4 bg-gray-50/50">
+                        <div className="flex justify-between items-center mb-3">
+                            <h4 className="text-xs font-bold text-[#2c3e50] uppercase tracking-wide">Charges & Items</h4>
+                            <div className="flex gap-2">
+                                <select 
+                                    className="text-xs bg-[#2c3e50] text-white px-2 py-1 rounded font-bold cursor-pointer"
+                                    onChange={(e) => { addDrinkRow(e.target.value); e.target.value = ''; }}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>+ Fast Drink Add</option>
+                                    {DRINK_LIST.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+                                </select>
+                                <button onClick={addItem} className="text-xs bg-[#c4a66a] text-white px-3 py-1 rounded font-bold hover:bg-[#b39556] transition-all shadow-sm">+ Manual Add</button>
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                            {items.map((item, index) => (
+                               <div key={item.id} className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm relative group">
+                                   <button onClick={() => removeItem(item.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-red-200">✕</button>
+                                   <div className="grid grid-cols-12 gap-2 mb-2">
+                                       <div className="col-span-5">
+                                           <label className="block text-[9px] font-bold text-gray-400 uppercase">Service</label>
+                                           <select className="w-full border-none p-0 text-sm font-bold bg-transparent outline-none text-[#2c3e50]" value={item.service} onChange={(e) => updateItem(item.id, 'service', e.target.value)}>
+                                                {Object.values(WalkInService).map(s => <option key={s} value={s}>{s}</option>)}
+                                           </select>
+                                       </div>
+                                       <div className="col-span-2">
+                                           <label className="block text-[9px] font-bold text-gray-400 uppercase text-center">Qty</label>
+                                           <input type="number" min="1" className="w-full border border-gray-100 rounded px-1 text-center text-xs font-bold bg-gray-50" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value))} />
+                                       </div>
+                                       <div className="col-span-2">
+                                           <label className="block text-[9px] font-bold text-gray-400 uppercase text-right">Unit</label>
+                                           <input type="number" className="w-full border border-gray-100 rounded px-1 text-right text-xs font-medium bg-gray-50" value={item.unitPrice} onChange={(e) => updateItem(item.id, 'unitPrice', parseFloat(e.target.value))} />
+                                       </div>
+                                       <div className="col-span-3">
+                                           <label className="block text-[9px] font-bold text-gray-400 uppercase text-right">Total</label>
+                                           <div className="text-right text-xs font-bold text-[#c4a66a] mt-1">{symbol}{item.amount.toLocaleString()}</div>
+                                       </div>
                                    </div>
-                                   <div className="w-16">
-                                       <label className="block text-xs font-bold text-gray-700 mb-1">Qty</label>
-                                       <input type="number" min="1" className="w-full border border-gray-300 rounded p-2 text-center text-sm bg-white text-gray-900" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value))} />
+                                   <div className="relative">
+                                       <input 
+                                          type="text" 
+                                          list="walkin-drinks-list"
+                                          className="w-full border-b border-gray-100 text-xs py-1 focus:border-[#c4a66a] outline-none text-gray-600 placeholder-gray-300 italic" 
+                                          placeholder="Item Description (Drink match active...)" 
+                                          value={item.otherServiceDescription || ''} 
+                                          onChange={(e) => updateItem(item.id, 'otherServiceDescription', e.target.value)} 
+                                       />
+                                       {DRINK_LIST.find(d => d.name === item.otherServiceDescription) && (
+                                           <span className="absolute right-0 top-1 text-[8px] bg-green-50 text-green-600 px-1 rounded-full font-bold uppercase">Drink!</span>
+                                       )}
                                    </div>
-                                   <div className="w-20">
-                                       <label className="block text-xs font-bold text-gray-700 mb-1">Unit</label>
-                                       <input type="number" className="w-full border border-gray-300 rounded p-2 text-right text-sm bg-white text-gray-900" value={item.unitPrice} onChange={(e) => updateItem(item.id, 'unitPrice', parseFloat(e.target.value))} />
-                                   </div>
-                                   <div className="w-24">
-                                       <label className="block text-xs font-bold text-gray-700 mb-1">Total</label>
-                                       <input type="number" className="w-full border border-gray-300 rounded p-2 text-right text-sm bg-gray-100 text-gray-600" value={item.amount} readOnly />
-                                   </div>
-                                   <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700 p-2 mb-1">
-                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                                   </button>
                                </div>
-                               <div>
-                                   <input 
-                                      type="text" 
-                                      className="w-full border border-gray-300 rounded p-2 text-sm bg-white text-gray-900 placeholder-gray-500" 
-                                      placeholder="Item Details (e.g. 2 Plates of Jollof Rice)" 
-                                      value={item.otherServiceDescription || ''} 
-                                      onChange={(e) => updateItem(item.id, 'otherServiceDescription', e.target.value)} 
-                                   />
-                               </div>
-                           </div>
-                        ))}
-                        <button onClick={addItem} className="text-[#3182ce] font-medium text-sm hover:underline mt-2">+ Add Item</button>
+                            ))}
+                        </div>
                     </div>
                     
-                    {/* Totals Calculation */}
-                    <div className="pt-2 space-y-2 border-t border-gray-100">
-                        <div className="flex justify-between text-sm font-bold">
-                            <span>Subtotal:</span>
-                            <span>{symbol} {subtotal.toFixed(2)}</span>
+                    {/* Totals Summary */}
+                    <div className="bg-[#2c3e50] rounded-xl p-5 text-white shadow-lg space-y-3">
+                        <div className="flex justify-between items-center text-xs opacity-70">
+                            <span>Subtotal Charges:</span>
+                            <span className="font-mono">{symbol} {subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                         </div>
-                        <div className="flex justify-between text-sm items-center">
-                            <span className="font-bold">Discount:</span>
-                            <input type="number" className="w-20 border rounded p-1 text-right text-sm bg-white text-gray-900" value={discount} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} />
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs opacity-70">Discount:</span>
+                            <input type="number" className="w-24 bg-[#3e5871] border-none rounded px-2 py-0.5 text-right text-xs text-red-300 font-bold outline-none" value={discount} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} />
                         </div>
-                        <div className="flex justify-between text-sm text-gray-600 items-center">
-                            <span className="font-bold">Service Charge (Flexible):</span>
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs opacity-70">Service Charge (5%):</span>
                             <input 
                                 type="number" 
-                                className="w-20 border rounded p-1 text-right text-sm bg-white text-gray-900" 
+                                className="w-24 bg-[#3e5871] border-none rounded px-2 py-0.5 text-right text-xs text-green-300 font-bold outline-none" 
                                 value={serviceCharge} 
                                 onChange={(e) => setCustomServiceCharge(parseFloat(e.target.value) || 0)} 
                             />
                         </div>
-                        <div className="flex justify-between text-sm text-gray-600 font-bold">
-                            <span>Tax (7.5% Inclusive):</span>
-                            <span>{symbol}{tax.toFixed(2)}</span>
+                        <div className="flex justify-between items-center text-xs opacity-40">
+                            <span>Tax (7.5% Included):</span>
+                            <span>{symbol}{tax.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                         </div>
-                        <div className="flex justify-between text-xl font-bold text-[#c4a66a] mt-2 border-t pt-2">
-                            <span>Total Due:</span>
-                            <span>{symbol}{totalDue.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                        <div className="pt-2 border-t border-[#3e5871] flex justify-between items-center">
+                            <span className="text-sm font-bold uppercase tracking-wider">Total Due</span>
+                            <span className="text-xl font-bold text-[#c4a66a] font-mono">{symbol}{totalDue.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                         </div>
                     </div>
 
-                    {/* Payments Section */}
-                    <div className="border rounded p-4 bg-green-50 border-green-100">
-                        <div className="flex justify-between items-center mb-2">
-                             <h4 className="text-xs font-bold text-green-700 uppercase">Payments Received</h4>
-                             <button onClick={addPayment} className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded hover:bg-green-300 font-bold">+ Split Payment</button>
+                    {/* Payments Grid */}
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide">Payments Received</h4>
+                             <button onClick={addPayment} className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold hover:bg-green-200 uppercase">+ Split Payment</button>
                         </div>
                         
-                        {payments.length === 0 && <p className="text-xs text-gray-500 italic mb-2">No payments recorded.</p>}
-
-                        {payments.map((p, index) => (
-                           <div key={p.id} className="flex gap-2 mb-2 items-center">
-                               <select 
-                                  className="w-1/3 border rounded p-1.5 bg-white text-gray-900 text-xs font-bold"
-                                  value={p.method}
-                                  onChange={(e) => updatePayment(p.id, 'method', e.target.value as PaymentMethod)}
-                               >
-                                   {Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}
-                               </select>
-                               <input 
-                                  type="text"
-                                  className="w-1/4 border rounded p-1.5 bg-white text-gray-900 text-xs"
-                                  placeholder="Ref (Opt)"
-                                  value={p.reference || ''}
-                                  onChange={(e) => updatePayment(p.id, 'reference', e.target.value)}
-                               />
-                               <input 
-                                  type="number" 
-                                  className="flex-grow border rounded p-1.5 text-right font-bold bg-white text-gray-900 text-xs" 
-                                  placeholder="Amount"
-                                  value={p.amount} 
-                                  onChange={(e) => updatePayment(p.id, 'amount', parseFloat(e.target.value))} 
-                               />
-                               <button onClick={() => removePayment(p.id)} className="text-red-500 hover:text-red-700 p-1">
-                                   ✕
-                               </button>
-                           </div>
-                        ))}
+                        <div className="space-y-2">
+                            {payments.map((p, index) => (
+                               <div key={p.id} className="flex gap-2 items-center bg-green-50/50 border border-green-100 p-2 rounded-lg">
+                                   <select 
+                                      className="w-1/3 bg-transparent text-[11px] font-bold text-green-800 outline-none border-none"
+                                      value={p.method}
+                                      onChange={(e) => updatePayment(p.id, 'method', e.target.value as PaymentMethod)}
+                                   >
+                                       {Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}
+                                   </select>
+                                   <input 
+                                      type="text"
+                                      className="w-1/4 bg-white/50 border-none rounded px-2 py-1 text-[10px] text-green-900"
+                                      placeholder="Ref (POS/Trf)"
+                                      value={p.reference || ''}
+                                      onChange={(e) => updatePayment(p.id, 'reference', e.target.value)}
+                                   />
+                                   <input 
+                                      type="number" 
+                                      className="flex-grow bg-white border border-green-200 rounded px-2 py-1 text-right text-xs font-bold text-green-700 focus:ring-1 focus:ring-green-400 outline-none" 
+                                      placeholder="Amount Paid"
+                                      value={p.amount} 
+                                      onChange={(e) => updatePayment(p.id, 'amount', parseFloat(e.target.value))} 
+                                   />
+                                   <button onClick={() => removePayment(p.id)} className="text-red-300 hover:text-red-500 p-1">✕</button>
+                               </div>
+                            ))}
+                            {payments.length === 0 && <div className="text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-xs text-gray-400 uppercase font-bold tracking-widest">Awaiting Payment</div>}
+                        </div>
                         
-                        <div className="flex justify-between items-center mt-3 border-t border-green-200 pt-2">
-                             <span className="font-bold text-sm text-green-800">Total Paid:</span>
-                             <span className="font-bold text-lg text-green-800">{symbol}{totalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                        <div className="flex justify-between items-center px-2 py-1">
+                             <span className="font-bold text-xs text-green-800">Grand Total Paid:</span>
+                             <span className="font-bold text-lg text-green-800 font-mono">{symbol}{totalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="p-6 pt-2 bg-gray-50 border-t border-gray-200">
-                     <div className="flex justify-between items-end mb-4">
-                        <div className="flex justify-between items-center text-lg font-bold w-full">
-                            <span>Balance:</span>
-                            <span className={balance >= 0 ? "text-green-600" : "text-red-600"}>
-                                {symbol} {balance.toLocaleString(undefined, {minimumFractionDigits: 2})} 
-                                <span className="text-xs font-normal text-gray-500 ml-1">
-                                    {balance < 0 ? '(Owing)' : '(Change/Paid)'}
-                                </span>
+                <div className="p-6 pt-4 bg-gray-50 border-t border-gray-100">
+                     <div className="flex justify-between items-center mb-6 px-2">
+                        <span className="text-sm font-bold text-[#2c3e50] uppercase">Balance:</span>
+                        <div className="flex flex-col items-end">
+                            <span className={`text-2xl font-bold font-mono ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                {symbol} {Math.abs(balance).toLocaleString(undefined, {minimumFractionDigits: 2})} 
+                            </span>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                {balance < 0 ? 'Pending Collection' : balance > 0 ? 'Change to Guest' : 'Settled'}
                             </span>
                         </div>
                      </div>
 
-                     <div className="flex gap-2 justify-end">
-                        <button onClick={onClose} className="px-4 py-2 border border-red-200 text-red-600 rounded hover:bg-red-50 font-bold">Cancel</button>
-                        <button onClick={handleSave} className="px-6 py-3 bg-[#2c3e50] text-white rounded font-bold shadow hover:bg-[#34495e] min-w-[120px]">
+                     <div className="grid grid-cols-2 gap-3">
+                        <button onClick={onClose} className="px-4 py-3 border border-gray-300 text-gray-500 rounded-xl hover:bg-white font-bold transition-all">Dismiss</button>
+                        <button onClick={handleSave} className="px-4 py-3 bg-[#c4a66a] text-white rounded-xl font-bold shadow-lg hover:bg-[#b39556] transition-all flex items-center justify-center gap-2">
+                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
                            Print & Save
                         </button>
                      </div>
