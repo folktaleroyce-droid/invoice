@@ -219,12 +219,7 @@ const ROOM_RATES_USD: Record<RoomType, number> = {
   [RoomType.TIDE_SIGNATURE_SUITE]: 350,
 };
 
-/**
- * COMPREHENSIVE DRINK LIST
- * Used for auto-completing prices in both Reservation and Walk-In forms.
- */
 const DRINK_LIST = [
-  // BEERS
   { name: 'Heineken (Can)', price: 2000, category: 'Beer' },
   { name: 'Heineken (Bottle)', price: 2500, category: 'Beer' },
   { name: 'Desperado', price: 1150, category: 'Beer' },
@@ -237,8 +232,6 @@ const DRINK_LIST = [
   { name: 'Smirnoff Double Black', price: 1150, category: 'Beer' },
   { name: 'Trophy Lager', price: 1200, category: 'Beer' },
   { name: 'Heros Lager', price: 1200, category: 'Beer' },
-  
-  // SOFT DRINKS & WATER
   { name: 'Water (75cl)', price: 1000, category: 'Soft' },
   { name: 'Water (1.5L)', price: 1500, category: 'Soft' },
   { name: 'Coca Cola', price: 1000, category: 'Soft' },
@@ -249,28 +242,20 @@ const DRINK_LIST = [
   { name: 'Maltina', price: 700, category: 'Soft' },
   { name: 'Schweppes (Tonic/Bitter Lemon/Ginger)', price: 1200, category: 'Soft' },
   { name: 'Bitter Lemon', price: 1000, category: 'Soft' },
-  
-  // ENERGY DRINKS
   { name: 'Red Bull', price: 1700, category: 'Energy' },
   { name: 'Monster Energy', price: 1800, category: 'Energy' },
   { name: 'Power Horse', price: 1500, category: 'Energy' },
   { name: 'Black Bullet', price: 1500, category: 'Energy' },
-  
-  // JUICES & TEAS
   { name: 'Chi Exotic', price: 2500, category: 'Juice' },
   { name: 'Chivita (1L)', price: 2500, category: 'Juice' },
   { name: 'Five Alive', price: 2500, category: 'Juice' },
   { name: 'Chi Ice Tea', price: 2000, category: 'Juice' },
-  
-  // WINES & CHAMPAGNES
   { name: 'Chamdor (Sparkling)', price: 6000, category: 'Wine' },
   { name: 'Andre Rose', price: 15000, category: 'Wine' },
   { name: 'Carlo Rossi (Red/White)', price: 12000, category: 'Wine' },
   { name: 'Moet & Chandon Imperial', price: 95000, category: 'Champagne' },
   { name: 'Veuve Clicquot', price: 110000, category: 'Champagne' },
   { name: 'Don Perignon', price: 450000, category: 'Champagne' },
-  
-  // SPIRITS & LIQUORS
   { name: 'Hennessy VS', price: 75000, category: 'Spirit' },
   { name: 'Hennessy VSOP', price: 110000, category: 'Spirit' },
   { name: 'Martell Blue Swift', price: 95000, category: 'Spirit' },
@@ -286,11 +271,6 @@ const DRINK_LIST = [
   { name: 'Campari (Small)', price: 13000, category: 'Spirit' },
   { name: 'Vermouth Rosso', price: 30000, category: 'Spirit' },
 ];
-
-
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// UTILITY FUNCTIONS
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 const uuid = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -391,9 +371,7 @@ const calculateNights = (checkIn: string, checkOut: string): number => {
         const endDate = new Date(checkOut);
         startDate.setHours(12, 0, 0, 0);
         endDate.setHours(12, 0, 0, 0);
-
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || endDate <= startDate) return 0;
-        
         const diffTime = endDate.getTime() - startDate.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays > 0 ? diffDays : 0;
@@ -412,20 +390,12 @@ const formatCurrencyWithCode = (amount: number, currency: 'NGN' | 'USD') => {
 const createInvoiceDoc = (data: InvoiceData): any => {
   try {
     const jsPDF = (window as any).jsPDF;
-    if (!jsPDF) {
-      alert("PDF Library not loaded. Please refresh the page and try again.");
-      return null;
-    }
-    
+    if (!jsPDF) { alert("PDF Library not loaded."); return null; }
     const doc = new jsPDF();
-    if (typeof doc.autoTable !== 'function') {
-      alert("PDF Plugin error. Please refresh the page.");
-      return null;
-    }
+    if (typeof doc.autoTable !== 'function') { alert("PDF Plugin error."); return null; }
 
     const isReservation = data.documentType === 'reservation';
     const amountReceived = data.amountReceived;
-
     const decimalFormatter = new Intl.NumberFormat('en-NG', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const symbol = data.currency === 'NGN' ? 'N' : '$'; 
     const formatMoney = (amount: number) => decimalFormatter.format(amount);
@@ -434,7 +404,6 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         return amount < 0 ? `-${symbol} ${formattedAbs}` : `${symbol} ${formattedAbs}`;
     }
 
-    // Header
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor('#c4a66a');
@@ -448,30 +417,26 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     doc.setLineWidth(0.5);
     doc.line(80, 30, 130, 30); 
 
-    // Document Title
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(isReservation ? '#E53E3E' : '#2c3e50');
     doc.text(isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT', 105, 40, { align: 'center' });
     doc.setTextColor('#2c3e50');
 
-    // Document Info
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`${isReservation ? 'Invoice No:' : 'Receipt No:'} ${data.receiptNo}`, 14, 50); 
     doc.text(`Date: ${formatDateForDisplay(data.date)}`, 196, 50, { align: 'right' });
     let finalY = 50;
 
-    // Verification Info
     if (data.verificationDetails && !isReservation) {
-        const verificationInfo = [
-            ['Payment Reference:', data.verificationDetails.paymentReference || 'N/A'],
-            ['Verified By:', data.verificationDetails.verifiedBy],
-            ['Date Verified:', formatDateForDisplay(data.verificationDetails.dateVerified)],
-        ];
         doc.autoTable({
             startY: finalY + 4,
-            body: verificationInfo,
+            body: [
+                ['Payment Reference:', data.verificationDetails.paymentReference || 'N/A'],
+                ['Verified By:', data.verificationDetails.verifiedBy],
+                ['Date Verified:', formatDateForDisplay(data.verificationDetails.dateVerified)],
+            ],
             theme: 'plain',
             styles: { font: 'helvetica', fontSize: 10, cellPadding: 1, fillColor: '#f0fff4' },
             columnStyles: { 0: { fontStyle: 'bold' } },
@@ -480,16 +445,14 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         finalY = doc.lastAutoTable.finalY;
     }
     
-    // Guest Info
-    const guestInfo = [
-        ['Received From (Guest):', data.guestName],
-        ['Email:', data.guestEmail],
-        ['Phone/Contact:', data.phoneContact],
-        ['Room Number(s):', data.roomNumber],
-    ];
     doc.autoTable({
         startY: finalY + (data.verificationDetails && !isReservation ? 2 : 4),
-        body: guestInfo,
+        body: [
+            ['Received From (Guest):', data.guestName],
+            ['Email:', data.guestEmail],
+            ['Phone/Contact:', data.phoneContact],
+            ['Room Number(s):', data.roomNumber],
+        ],
         theme: 'plain',
         styles: { font: 'helvetica', fontSize: 10, cellPadding: 1.5 },
         columnStyles: { 0: { fontStyle: 'bold' } },
@@ -497,13 +460,14 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     });
     finalY = doc.lastAutoTable.finalY;
 
-    // Booking Table
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text('Bookings', 14, finalY + 8); 
 
-    const bookingTableColumn = ["S/N", "Room Type", "Qty", "Duration", "Check-In", "Check-Out", "Nights", `Rate/Night`, `Subtotal (${symbol})`];
-    const bookingTableRows = data.bookings.map((booking, index) => [
+    doc.autoTable({
+      startY: finalY + 11,
+      head: [["S/N", "Room Type", "Qty", "Duration", "Check-In", "Check-Out", "Nights", `Rate/Night`, `Subtotal (${symbol})`]],
+      body: data.bookings.map((booking, index) => [
         index + 1,
         booking.roomType,
         booking.quantity,
@@ -513,12 +477,7 @@ const createInvoiceDoc = (data: InvoiceData): any => {
         booking.nights,
         formatMoney(booking.ratePerNight),
         formatMoney(booking.subtotal)
-    ]);
-    
-    doc.autoTable({
-      startY: finalY + 11,
-      head: [bookingTableColumn],
-      body: bookingTableRows,
+      ]),
       theme: 'grid',
       headStyles: { fillColor: '#2c3e50', fontSize: 8 },
       styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.5 }, 
@@ -526,55 +485,44 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     });
     finalY = doc.lastAutoTable.finalY;
     
-    // Tax Note
     doc.setFontSize(8);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100);
     doc.text('Note: Festive Season Offer applied.', 14, finalY + 5);
     finalY += 5;
 
-    // Additional Charges Table
     if (data.additionalChargeItems.length > 0) {
         finalY += 4;
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text('Additional Charges', 14, finalY + 8);
-        const chargesColumn = ["S/N", "Description", "Qty", `Unit Price (${symbol})`, `Amount (${symbol})`];
-        const chargesRows = data.additionalChargeItems.map((item, index) => [
+        doc.autoTable({
+          startY: finalY + 11,
+          head: [["S/N", "Description", "Qty", `Unit Price (${symbol})`, `Amount (${symbol})`]],
+          body: data.additionalChargeItems.map((item, index) => [
             index+1, 
             item.description, 
             item.quantity || 1, 
             formatMoney(item.unitPrice || item.amount), 
             formatMoney(item.amount)
-        ]);
-        doc.autoTable({
-          startY: finalY + 11,
-          head: [chargesColumn],
-          body: chargesRows,
+          ]),
           theme: 'grid',
           headStyles: { fillColor: '#2c3e50' },
           styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.5 },
-          columnStyles: { 
-              2: { halign: 'center' }, 
-              3: { halign: 'right' }, 
-              4: { halign: 'right' } 
-          }
+          columnStyles: { 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
         });
         finalY = doc.lastAutoTable.finalY;
     }
     
-    // Payments Table
     if (data.payments.length > 0) {
         finalY += 4;
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text('Payments Received', 14, finalY + 8);
-        const paymentsColumn = ["Date", "Method", "Reference", `Amount (${symbol})`];
-        const paymentsRows = data.payments.map(item => [formatDateForDisplay(item.date), item.paymentMethod, item.reference || 'N/A', formatMoney(item.amount)]);
         doc.autoTable({
           startY: finalY + 11,
-          head: [paymentsColumn],
-          body: paymentsRows,
+          head: [["Date", "Method", "Reference", `Amount (${symbol})`]],
+          body: data.payments.map(item => [formatDateForDisplay(item.date), item.paymentMethod, item.reference || 'N/A', formatMoney(item.amount)]),
           theme: 'grid',
           headStyles: { fillColor: '#16a34a' },
           styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.5 },
@@ -584,190 +532,81 @@ const createInvoiceDoc = (data: InvoiceData): any => {
     }
 
     const pageHeight = doc.internal.pageSize.height;
-    const margin = 14;
     let y = finalY + 8;
+    const checkPageBreak = (h: number) => { if (y + h > pageHeight - 15) { doc.addPage(); y = 20; } };
 
-    const checkPageBreak = (heightNeeded: number) => {
-        if (y + heightNeeded > pageHeight - 15) {
-            doc.addPage();
-            y = 20;
-        }
-    };
-
-    // 1. SUMMARY SECTION
     checkPageBreak(65);
-
-    const summaryX_Label = 155;
-    const summaryX_Value = 196;
-    const lineHeight = 6;
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-
-    doc.text('Subtotal:', summaryX_Label, y, { align: 'right' });
-    doc.setFont('helvetica', 'bold');
-    doc.text(formatMoneyWithPrefix(data.subtotal), summaryX_Value, y, { align: 'right' });
-    y += lineHeight;
-
+    const sxL = 155, sxV = 196, lh = 6;
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+    doc.text('Subtotal:', sxL, y, { align: 'right' });
+    doc.setFont('helvetica', 'bold'); doc.text(formatMoneyWithPrefix(data.subtotal), sxV, y, { align: 'right' });
+    y += lh;
     if (data.discount > 0) {
-      doc.setFont('helvetica', 'normal');
-      doc.text('Discount:', summaryX_Label, y, { align: 'right' });
-      doc.setFont('helvetica', 'bold');
-      doc.text(formatMoneyWithPrefix(-data.discount), summaryX_Value, y, { align: 'right' });
-      y += lineHeight;
+      doc.setFont('helvetica', 'normal'); doc.text('Discount:', sxL, y, { align: 'right' });
+      doc.setFont('helvetica', 'bold'); doc.text(formatMoneyWithPrefix(-data.discount), sxV, y, { align: 'right' });
+      y += lh;
     }
-    
     if (data.holidaySpecialDiscount > 0) {
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${data.holidaySpecialDiscountName}:`, summaryX_Label, y, { align: 'right' });
-      doc.setFont('helvetica', 'bold');
-      doc.text(formatMoneyWithPrefix(-data.holidaySpecialDiscount), summaryX_Value, y, { align: 'right' });
-      y += lineHeight;
+      doc.setFont('helvetica', 'normal'); doc.text(`${data.holidaySpecialDiscountName}:`, sxL, y, { align: 'right' });
+      doc.setFont('helvetica', 'bold'); doc.text(formatMoneyWithPrefix(-data.holidaySpecialDiscount), sxV, y, { align: 'right' });
+      y += lh;
     }
-
-    doc.setFont('helvetica', 'normal');
-    doc.text('Tax (7.5% Inclusive):', summaryX_Label, y, { align: 'right' });
-    doc.setFont('helvetica', 'bold');
-    doc.text(formatMoneyWithPrefix(data.taxAmount), summaryX_Value, y, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.text('Tax (7.5% Inclusive):', sxL, y, { align: 'right' });
+    doc.setFont('helvetica', 'bold'); doc.text(formatMoneyWithPrefix(data.taxAmount), sxV, y, { align: 'right' });
     y += 2;
-    
-    doc.setLineWidth(0.3);
-    doc.line(summaryX_Label - 35, y, summaryX_Value, y);
-    y += 5;
-
+    doc.setLineWidth(0.3); doc.line(sxL - 35, y, sxV, y); y += 5;
     doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL AMOUNT DUE:', summaryX_Label, y, { align: 'right' });
-    doc.text(formatMoneyWithPrefix(data.totalAmountDue), summaryX_Value, y, { align: 'right' });
-    y += lineHeight;
-
-    doc.text('AMOUNT RECEIVED:', summaryX_Label, y, { align: 'right' });
-    doc.text(formatMoneyWithPrefix(amountReceived), summaryX_Value, y, { align: 'right' });
+    doc.text('TOTAL AMOUNT DUE:', sxL, y, { align: 'right' }); doc.text(formatMoneyWithPrefix(data.totalAmountDue), sxV, y, { align: 'right' });
+    y += lh;
+    doc.text('AMOUNT RECEIVED:', sxL, y, { align: 'right' }); doc.text(formatMoneyWithPrefix(amountReceived), sxV, y, { align: 'right' });
     y += 2;
-
-    doc.setLineWidth(0.3);
-    doc.line(summaryX_Label - 35, y, summaryX_Value, y);
-    y += 5;
-    
+    doc.setLineWidth(0.3); doc.line(sxL - 35, y, sxV, y); y += 5;
     const balanceLabel = data.balance > 0 ? 'BALANCE DUE:' : data.balance < 0 ? 'CREDIT:' : 'BALANCE:';
-    doc.text(balanceLabel, summaryX_Label, y, { align: 'right' });
-    if (data.balance < 0) doc.setTextColor('#38A169'); 
-    else if (data.balance > 0) doc.setTextColor('#E53E3E'); 
-    doc.text(formatMoneyWithPrefix(Math.abs(data.balance)), summaryX_Value, y, { align: 'right' });
-    doc.setTextColor('#2c3e50');
-    
-    y += 8;
+    doc.text(balanceLabel, sxL, y, { align: 'right' });
+    if (data.balance < 0) doc.setTextColor('#38A169'); else if (data.balance > 0) doc.setTextColor('#E53E3E'); 
+    doc.text(formatMoneyWithPrefix(Math.abs(data.balance)), sxV, y, { align: 'right' });
+    doc.setTextColor('#2c3e50'); y += 8;
 
-    // 2. AMOUNT IN WORDS SECTION
     checkPageBreak(20);
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
     const amountReceivedText = amountReceived > 0 ? data.amountInWords : 'Zero Naira only';
-    const wordsLabel = `Amount in Words (for Amount Received): ${amountReceivedText}`;
-    const splitAmountWords = doc.splitTextToSize(wordsLabel, 180); 
-    doc.text(splitAmountWords, margin, y);
+    const splitAmountWords = doc.splitTextToSize(`Amount in Words: ${amountReceivedText}`, 180); 
+    doc.text(splitAmountWords, 14, y);
     y += (splitAmountWords.length * 6) + 4;
 
-    // 3. PAYMENT STATUS & BANK DETAILS BLOCK
     if (data.status !== InvoiceStatus.PAID) {
         checkPageBreak(70); 
-
-        if (data.status === InvoiceStatus.PARTIAL) {
-             doc.setFont('helvetica', 'bold');
-             doc.setTextColor('#E53E3E'); 
-             doc.text('Partial Payment Received.', margin, y);
-             y += 4;
-             doc.setTextColor(44, 62, 80); 
-             doc.setFont('helvetica', 'normal');
-             doc.text('Kindly settle the outstanding balance using the bank details below.', margin, y);
-             y += 2;
-        } else {
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor('#f59e0b'); 
-            doc.text(`Payment Status: Pending`, margin, y);
-            y += 4;
-            doc.setTextColor(44, 62, 80); 
-            doc.setFont('helvetica', 'normal');
-            doc.text('Kindly complete your payment using the bank details below.', margin, y);
-            y += 2;
-        }
-
-        const usdDetails = 'USD\nBeneficiary Bank Swift Code: UMPLNGLA\nBeneficiary Bank Name: Providus Account\n(F59) Beneficiary Account: 1308430669\nBeneficiary Name: Tide` Hotels and Resorts\nBeneficiary Address: No. 38 S.O Williams Street, Utako, Abuja';
-        const gbpDetails = 'GBP\nBeneficiary Bank Swift Code: UMPLNGLA\nBeneficiary Bank Name: Providus Account\n(F59) Beneficiary Account: 1308430676\nBeneficiary Name: Tide` Hotels and Resorts';
-        const euroDetails = 'EURO\nBeneficiary Bank Swift Code: UMPLNGLA\nBeneficiary Bank Name: Providus Account\n(F59) Beneficiary Account: 1308430683\nBeneficiary Name: Tide` Hotels and Resorts\nBeneficiary Address: No. 38 S.O Williams Street, Utako, Abuja';
-
+        const titleText = data.status === InvoiceStatus.PARTIAL ? 'Partial Payment Received.' : 'Payment Status: Pending';
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(data.status === InvoiceStatus.PARTIAL ? '#E53E3E' : '#f59e0b');
+        doc.text(titleText, 14, y); y += 4;
+        doc.setTextColor(44, 62, 80); doc.setFont('helvetica', 'normal');
+        doc.text('Kindly settle the outstanding using the bank details below.', 14, y); y += 2;
         doc.autoTable({
             startY: y,
             head: [['NAIRA ACCOUNTS', 'DOMICILIARY ACCOUNTS (PROVIDUS BANK)']],
             body: [
-                [
-                    'MONIEPOINT MFB\nAccount Number: 5169200615\nAccount Name: TIDE HOTELS & RESORTS', 
-                    usdDetails
-                ],
-                [
-                    'PROVIDUS BANK\nAccount Number: 1306538190\nAccount Name: TIDE\' HOTELS AND RESORTS',
-                    gbpDetails
-                ],
-                [
-                    '',
-                    euroDetails
-                ]
+                ['MONIEPOINT: 5169200615\nPROVIDUS: 1306538190\nName: TIDE HOTELS & RESORTS', 'USD: 1308430669\nGBP: 1308430676\nEURO: 1308430683\nSwift: UMPLNGLA'],
             ],
             theme: 'grid',
             styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.5, textColor: '#2c3e50', valign: 'top' },
             headStyles: { fillColor: '#e2e8f0', textColor: '#2c3e50', fontStyle: 'bold', halign: 'center', fontSize: 8 },
-            columnStyles: {
-                0: { cellWidth: 70 },
-                1: { cellWidth: 'auto' }
-            },
             margin: { left: 14, right: 14 }
         });
-        
         y = (doc as any).lastAutoTable.finalY + 3;
-
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'italic');
-        const noteText = 'Please make your payment using any of the accounts above and include your invoice reference number for confirmation.';
-        const splitNote = doc.splitTextToSize(noteText, 180);
-        doc.text(splitNote, 105, y, { align: 'center', maxWidth: 180 });
-        
     } else {
-        checkPageBreak(25);
-        y += 5;
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor('#38A169'); 
-        doc.setFontSize(12);
-        doc.text('FULL PAYMENT RECEIVED. THANK YOU FOR YOUR PATRONAGE.', 105, y, { align: 'center' });
-        y += 10;
-        doc.setTextColor('#2c3e50');
+        checkPageBreak(25); y += 5;
+        doc.setFont('helvetica', 'bold'); doc.setTextColor('#38A169'); doc.setFontSize(12);
+        doc.text('FULL PAYMENT RECEIVED. THANK YOU.', 105, y, { align: 'center' });
+        y += 10; doc.setTextColor('#2c3e50');
     }
     
-    // Signatures
-    checkPageBreak(30);
-    y += 10; 
-    
-    doc.setLineWidth(0.5);
-    doc.setDrawColor(0, 0, 0); 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor('#000000');
-
-    doc.line(margin, y, margin + 60, y); 
-    doc.text("Guest Signature", margin, y + 5);
-
-    doc.line(136, y, 196, y); 
-    doc.text("Cashier/Receptionist Signature", 136, y + 5);
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
-    doc.setTextColor('#7f8c8d');
-    doc.text('Thank you for choosing Tidè Hotels and Resorts.', 105, pageHeight - 10, { align: 'center' });
+    checkPageBreak(30); y += 10; 
+    doc.setLineWidth(0.5); doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor('#000000');
+    doc.line(14, y, 14 + 60, y); doc.text("Guest Signature", 14, y + 5);
+    doc.line(136, y, 196, y); doc.text("Cashier Signature", 136, y + 5);
 
     return doc;
-  } catch (e) {
-    alert("An error occurred while generating the PDF. Please check console for details.");
-    return null;
-  }
+  } catch (e) { alert("Error generating PDF."); return null; }
 };
 
 const printInvoice = (data: InvoiceData) => {
@@ -778,252 +617,47 @@ const printInvoice = (data: InvoiceData) => {
       const formattedAbs = decimalFormatter.format(Math.abs(amount));
       return amount < 0 ? `-${symbol} ${formattedAbs}` : `${symbol} ${formattedAbs}`;
   }
-
   const printWindow = window.open('', '_blank');
-  if (!printWindow) { alert('Please allow popups for this website'); return; }
-
+  if (!printWindow) { alert('Please allow popups'); return; }
   const isReservation = data.documentType === 'reservation';
-  const bookingRows = data.bookings.map((booking, idx) => `
-    <tr>
-      <td class="px-2 py-1 border-b border-gray-200 text-center">${idx + 1}</td>
-      <td class="px-2 py-1 border-b border-gray-200">${booking.roomType}</td>
-      <td class="px-2 py-1 border-b border-gray-200 text-center">${booking.quantity}</td>
-      <td class="px-2 py-1 border-b border-gray-200 text-center">${booking.nights} night${booking.nights > 1 ? 's' : ''}</td>
-      <td class="px-2 py-1 border-b border-gray-200 text-right">${formatMoney(booking.ratePerNight)}</td>
-      <td class="px-2 py-1 border-b border-gray-200 text-right">${formatMoney(booking.subtotal)}</td>
-    </tr>
-  `).join('');
-  
-  const chargesRows = data.additionalChargeItems.map((item, idx) => `
-    <tr>
-      <td class="px-2 py-1 border-b border-gray-200 text-center">${idx + 1}</td>
-      <td class="px-2 py-1 border-b border-gray-200">${item.description}</td>
-      <td class="px-2 py-1 border-b border-gray-200 text-center">${item.quantity || 1}</td>
-      <td class="px-2 py-1 border-b border-gray-200 text-right">${formatMoney(item.unitPrice || item.amount)}</td>
-      <td class="px-2 py-1 border-b border-gray-200 text-right">${formatMoney(item.amount)}</td>
-    </tr>
-  `).join('');
-  
-  const paymentRows = data.payments.map(item => `
-    <tr>
-      <td class="px-2 py-1 border-b border-gray-200">${formatDateForDisplay(item.date)}</td>
-      <td class="px-2 py-1 border-b border-gray-200">${item.paymentMethod}</td>
-      <td class="px-2 py-1 border-b border-gray-200">${item.reference || '-'}</td>
-      <td class="px-2 py-1 border-b border-gray-200 text-right">${formatMoney(item.amount)}</td>
-    </tr>
-  `).join('');
-  
-  const bankDetailsHtml = `
-    <div class="grid grid-cols-2 gap-2 text-[10px] leading-snug">
-      <div class="border-r border-gray-200 pr-2">
-        <h4 class="font-bold underline mb-1 text-[#c4a66a] uppercase">Naira Accounts</h4>
-        <div class="mb-2">
-            <p class="font-bold text-gray-800">MONIEPOINT MFB</p>
-            <p>Account No: 5169200615</p>
-            <p>Name: TIDE HOTELS & RESORTS</p>
-        </div>
-        <div>
-            <p class="font-bold text-gray-800">PROVIDUS BANK</p>
-            <p>Account No: 1306538190</p>
-            <p>Name: TIDE' HOTELS AND RESORTS</p>
-        </div>
-      </div>
-      <div class="pl-2">
-        <h4 class="font-bold underline mb-1 text-[#c4a66a] uppercase">Domiciliary Accounts (Providus)</h4>
-        
-        <div class="mb-2 border-b border-gray-100 pb-1">
-            <p class="font-bold text-gray-800">USD</p>
-            <p>Beneficiary Bank Swift Code: UMPLNGLA</p>
-            <p>Beneficiary Bank Name: Providus Account</p>
-            <p>(F59) Beneficiary Account: 1308430669</p>
-            <p>Beneficiary Name: Tide\` Hotels and Resorts</p>
-            <p class="text-[9px] text-gray-500">Beneficiary Address: No. 38 S.O Williams Street, Utako, Abuja</p>
-        </div>
-        
-        <div class="mb-2 border-b border-gray-100 pb-1">
-            <p class="font-bold text-gray-800">GBP</p>
-            <p>Beneficiary Bank Swift Code: UMPLNGLA</p>
-            <p>Beneficiary Bank Name: Providus Account</p>
-            <p>(F59) Beneficiary Account: 1308430676</p>
-            <p>Beneficiary Name: Tide\` Hotels and Resorts</p>
-        </div>
-
-        <div>
-            <p class="font-bold text-gray-800">EURO</p>
-            <p>Beneficiary Bank Swift Code: UMPLNGLA</p>
-            <p>Beneficiary Bank Name: Providus Account</p>
-            <p>(F59) Beneficiary Account: 1308430683</p>
-            <p>Beneficiary Name: Tide\` Hotels and Resorts</p>
-            <p class="text-[9px] text-gray-500">Beneficiary Address: No. 38 S.O Williams Street, Utako, Abuja</p>
-        </div>
-      </div>
-    </div>
-  `;
-
   const html = `
     <!DOCTYPE html>
     <html>
     <head>
-      <title>${isReservation ? 'Reservation Invoice' : 'Receipt'} - ${data.receiptNo}</title>
+      <title>${isReservation ? 'Invoice' : 'Receipt'} - ${data.receiptNo}</title>
       <script src="https://cdn.tailwindcss.com"></script>
-      <style> @media print { body { -webkit-print-color-adjust: exact; } } </style>
     </head>
     <body class="p-8 bg-white max-w-4xl mx-auto text-gray-900">
       <div class="text-center mb-6">
         <h1 class="text-3xl font-bold text-[#c4a66a]">TIDÈ HOTELS AND RESORTS</h1>
-        <p class="text-[#2c3e50] text-sm">Where Boldness Meets Elegance.</p>
-        <p class="text-xs text-gray-600 mt-1">38 S.O Williams Street Off Anthony Enahoro Street Utako Abuja</p>
-        <div class="border-b border-gray-300 w-1/2 mx-auto mt-2"></div>
+        <p class="text-xs text-gray-600 mt-1">38 S.O Williams Street Utako Abuja</p>
       </div>
-      
-      <div class="mb-4">
-        <h2 class="text-xl font-bold text-center ${isReservation ? 'text-red-700' : 'text-[#2c3e50]'} mb-2">${isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT'}</h2>
-        <div class="flex justify-between text-sm">
-          <div>
-            <p><span class="font-bold">${isReservation ? 'Invoice No:' : 'Receipt No:'}</span> ${data.receiptNo}</p>
-            ${!isReservation && data.verificationDetails ? `
-                <div class="mt-2 bg-green-50 p-2 rounded">
-                    <p><span class="font-bold">Payment Ref:</span> ${data.verificationDetails.paymentReference}</p>
-                    <p><span class="font-bold">Verified By:</span> ${data.verificationDetails.verifiedBy}</p>
-                    <p><span class="font-bold">Date:</span> ${formatDateForDisplay(data.verificationDetails.dateVerified)}</p>
-                </div>
-            ` : ''}
-          </div>
-          <div class="text-right">
-            <p><span class="font-bold">Date:</span> ${formatDateForDisplay(data.date)}</p>
-          </div>
-        </div>
+      <h2 class="text-xl font-bold text-center ${isReservation ? 'text-red-700' : 'text-[#2c3e50]'} mb-2">${isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT'}</h2>
+      <div class="flex justify-between text-sm mb-4">
+          <p><span class="font-bold">No:</span> ${data.receiptNo}</p>
+          <p><span class="font-bold">Date:</span> ${formatDateForDisplay(data.date)}</p>
       </div>
-      
       <div class="mb-4 border border-gray-200 rounded p-3 text-sm">
-        <p><span class="font-bold">Guest Name:</span> ${data.guestName}</p>
-        <p><span class="font-bold">Email:</span> ${data.guestEmail}</p>
-        <p><span class="font-bold">Phone:</span> ${data.phoneContact}</p>
-        <p><span class="font-bold">Room Number(s):</span> ${data.roomNumber}</p>
+        <p><span class="font-bold">Guest:</span> ${data.guestName}</p>
+        <p><span class="font-bold">Room:</span> ${data.roomNumber}</p>
       </div>
-      
-      <div class="mb-2">
-        <h3 class="font-bold text-[#2c3e50] mb-2">Bookings</h3>
-        <table class="w-full text-sm mb-2">
-          <thead class="bg-[#2c3e50] text-white">
-            <tr>
-              <th class="px-2 py-1">S/N</th>
-              <th class="px-2 py-1 text-left">Room Type</th>
-              <th class="px-2 py-1">Qty</th>
-              <th class="px-2 py-1">Duration</th>
-              <th class="px-2 py-1 text-right">Rate</th>
-              <th class="px-2 py-1 text-right">Subtotal (${symbol})</th>
-            </tr>
-          </thead>
-          <tbody>${bookingRows}</tbody>
-        </table>
-        <p class="text-xs italic text-gray-500 mb-4">Note: Festive Season Offer applied.</p>
-      </div>
-      
-      ${data.additionalChargeItems.length > 0 ? `
-        <div class="mb-4">
-          <h3 class="font-bold text-[#2c3e50] mb-2">Additional Charges</h3>
-          <table class="w-full text-sm">
-            <thead class="bg-[#2c3e50] text-white">
-              <tr>
-                <th class="px-2 py-1 w-12">S/N</th>
-                <th class="px-2 py-1 text-left">Description</th>
-                <th class="px-2 py-1 text-center w-16">Qty</th>
-                <th class="px-2 py-1 text-right w-24">Unit Price</th>
-                <th class="px-2 py-1 text-right w-32">Amount (${symbol})</th>
-              </tr>
-            </thead>
-            <tbody>${chargesRows}</tbody>
-          </table>
-        </div>
-      ` : ''}
-      
-      ${data.payments.length > 0 ? `
-        <div class="mb-4">
-          <h3 class="font-bold text-[#2c3e50] mb-2">Payments Received</h3>
-          <table class="w-full text-sm">
-            <thead class="bg-green-600 text-white">
-              <tr>
-                <th class="px-2 py-1 text-left">Date</th>
-                <th class="px-2 py-1 text-left">Method</th>
-                <th class="px-2 py-1 text-left">Ref</th>
-                <th class="px-2 py-1 text-right">Amount (${symbol})</th>
-              </tr>
-            </thead>
-            <tbody>${paymentRows}</tbody>
-          </table>
-        </div>
-      ` : ''}
-      
+      <table class="w-full text-sm mb-4">
+        <thead class="bg-[#2c3e50] text-white"><tr><th class="p-1">Room</th><th class="p-1">Qty</th><th class="p-1">Nights</th><th class="p-1 text-right">Total</th></tr></thead>
+        <tbody>${data.bookings.map(b => `<tr><td class="p-1 border-b">${b.roomType}</td><td class="p-1 border-b text-center">${b.quantity}</td><td class="p-1 border-b text-center">${b.nights}</td><td class="p-1 border-b text-right">${formatMoney(b.subtotal)}</td></tr>`).join('')}</tbody>
+      </table>
       <div class="flex justify-end mb-6">
-        <div class="w-1/2">
-          <div class="flex justify-between mb-1 text-sm">
-            <span>Subtotal:</span>
-            <span class="font-bold">${formatMoneyWithPrefix(data.subtotal)}</span>
-          </div>
-          <div class="flex justify-between mb-1 text-sm">
-            <span>Discount:</span>
-            <span class="font-bold">${formatMoneyWithPrefix(-data.discount)}</span>
-          </div>
-          <div class="flex justify-between mb-1 text-sm">
-            <span>${data.holidaySpecialDiscountName}:</span>
-            <span class="font-bold">${formatMoneyWithPrefix(-data.holidaySpecialDiscount)}</span>
-          </div>
-           
-           <div class="flex justify-between mb-2 text-sm border-b border-gray-300 pb-1">
-            <span>Tax (7.5% Inclusive):</span>
-            <span class="font-bold">${formatMoneyWithPrefix(data.taxAmount)}</span>
-          </div>
-           <div class="flex justify-between mb-2 text-base">
-            <span class="font-bold">TOTAL AMOUNT DUE:</span>
-            <span class="font-bold">${formatMoneyWithPrefix(data.totalAmountDue)}</span>
-          </div>
-           <div class="flex justify-between mb-2 text-base border-b border-gray-300 pb-1">
-            <span>AMOUNT RECEIVED:</span>
-            <span>${formatMoneyWithPrefix(data.amountReceived)}</span>
-          </div>
-           <div class="flex justify-between text-lg">
-            <span class="font-bold">${data.balance > 0 ? 'BALANCE DUE:' : data.balance < 0 ? 'CREDIT:' : 'BALANCE:'}</span>
-            <span class="font-bold ${data.balance !== 0 ? (data.balance > 0 ? 'text-red-600' : 'text-green-600') : ''}">${formatMoneyWithPrefix(Math.abs(data.balance))}</span>
-          </div>
+        <div class="w-1/2 text-sm">
+          <div class="flex justify-between"><span>Subtotal:</span><span class="font-bold">${formatMoneyWithPrefix(data.subtotal)}</span></div>
+          <div class="flex justify-between font-bold border-t mt-2"><span>Total Due:</span><span>${formatMoneyWithPrefix(data.totalAmountDue)}</span></div>
+          <div class="flex justify-between"><span>Received:</span><span>${formatMoneyWithPrefix(data.amountReceived)}</span></div>
+          <div class="flex justify-between text-lg font-bold border-t"><span>Balance:</span><span>${formatMoneyWithPrefix(Math.abs(data.balance))}</span></div>
         </div>
-      </div>
-      
-      <div class="mb-2 text-sm">
-        <p><span class="font-bold">Amount in Words (for Amount Received):</span> ${data.amountReceived > 0 ? data.amountInWords : 'Zero Naira only'}</p>
-      </div>
-      
-      ${data.status !== InvoiceStatus.PAID ? `
-        <div class="mb-2 bg-gray-50 p-1 rounded border border-gray-200" style="page-break-inside: avoid; break-inside: avoid;">
-          <h3 class="font-bold text-[#2c3e50] mb-1 text-sm">Bank Details for Payment</h3>
-          ${bankDetailsHtml}
-        </div>
-      ` : `
-        <div class="mb-8 text-center p-4 rounded border border-green-200 bg-green-50">
-            <h3 class="font-bold text-green-700 text-lg">FULL PAYMENT RECEIVED. THANK YOU FOR YOUR PATRONAGE.</h3>
-        </div>
-      `}
-      
-      <div class="flex justify-between mt-8 mb-4 text-sm">
-        <div class="text-center">
-            <div class="border-b border-gray-400 w-48 mb-2"></div>
-            <p class="font-bold text-gray-700">Guest Signature</p>
-        </div>
-        <div class="text-center">
-            <div class="border-b border-gray-400 w-48 mb-2"></div>
-            <p class="font-bold text-gray-700">Cashier/Receptionist Signature</p>
-        </div>
-      </div>
-      
-      <div class="text-center text-xs text-gray-500 mt-8">
-        <p>Thank you for choosing Tidè Hotels and Resorts.</p>
       </div>
       <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }</script>
     </body>
     </html>
   `;
-  printWindow.document.write(html);
-  printWindow.document.close();
+  printWindow.document.write(html); printWindow.document.close();
 };
 
 const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
@@ -1032,22 +666,18 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
   const symbol = data.currency === 'NGN' ? '₦' : '$';
   
   const printWindow = window.open('', '_blank');
-  if (!printWindow) { alert('Please allow popups for this website'); return; }
+  if (!printWindow) { alert('Please allow popups'); return; }
 
   const chargesRows = data.charges.map((item) => {
     const qty = item.quantity || 1;
-    // Modified description logic: Prioritize specific item name over general category
     const desc = item.otherServiceDescription || (item.service as string);
-    
-    // Display format
-    const displayDesc = qty > 1 ? `${qty} x ${desc}` : desc;
-
+    const displayDesc = qty > 1 ? `${qty}x ${desc}` : desc;
     return `
-    <div class="row">
-      <div class="col-left">${displayDesc}</div>
-      <div class="col-right">${symbol}${formatMoney(item.amount)}</div>
-    </div>
-  `}).join('');
+      <div class="row">
+        <div class="col-left">${displayDesc}</div>
+        <div class="col-right">${symbol}${formatMoney(item.amount)}</div>
+      </div>
+    `}).join('');
 
   const totalDue = data.subtotal - data.discount + data.serviceCharge;
 
@@ -1055,42 +685,21 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
   if (data.payments && data.payments.length > 0) {
       const rows = data.payments.map(p => `
         <div class="row">
-          <div class="col-left">${p.method} ${p.reference ? `(#${p.reference})` : ''}</div>
+          <div class="col-left">${p.method} ${p.reference ? `(${p.reference})` : ''}</div>
           <div class="col-right">${symbol}${formatMoney(p.amount)}</div>
         </div>
       `).join('');
-      paymentsHtml = `
-        <div class="dashed"></div>
-        <div class="row bold" style="margin-bottom: 2px;">
-            <div class="col-left">Payments Received</div>
-        </div>
-        ${rows}
-      `;
-  } else {
-      paymentsHtml = `
-      <div class="row">
-        <div class="col-left">Payment Method:</div>
-        <div class="col-right">${data.paymentMethod}</div>
-      </div>
-      `;
+      paymentsHtml = `<div class="separator"></div><div class="bold mb-1">Payments</div>${rows}`;
   }
 
   let bankDetailsHtml = '';
   if (data.balance < 0) {
       bankDetailsHtml = `
-      <div class="dashed"></div>
-      <div class="text-center bold" style="margin-bottom: 5px;">BANK DETAILS FOR PAYMENT</div>
-      
-      <div class="bold" style="text-decoration: underline; margin-top: 5px;">NAIRA ACCOUNTS</div>
-      <div class="row"><div class="col-left">Moniepoint:</div><div class="col-right">5169200615</div></div>
-      <div class="row"><div class="col-left">Providus:</div><div class="col-right">1306538190</div></div>
-      <div style="font-size: 10px; margin-bottom: 5px;">Name: Tide Hotels & Resorts</div>
-
-      <div class="bold" style="text-decoration: underline; margin-top: 5px;">DOMICILIARY (Providus)</div>
-      <div class="row"><div class="col-left">USD:</div><div class="col-right">1308430669</div></div>
-      <div class="row"><div class="col-left">GBP:</div><div class="col-right">1308430676</div></div>
-      <div class="row"><div class="col-left">EURO:</div><div class="col-right">1308430683</div></div>
-      <div style="font-size: 10px;">Swift Code: UMPLNGLA</div>
+      <div class="separator"></div>
+      <div class="text-center bold mb-1">BANK DETAILS</div>
+      <div class="text-xs">Moniepoint: 5169200615</div>
+      <div class="text-xs">Providus: 1306538190</div>
+      <div class="text-xs">Name: Tide Hotels & Resorts</div>
       `;
   }
 
@@ -1098,122 +707,89 @@ const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Walk-In Docket - ${data.id}</title>
+      <title>Docket - ${data.id}</title>
       <style> 
-        @media print { body { -webkit-print-color-adjust: exact; } } 
+        @media print { body { margin: 0; padding: 0; } } 
         body {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
-            width: 300px;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 13px;
+            width: 80mm;
             margin: 0 auto;
             background: #fff;
             color: #000;
-            padding: 10px;
+            padding: 5px 15px;
             box-sizing: border-box;
+            line-height: 1.4;
         }
         .text-center { text-align: center; }
-        .bold { font-weight: bold; }
-        .dashed { border-bottom: 1px dashed #000; margin: 10px 0; display: block; width: 100%; }
-        .row { display: flex; justify-content: space-between; margin-bottom: 4px; width: 100%; }
-        .col-left { text-align: left; max-width: 70%; word-break: break-all; }
-        .col-right { text-align: right; flex: 1; white-space: nowrap; margin-left: 5px; }
-        .title { font-size: 14px; margin-bottom: 5px; }
-        .footer { font-size: 10px; margin-top: 20px; }
+        .bold { font-weight: 700; }
+        .mb-1 { margin-bottom: 4px; }
+        .mb-2 { margin-bottom: 8px; }
+        .separator { border-bottom: 1px solid #000; margin: 8px 0; border-style: double; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 3px; }
+        .col-left { text-align: left; max-width: 65%; word-wrap: break-word; }
+        .col-right { text-align: right; flex: 1; }
+        .title { font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
+        .footer { font-size: 11px; margin-top: 20px; color: #444; }
+        .sig-block { margin-top: 25px; display: flex; justify-content: space-between; gap: 10px; }
+        .sig-line { border-top: 1px solid #000; width: 45%; padding-top: 4px; font-size: 10px; text-align: center; }
       </style>
     </head>
     <body>
-      <div class="text-center">
-        <div class="title bold">TIDÈ HOTELS AND RESORTS</div>
-        <div>Utako, Abuja</div>
-        <div class="dashed"></div>
-        <div class="bold">WALK-IN DOCKET</div>
-        <div>${formatDateForDisplay(data.transactionDate.split('T')[0])} | ${new Date(data.transactionDate).toLocaleTimeString()}</div>
-        <div class="dashed"></div>
+      <div class="text-center mb-2">
+        <div class="title bold">TIDÈ HOTELS</div>
+        <div class="bold">AND RESORTS</div>
+        <div style="font-size: 11px;">Utako, Abuja</div>
+        <div class="separator"></div>
+        <div class="bold" style="font-size: 14px;">WALK-IN DOCKET</div>
+        <div style="font-size: 11px;">${formatDateForDisplay(data.transactionDate.split('T')[0])} | ${new Date(data.transactionDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
       </div>
 
-      <div class="row">
-        <span class="bold">Receipt No:</span>
-        <span>${data.id}</span>
-      </div>
-      <div class="row">
-        <span class="bold">Guest:</span>
-        <span>${guestName}</span>
-      </div>
-      <div class="row">
-        <span class="bold">Cashier:</span>
-        <span>${data.cashier}</span>
-      </div>
+      <div class="row"><span>Receipt:</span><span>${data.id}</span></div>
+      <div class="row"><span>Guest:</span><span class="bold">${guestName}</span></div>
+      <div class="row"><span>Cashier:</span><span>${data.cashier}</span></div>
 
-      <div class="dashed"></div>
+      <div class="separator"></div>
 
-      <div class="row bold" style="margin-bottom: 8px;">
-        <div class="col-left">Item</div>
+      <div class="row bold mb-1">
+        <div class="col-left">Description</div>
         <div class="col-right">Amount</div>
       </div>
       
       ${chargesRows}
 
-      <div class="dashed"></div>
+      <div class="separator"></div>
 
-      <div class="row">
-        <div class="col-left">Subtotal</div>
-        <div class="col-right">${symbol}${formatMoney(data.subtotal)}</div>
-      </div>
-      ${data.discount > 0 ? `
-      <div class="row">
-        <div class="col-left">Discount</div>
-        <div class="col-right">-${symbol}${formatMoney(data.discount)}</div>
-      </div>
-      ` : ''}
+      <div class="row"><span>Subtotal</span><span>${symbol}${formatMoney(data.subtotal)}</span></div>
+      ${data.discount > 0 ? `<div class="row"><span>Discount</span><span>-${symbol}${formatMoney(data.discount)}</span></div>` : ''}
+      <div class="row"><span>Svc Charge</span><span>${symbol}${formatMoney(data.serviceCharge)}</span></div>
+      <div class="row" style="font-size: 11px; opacity: 0.8;"><span>Incl. VAT (7.5%)</span><span>${symbol}${formatMoney(data.tax)}</span></div>
       
-      <div class="row">
-        <div class="col-left">Service Charge</div>
-        <div class="col-right">${symbol}${formatMoney(data.serviceCharge)}</div>
-      </div>
-
-      <div class="row">
-        <div class="col-left">Tax (7.5% Inclusive)</div>
-        <div class="col-right">${symbol}${formatMoney(data.tax)}</div>
-      </div>
-      
-      <div class="dashed"></div>
-
-      <div class="row bold" style="font-size: 14px;">
-        <div class="col-left">Total Due</div>
+      <div class="row bold" style="font-size: 16px; margin-top: 5px;">
+        <div class="col-left">TOTAL</div>
         <div class="col-right">${symbol}${formatMoney(totalDue)}</div>
       </div>
 
       ${paymentsHtml}
 
-      <div class="dashed"></div>
+      <div class="separator"></div>
 
-      <div class="row">
-        <div class="col-left">Total Paid</div>
-        <div class="col-right">${symbol}${formatMoney(data.amountPaid)}</div>
-      </div>
-
+      <div class="row"><span>Total Paid</span><span>${symbol}${formatMoney(data.amountPaid)}</span></div>
       <div class="row bold">
-        <div class="col-left">${data.balance < 0 ? 'Balance (Owing)' : 'Balance'}</div>
-        <div class="col-right">${symbol}${formatMoney(data.balance)}</div>
+        <span>${data.balance < 0 ? 'DUE' : 'BALANCE'}</span>
+        <span>${symbol}${formatMoney(Math.abs(data.balance))}</span>
       </div>
 
       ${bankDetailsHtml}
 
-      <div class="dashed"></div>
-
-      <div style="margin-top: 30px;">
-        <div style="border-bottom: 1px solid #000; width: 100%; margin-bottom: 5px;"></div>
-        <div class="text-center bold">Guest Signature</div>
-      </div>
-      
-      <div style="margin-top: 30px;">
-        <div style="border-bottom: 1px solid #000; width: 100%; margin-bottom: 5px;"></div>
-        <div class="text-center bold">Cashier Signature</div>
+      <div class="sig-block">
+        <div class="sig-line">Guest Signature</div>
+        <div class="sig-line">Cashier Signature</div>
       </div>
       
       <div class="text-center footer">
-        Thank you for visiting.<br>
-        Where Boldness Meets Elegance.
+        Thank you for your patronage.<br>
+        Boldness Meets Elegance.
       </div>
       
       <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }</script>
@@ -1230,12 +806,8 @@ const generateCSV = (transactions: RecordedTransaction[]): string => {
         let status = 'N/A';
         let amountDue = t.amount;
         if (t.type === 'Hotel Stay') {
-            const d = t.data as InvoiceData;
-            status = d.status;
-            amountDue = d.totalAmountDue;
-        } else { 
-            status = t.balance < 0 ? 'Owing' : 'Paid';
-        }
+            const d = t.data as InvoiceData; status = d.status; amountDue = d.totalAmountDue;
+        } else { status = t.balance < 0 ? 'Owing' : 'Paid'; }
         return [t.id, t.type, t.date, `"${t.guestName}"`, amountDue.toFixed(2), t.balance.toFixed(2), status, t.currency].join(',');
     });
     return [headers.join(','), ...rows].join('\n');
@@ -1269,21 +841,13 @@ const USERS = [
 ];
 
 const WelcomeScreen = ({ onComplete }: { onComplete: () => void }) => {
-  useEffect(() => {
-    const timer = setTimeout(onComplete, 1500);
-    return () => clearTimeout(timer);
-  }, [onComplete]);
-
+  useEffect(() => { const timer = setTimeout(onComplete, 1500); return () => clearTimeout(timer); }, [onComplete]);
   return (
     <div className="fixed inset-0 bg-[#2c3e50] flex flex-col items-center justify-center z-50 animate-fade-in-up">
       <div className="text-center px-4">
-        <h1 className="text-4xl md:text-6xl font-bold text-[#c4a66a] mb-6 tracking-wider">
-          Tidè Hotels and Resorts
-        </h1>
+        <h1 className="text-4xl md:text-6xl font-bold text-[#c4a66a] mb-6 tracking-wider">Tidè Hotels and Resorts</h1>
         <div className="h-1 w-32 bg-[#c4a66a] mx-auto mb-6 rounded"></div>
-        <p className="text-white text-lg md:text-xl tracking-[0.3em] uppercase font-light animate-pulse-slow">
-          Where Boldness Meets Elegance
-        </p>
+        <p className="text-white text-lg md:text-xl tracking-[0.3em] uppercase font-light animate-pulse-slow">Where Boldness Meets Elegance</p>
       </div>
     </div>
   );
@@ -1298,12 +862,8 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: any) => void }) => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     const foundUser = USERS.find(u => u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password.trim());
-    
-    if (foundUser) {
-      onLogin({ name: foundUser.username, role: foundUser.role });
-    } else {
-      setError('Invalid credentials');
-    }
+    if (foundUser) onLogin({ name: foundUser.username, role: foundUser.role });
+    else setError('Invalid credentials');
   };
 
   return (
@@ -1315,55 +875,15 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: any) => void }) => {
              <p className="text-xs text-[#c4a66a] italic mt-1">Tidè Hotels and Resorts</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <input 
-              type="text" 
-              className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-[#c4a66a] focus:ring-1 focus:ring-[#c4a66a]" 
-              placeholder="Enter your username"
-              value={username} 
-              onChange={e => setUsername(e.target.value)} 
-            />
-          </div>
+          <input type="text" className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-[#c4a66a]" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
           <div className="relative">
-            <input 
-              type={showPassword ? "text" : "password"} 
-              className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-[#c4a66a] focus:ring-1 focus:ring-[#c4a66a]" 
-              placeholder="Enter your password"
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-            />
-            <button 
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-            >
-              {showPassword ? (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              )}
+            <input type={showPassword ? "text" : "password"} className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-[#c4a66a]" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+              {showPassword ? "Hide" : "Show"}
             </button>
           </div>
-          
-          <div className="flex items-center">
-              <input 
-                type="checkbox" 
-                id="remember" 
-                className="h-4 w-4 text-[#c4a66a] bg-gray-700 border-gray-600 rounded focus:ring-[#c4a66a] ring-offset-gray-800"
-              />
-              <label htmlFor="remember" className="ml-2 text-sm text-gray-300">Remember me</label>
-          </div>
-
           {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-          
-          <button type="submit" className="w-full bg-[#c4a66a] text-white py-3 rounded font-bold hover:bg-[#b39556] transition-colors shadow-lg">
-            Login
-          </button>
+          <button type="submit" className="w-full bg-[#c4a66a] text-white py-3 rounded font-bold hover:bg-[#b39556] transition-colors shadow-lg">Login</button>
         </form>
       </div>
     </div>
@@ -1373,34 +893,10 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: any) => void }) => {
 const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTransaction, onEditTransaction, onCreateWalkIn }: any) => {
   const today = new Date().toISOString().split('T')[0];
   const todaysTransactions = transactions.filter((t: RecordedTransaction) => t.date === today);
-  
-  const revenueTodayNGN = todaysTransactions
-    .filter((t: RecordedTransaction) => t.currency === 'NGN')
-    .reduce((sum: number, t: RecordedTransaction) => sum + (t.type === 'Hotel Stay' ? (t.data as InvoiceData).amountReceived : (t.data as WalkInTransaction).amountPaid), 0);
-    
-  const totalOwingNGN = transactions
-    .filter((t: RecordedTransaction) => t.currency === 'NGN')
-    .reduce((sum: number, t: RecordedTransaction) => {
-        if (t.type === 'Hotel Stay') {
-            return sum + (t.balance > 0 ? t.balance : 0);
-        } else {
-            return sum + (t.balance < 0 ? Math.abs(t.balance) : 0);
-        }
-    }, 0);
-
-  const totalCreditNGN = transactions
-    .filter((t: RecordedTransaction) => t.currency === 'NGN')
-    .reduce((sum: number, t: RecordedTransaction) => {
-        if (t.type === 'Hotel Stay') {
-             return sum + (t.balance < 0 ? Math.abs(t.balance) : 0);
-        } else {
-             return sum + (t.balance > 0 ? t.balance : 0);
-        }
-    }, 0);
-
+  const revenueTodayNGN = todaysTransactions.filter((t: RecordedTransaction) => t.currency === 'NGN').reduce((sum: number, t: RecordedTransaction) => sum + (t.type === 'Hotel Stay' ? (t.data as InvoiceData).amountReceived : (t.data as WalkInTransaction).amountPaid), 0);
+  const totalOwingNGN = transactions.filter((t: RecordedTransaction) => t.currency === 'NGN').reduce((sum: number, t: RecordedTransaction) => sum + (t.balance > 0 ? t.balance : 0), 0);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All Types');
-
   const filteredTransactions = useMemo(() => {
       return transactions.filter((t: RecordedTransaction) => {
           const matchesSearch = t.guestName.toLowerCase().includes(searchTerm.toLowerCase()) || t.id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -1411,122 +907,56 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
 
   const handleExportCSV = () => {
     const csvContent = generateCSV(filteredTransactions);
-    const date = new Date().toISOString().split('T')[0];
-    downloadCSV(csvContent, `tide_transactions_${date}.csv`);
+    downloadCSV(csvContent, `tide_transactions_${new Date().toISOString().split('T')[0]}.csv`);
   };
 
   return (
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-white shadow p-4 flex justify-between items-center">
-        <div>
-            <h1 className="text-xl font-bold text-[#c4a66a]">Tidè Hotels and Resorts</h1>
-            <p className="text-xs text-gray-500">Where Boldness Meets Elegance.</p>
-        </div>
+        <div><h1 className="text-xl font-bold text-[#c4a66a]">Tidè Hotels and Resorts</h1></div>
         <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">Welcome, {user.name} <span className="bg-[#c4a66a] text-white text-xs px-2 py-0.5 rounded-full">{user.role}</span></span>
-            <button onClick={onLogout} className="bg-[#2c3e50] text-white px-4 py-2 rounded text-sm hover:bg-[#34495e]">Logout</button>
+            <span className="text-sm">Welcome, {user.name}</span>
+            <button onClick={onLogout} className="bg-[#2c3e50] text-white px-4 py-2 rounded text-sm">Logout</button>
         </div>
       </nav>
-
       <div className="p-8 max-w-7xl mx-auto">
-        <div className="mb-8 bg-white p-6 rounded-lg shadow-sm flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-800">Dashboard Actions</h2>
+        <div className="mb-8 flex justify-between items-center">
+            <h2 className="text-xl font-bold">Dashboard</h2>
             <div className="flex gap-3">
-                 <button onClick={onCreateWalkIn} className="bg-[#2c3e50] text-white px-4 py-2 rounded shadow hover:bg-[#34495e] flex items-center gap-2">New Walk-In Guest Charge</button>
-                 <button onClick={onCreateInvoice} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded shadow-sm hover:bg-gray-50 flex items-center gap-2">+ Create Reservation Invoice</button>
+                 <button onClick={onCreateWalkIn} className="bg-[#2c3e50] text-white px-4 py-2 rounded shadow hover:bg-[#34495e]">New Walk-In</button>
+                 <button onClick={onCreateInvoice} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded shadow-sm">+ New Reservation</button>
             </div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-             <div className="bg-[#2c3e50] text-white p-6 rounded-lg shadow-lg">
-                <h3 className="text-xs opacity-80 uppercase tracking-wider">Transactions Today</h3>
-                <p className="text-3xl font-bold mt-2">{todaysTransactions.length}</p>
-             </div>
-             <div className="bg-[#2c3e50] text-white p-6 rounded-lg shadow-lg">
-                <h3 className="text-xs opacity-80 uppercase tracking-wider">Revenue Today (NGN)</h3>
-                <p className="text-3xl font-bold mt-2">₦{revenueTodayNGN.toLocaleString()}</p>
-             </div>
-              <div className="bg-red-700 text-white p-6 rounded-lg shadow-lg">
-                <h3 className="text-xs opacity-80 uppercase tracking-wider">Total Outstanding (Owing)</h3>
-                <p className="text-3xl font-bold mt-2">₦{totalOwingNGN.toLocaleString()}</p>
-             </div>
-             <div className="bg-green-700 text-white p-6 rounded-lg shadow-lg">
-                <h3 className="text-xs opacity-80 uppercase tracking-wider">Total Credit (Hotel Owes)</h3>
-                <p className="text-3xl font-bold mt-2">₦{totalCreditNGN.toLocaleString()}</p>
-             </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+             <div className="bg-[#2c3e50] text-white p-6 rounded-lg"><h3>Today</h3><p className="text-3xl font-bold">{todaysTransactions.length}</p></div>
+             <div className="bg-[#2c3e50] text-white p-6 rounded-lg"><h3>Revenue NGN</h3><p className="text-3xl font-bold">₦{revenueTodayNGN.toLocaleString()}</p></div>
+              <div className="bg-red-700 text-white p-6 rounded-lg"><h3>Outstanding</h3><p className="text-3xl font-bold">₦{totalOwingNGN.toLocaleString()}</p></div>
         </div>
-
         <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-bold text-gray-800">Completed Transaction History</h2>
-                <button onClick={handleExportCSV} className="bg-[#c4a66a] text-white border border-[#c4a66a] px-4 py-2 rounded text-sm hover:bg-[#b39556] font-bold shadow-sm">Export CSV</button>
+            <div className="flex justify-between mb-4">
+                <h2 className="text-lg font-bold">Transactions</h2>
+                <button onClick={handleExportCSV} className="text-[#c4a66a] border border-[#c4a66a] px-3 py-1 rounded text-sm">Export CSV</button>
             </div>
             <div className="flex gap-4 mb-4">
-                <input type="text" placeholder="Search by ID, Name, Email, Phone..." className="flex-1 border rounded p-2 text-sm bg-white text-gray-900" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                <select className="border rounded p-2 text-sm min-w-[150px] bg-white text-gray-900" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                    <option value="All Types">All Types</option>
-                    <option value="Hotel Stay">Hotel Stay</option>
-                    <option value="Walk-In">Walk-In</option>
-                </select>
+                <input type="text" placeholder="Search..." className="flex-1 border rounded p-2 text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-[#2c3e50] text-white uppercase text-xs">
-                        <tr><th className="px-4 py-3">ID</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Guest Name</th><th className="px-4 py-3">Amount Due</th><th className="px-4 py-3">Balance</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Actions</th></tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {filteredTransactions.length === 0 ? (
-                            <tr><td colSpan={8} className="text-center py-8 text-gray-500">No transactions found.</td></tr>
-                        ) : (
-                            filteredTransactions.map((t: RecordedTransaction) => {
-                                let statusColor = 'bg-gray-100 text-gray-800';
-                                let statusText = 'N/A';
-                                if (t.type === 'Hotel Stay') {
-                                    const d = t.data as InvoiceData;
-                                    statusText = d.status;
-                                    if (d.status === InvoiceStatus.PAID) statusColor = 'bg-green-100 text-green-800 border border-green-200';
-                                    else if (d.status === InvoiceStatus.PARTIAL) statusColor = 'bg-yellow-100 text-yellow-800 border border-yellow-200';
-                                    else statusColor = 'bg-red-50 text-red-700 border border-red-200 font-bold';
-                                } else {
-                                    if (t.balance < 0) { 
-                                        statusText = 'Pending Payment'; 
-                                        statusColor = 'bg-red-50 text-red-700 border border-red-200 font-bold'; 
-                                    } else { 
-                                        statusText = 'Paid'; 
-                                        statusColor = 'bg-green-100 text-green-800'; 
-                                    }
-                                }
-                                return (
-                                    <tr key={t.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 font-medium">{t.id}</td>
-                                        <td className="px-4 py-3 text-gray-500">{t.type}</td>
-                                        <td className="px-4 py-3 text-gray-500">{t.date}</td>
-                                        <td className="px-4 py-3">{t.guestName}</td>
-                                        <td className="px-4 py-3">{formatCurrencyWithCode(t.amount, t.currency)}</td>
-                                        <td className="px-4 py-3 font-medium">
-                                          {t.type === 'Hotel Stay' ? (
-                                              t.balance > 0 ? (
-                                                <span className="text-red-600 font-bold">{formatCurrencyWithCode(t.balance, t.currency)} (Owing)</span>
-                                              ) : t.balance < 0 ? (
-                                                <span className="text-green-600 font-bold">{formatCurrencyWithCode(Math.abs(t.balance), t.currency)} (Credit)</span>
-                                              ) : <span className="text-gray-500">-</span>
-                                          ) : (
-                                              t.balance < 0 ? (
-                                                <span className="text-red-600 font-bold">{formatCurrencyWithCode(Math.abs(t.balance), t.currency)} (Owing)</span>
-                                              ) : t.balance > 0 ? (
-                                                <span className="text-green-600 font-bold">{formatCurrencyWithCode(t.balance, t.currency)} (Change)</span>
-                                              ) : <span className="text-gray-500">-</span>
-                                          )}
-                                        </td>
-                                        <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}>{statusText}</span></td>
-                                        <td className="px-4 py-3 text-right flex justify-end gap-2">
-                                            <button onClick={() => onEditTransaction(t)} className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-xs">View/Edit</button>
-                                            <button onClick={() => { if(confirm('Are you sure you want to delete?')) onDeleteTransaction(t.id); }} className="border border-red-300 text-red-600 px-3 py-1 rounded hover:bg-red-50 text-xs">Delete</button>
-                                        </td>
-                                    </tr>
-                                );
-                            })
-                        )}
+                    <thead className="bg-[#2c3e50] text-white"><tr><th className="p-3">ID</th><th className="p-3">Type</th><th className="p-3">Guest</th><th className="p-3">Amount</th><th className="p-3">Status</th><th className="p-3 text-right">Actions</th></tr></thead>
+                    <tbody>
+                        {filteredTransactions.map((t: RecordedTransaction) => (
+                            <tr key={t.id} className="border-b hover:bg-gray-50">
+                                <td className="p-3">{t.id}</td>
+                                <td className="p-3">{t.type}</td>
+                                <td className="p-3 font-bold">{t.guestName}</td>
+                                <td className="p-3">{formatCurrencyWithCode(t.amount, t.currency)}</td>
+                                <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-bold ${t.balance === 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{t.balance === 0 ? 'Paid' : 'Pending'}</span></td>
+                                <td className="p-3 text-right">
+                                    <button onClick={() => onEditTransaction(t)} className="text-blue-600 mr-2">View</button>
+                                    <button onClick={() => { if(confirm('Delete?')) onDeleteTransaction(t.id); }} className="text-red-600">Delete</button>
+                                </td>
+                            </tr>
+                        ))}
                     </tbody>
                 </table>
             </div>
@@ -1539,616 +969,125 @@ const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTran
 const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
   const DRAFT_KEY = 'tide_invoice_draft';
   const [isAutoServiceCharge, setIsAutoServiceCharge] = useState(true);
-
   const [data, setData] = useState<InvoiceData>(() => {
-      if (initialData) {
-          // Migration logic for editing old records
-          const migrated = { ...initialData };
-          if (migrated.additionalChargeItems) {
-              migrated.additionalChargeItems = migrated.additionalChargeItems.map((i: any) => ({
-                  ...i,
-                  quantity: i.quantity || 1,
-                  unitPrice: i.unitPrice !== undefined ? i.unitPrice : i.amount
-              }));
-          }
-          return migrated;
-      }
+      if (initialData) return { ...initialData };
       try {
           const saved = localStorage.getItem(DRAFT_KEY);
-          if (saved) {
-              const parsed = JSON.parse(saved);
-              // Migration for drafts
-              if (parsed.additionalChargeItems) {
-                  parsed.additionalChargeItems = parsed.additionalChargeItems.map((i: any) => ({
-                      ...i,
-                      quantity: i.quantity || 1,
-                      unitPrice: i.unitPrice !== undefined ? i.unitPrice : i.amount
-                  }));
-              }
-              return {
-                  ...parsed,
-                  receivedBy: user.name || 'Francis',
-                  designation: user.role === 'Admin' ? 'Manager' : 'Front Desk'
-              };
-          }
-      } catch (e) { console.error("Error parsing draft", e); }
+          if (saved) return JSON.parse(saved);
+      } catch (e) {}
       return {
-        id: uuid(),
-        receiptNo: `RCPT-${Date.now()}`,
-        date: new Date().toISOString().split('T')[0],
-        lastUpdatedAt: new Date().toISOString(),
-        guestName: '',
-        guestEmail: '',
-        phoneContact: '',
-        roomNumber: '',
-        documentType: 'reservation',
-        status: InvoiceStatus.PENDING,
-        bookings: [],
-        additionalChargeItems: [],
-        subtotal: 0,
-        discount: 0,
-        holidaySpecialDiscountName: 'Holiday/Special Discount',
-        holidaySpecialDiscount: 0,
-        serviceCharge: 0,
-        taxPercentage: 7.5,
-        taxAmount: 0,
-        totalAmountDue: 0,
-        payments: [],
-        amountReceived: 0,
-        balance: 0,
-        amountInWords: '',
-        paymentPurpose: '',
-        receivedBy: user.name || 'Francis',
-        designation: user.role === 'Admin' ? 'Manager' : 'Front Desk',
-        currency: 'NGN',
+        id: uuid(), receiptNo: `RCPT-${Date.now()}`, date: new Date().toISOString().split('T')[0], lastUpdatedAt: new Date().toISOString(),
+        guestName: '', guestEmail: '', phoneContact: '', roomNumber: '', documentType: 'reservation', status: InvoiceStatus.PENDING,
+        bookings: [], additionalChargeItems: [], subtotal: 0, discount: 0, holidaySpecialDiscountName: 'Holiday Offer',
+        holidaySpecialDiscount: 0, serviceCharge: 0, taxPercentage: 7.5, taxAmount: 0, totalAmountDue: 0,
+        payments: [], amountReceived: 0, balance: 0, amountInWords: '', paymentPurpose: '', receivedBy: user.name, designation: 'Staff', currency: 'NGN',
       };
   });
-
-  useEffect(() => {
-      if (!isAutoServiceCharge && initialData) return; 
-      if (!isAutoServiceCharge) return;
-
-      let sub = 0;
-      data.bookings.forEach(b => sub += b.subtotal);
-      data.additionalChargeItems.forEach(c => sub += c.amount);
-      const taxable = Math.max(0, sub - data.discount - data.holidaySpecialDiscount);
-      const autoServiceCharge = Math.round(taxable * 0.05);
-
-      setData(prev => {
-          if (prev.serviceCharge === autoServiceCharge) return prev;
-          return { ...prev, serviceCharge: autoServiceCharge };
-      });
-  }, [data.bookings, data.additionalChargeItems, data.discount, data.holidaySpecialDiscount, isAutoServiceCharge, initialData]);
 
   const totals = useMemo(() => {
       let sub = 0;
       data.bookings.forEach(b => sub += b.subtotal);
       data.additionalChargeItems.forEach(c => sub += c.amount);
-      
-      const taxableAmount = sub - data.discount - data.holidaySpecialDiscount;
-      
-      const serviceCharge = data.serviceCharge || 0;
-      const tax = Math.max(0, taxableAmount - (taxableAmount / 1.075)); 
-      const total = Math.max(0, taxableAmount + serviceCharge);
-      
+      const taxable = sub - data.discount - data.holidaySpecialDiscount;
+      const svc = isAutoServiceCharge ? Math.round(taxable * 0.05) : data.serviceCharge;
+      const tax = Math.max(0, taxable - (taxable / 1.075));
+      const total = Math.max(0, taxable + svc);
       let received = 0;
       data.payments.forEach(p => received += p.amount);
-      
-      return {
-          subtotal: sub,
-          serviceCharge: serviceCharge,
-          taxAmount: tax,
-          totalAmountDue: total,
-          amountReceived: received,
-          balance: total - received,
-          status: received >= total ? InvoiceStatus.PAID : (received > 0 ? InvoiceStatus.PARTIAL : InvoiceStatus.PENDING),
-          amountInWords: convertAmountToWords(received, data.currency)
-      };
-  }, [data.bookings, data.additionalChargeItems, data.payments, data.discount, data.holidaySpecialDiscount, data.currency, data.serviceCharge]);
+      return { subtotal: sub, serviceCharge: svc, taxAmount: tax, totalAmountDue: total, amountReceived: received, balance: total - received, amountInWords: convertAmountToWords(received, data.currency) };
+  }, [data.bookings, data.additionalChargeItems, data.payments, data.discount, data.holidaySpecialDiscount, data.currency, data.serviceCharge, isAutoServiceCharge]);
 
   useEffect(() => {
       const timer = setTimeout(() => {
           const fullData = { ...data, ...totals };
-          if (initialData) {
-              if (fullData.guestName && fullData.receiptNo) {
-                  onSave(fullData, true);
-              }
-          } else {
-              localStorage.setItem(DRAFT_KEY, JSON.stringify(fullData));
-          }
+          if (!initialData) localStorage.setItem(DRAFT_KEY, JSON.stringify(fullData));
       }, 2000); 
       return () => clearTimeout(timer);
-  }, [data, totals, initialData, onSave]);
-
-  const getCurrentRates = () => data.currency === 'USD' ? ROOM_RATES_USD : ROOM_RATES_NGN;
-
-  const handleCurrencyChange = (newCurrency: 'NGN' | 'USD') => {
-      if (newCurrency === data.currency) return;
-      
-      const newRates = newCurrency === 'USD' ? ROOM_RATES_USD : ROOM_RATES_NGN;
-      const updatedBookings = data.bookings.map(b => ({
-          ...b,
-          ratePerNight: newRates[b.roomType],
-          subtotal: b.nights * b.quantity * newRates[b.roomType]
-      }));
-
-      setData({
-          ...data,
-          currency: newCurrency,
-          bookings: updatedBookings
-      });
-  };
-
-  const updateBooking = (id: string, field: string, value: any) => {
-      const rates = getCurrentRates();
-      setData(prev => {
-          const newBookings = prev.bookings.map(b => {
-              if (b.id === id) {
-                  const updated = { ...b, [field]: value };
-                  if (field === 'roomType') updated.ratePerNight = rates[value as RoomType];
-                  if (field === 'checkIn' || field === 'checkOut') {
-                      updated.nights = calculateNights(updated.checkIn, updated.checkOut);
-                  }
-                  if (field === 'nights') {
-                       const n = parseInt(value) || 0;
-                       updated.nights = n;
-                       if (updated.checkIn) {
-                           const d = new Date(updated.checkIn);
-                           d.setDate(d.getDate() + n);
-                           updated.checkOut = d.toISOString().split('T')[0];
-                       }
-                  }
-                  updated.subtotal = updated.nights * updated.quantity * updated.ratePerNight;
-                  return updated;
-              }
-              return b;
-          });
-          return { ...prev, bookings: newBookings };
-      });
-  };
+  }, [data, totals, initialData]);
 
   const addBooking = () => {
-      const rates = getCurrentRates();
-      const newBooking: BookingItem = {
-          id: uuid(),
-          roomType: RoomType.SOJOURN_ROOM,
-          quantity: 1,
-          checkIn: data.date,
-          checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-          nights: 1,
-          ratePerNight: rates[RoomType.SOJOURN_ROOM],
-          subtotal: rates[RoomType.SOJOURN_ROOM]
-      };
-      setData(prev => ({ ...prev, bookings: [...prev.bookings, newBooking] }));
+      const rates = data.currency === 'USD' ? ROOM_RATES_USD : ROOM_RATES_NGN;
+      const nb: BookingItem = { id: uuid(), roomType: RoomType.SOJOURN_ROOM, quantity: 1, checkIn: data.date, checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0], nights: 1, ratePerNight: rates[RoomType.SOJOURN_ROOM], subtotal: rates[RoomType.SOJOURN_ROOM] };
+      setData(prev => ({ ...prev, bookings: [...prev.bookings, nb] }));
   };
 
-  const addCharge = () => {
-      const newCharge: AdditionalChargeItem = { id: uuid(), description: '', quantity: 1, unitPrice: 0, amount: 0 };
-      setData(prev => ({ ...prev, additionalChargeItems: [...prev.additionalChargeItems, newCharge] }));
+  const addCharge = () => setData(prev => ({ ...prev, additionalChargeItems: [...prev.additionalChargeItems, { id: uuid(), description: '', quantity: 1, unitPrice: 0, amount: 0 }] }));
+  const addPayment = () => setData(prev => ({ ...prev, payments: [...prev.payments, { id: uuid(), date: new Date().toISOString().split('T')[0], amount: 0, paymentMethod: PaymentMethod.CASH, recordedBy: user.name }] }));
+
+  const updateBooking = (id: string, f: string, v: any) => {
+    const rates = data.currency === 'USD' ? ROOM_RATES_USD : ROOM_RATES_NGN;
+    setData(prev => ({
+        ...prev,
+        bookings: prev.bookings.map(b => {
+            if (b.id !== id) return b;
+            const updated = { ...b, [f]: v };
+            if (f === 'roomType') updated.ratePerNight = rates[v as RoomType];
+            if (f === 'checkIn' || f === 'checkOut') updated.nights = calculateNights(updated.checkIn, updated.checkOut);
+            updated.subtotal = updated.nights * updated.quantity * updated.ratePerNight;
+            return updated;
+        })
+    }));
   };
 
-  const addPayment = () => {
-      const newPayment: PaymentItem = {
-          id: uuid(),
-          date: new Date().toISOString().split('T')[0],
-          amount: 0,
-          paymentMethod: PaymentMethod.CASH,
-          recordedBy: user.name
-      };
-      setData(prev => ({ ...prev, payments: [...prev.payments, newPayment] }));
+  const updateCharge = (id: string, f: string, v: any) => {
+    setData(prev => ({
+        ...prev,
+        additionalChargeItems: prev.additionalChargeItems.map(c => {
+            if (c.id !== id) return c;
+            const updated = { ...c, [f]: v };
+            if (f === 'description' && v) {
+                const drink = DRINK_LIST.find(d => d.name.toLowerCase() === v.toLowerCase());
+                if (drink) { updated.description = drink.name; updated.unitPrice = drink.price; }
+            }
+            updated.amount = (updated.quantity || 1) * (updated.unitPrice || 0);
+            return updated;
+        })
+    }));
   };
 
-  const removeBooking = (id: string) => {
-      setData(prev => ({ ...prev, bookings: prev.bookings.filter(b => b.id !== id) }));
-  };
-
-  const removeCharge = (id: string) => {
-      setData(prev => ({ ...prev, additionalChargeItems: prev.additionalChargeItems.filter(c => c.id !== id) }));
-  };
-
-  const removePayment = (id: string) => {
-      setData(prev => ({ ...prev, payments: prev.payments.filter(p => p.id !== id) }));
-  };
-
-  const updatePayment = (id: string, field: string, value: any) => {
-      setData(prev => ({
-          ...prev,
-          payments: prev.payments.map(p => p.id === id ? { ...p, [field]: value } : p)
-      }));
-  };
-  
-  const updateCharge = (id: string, field: string, value: any) => {
-      setData(prev => ({
-          ...prev,
-          additionalChargeItems: prev.additionalChargeItems.map(c => {
-              if (c.id === id) {
-                  let updated = { ...c, [field]: value };
-                  
-                  // Smart search for drinks: case-insensitive match on description
-                  if (field === 'description' && value) {
-                      const trimmedValue = value.toString().trim().toLowerCase();
-                      const drink = DRINK_LIST.find(d => d.name.toLowerCase() === trimmedValue);
-                      if (drink) {
-                          updated.description = drink.name; // Use standard casing
-                          updated.unitPrice = drink.price;
-                          updated.amount = (updated.quantity || 1) * drink.price;
-                      }
-                  }
-                  
-                  if (field === 'quantity' || field === 'unitPrice') {
-                      updated.amount = (updated.quantity || 0) * (updated.unitPrice || 0);
-                  }
-                  return updated;
-              }
-              return c;
-          })
-      }));
-  };
-
-  const handleSave = () => {
-      const fullData = { ...data, ...totals };
-      if (!fullData.guestName) { alert('Guest Name is required.'); return; }
-      onSave(fullData);
-      localStorage.removeItem(DRAFT_KEY);
-  };
-  
-  const handlePrint = () => {
-      const fullData = { ...data, ...totals };
-      if (!fullData.guestName) { alert('Guest Name is required.'); return; }
-      onSave(fullData, true);
-      printInvoice(fullData);
-  };
-
-  const handleGeneratePdf = () => {
-      const fullData = { ...data, ...totals };
-      if (!fullData.guestName) { alert('Guest Name is required.'); return; }
-      onSave(fullData, true);
-      const doc = createInvoiceDoc(fullData);
-      if (doc) doc.save(`${fullData.receiptNo}_${fullData.guestName}.pdf`);
-  };
-
-  const symbol = data.currency === 'NGN' ? '₦' : '$';
+  const handleSave = () => { onSave({ ...data, ...totals }); localStorage.removeItem(DRAFT_KEY); };
 
   return (
-    <div className="bg-white min-h-screen p-8 text-gray-900 font-sans pb-20">
-       <datalist id="drinks-list">
-           {DRINK_LIST.sort((a,b) => a.name.localeCompare(b.name)).map(d => (
-               <option key={d.name} value={d.name}>{d.name} (₦{d.price.toLocaleString()})</option>
-           ))}
-       </datalist>
-
-       {/* Header */}
+    <div className="bg-white min-h-screen p-8 text-gray-900">
        <div className="flex justify-between items-center mb-8">
-           <div className="flex items-center gap-4">
-               <div className="w-12 h-12 bg-[#c4a66a] rounded-lg flex items-center justify-center text-white font-bold text-2xl">T</div>
-               <h1 className="text-3xl font-bold text-[#c4a66a]">
-                   {initialData ? 'Edit Invoice / Receipt' : 'New Invoice / Receipt'}
-               </h1>
-           </div>
+           <h1 className="text-3xl font-bold text-[#c4a66a]">{initialData ? 'Edit Record' : 'New Reservation'}</h1>
            <div className="flex gap-2">
-               <button onClick={handlePrint} className="bg-[#2c3e50] text-white px-4 py-2 rounded hover:bg-[#34495e] text-sm shadow-md transition-all">Print</button>
-               <button onClick={handleGeneratePdf} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm shadow-md transition-all">Download PDF</button>
-               <button onClick={handleSave} className="bg-[#c4a66a] text-white px-4 py-2 rounded hover:bg-[#b39556] text-sm font-bold shadow-md transition-all">Save & Close</button>
-               <button onClick={onCancel} className="text-gray-500 hover:text-gray-700 px-4 py-2 text-sm">Cancel</button>
+               <button onClick={handleSave} className="bg-[#c4a66a] text-white px-6 py-2 rounded font-bold">Save & Close</button>
+               <button onClick={onCancel} className="text-gray-500">Cancel</button>
            </div>
        </div>
-
-       <div className="max-w-5xl mx-auto space-y-8">
-           {/* Document Type & Currency */}
-           <div className="grid grid-cols-2 gap-8 mb-6">
-               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                   <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Document Type</label>
-                   <div className="flex gap-4">
-                       <label className="flex items-center gap-2 cursor-pointer">
-                           <input type="radio" checked={data.documentType === 'reservation'} onChange={() => setData({...data, documentType: 'reservation'})} className="w-4 h-4 text-[#c4a66a]" />
-                           <span className="text-sm">Reservation Invoice</span>
-                       </label>
-                       <label className="flex items-center gap-2 cursor-pointer">
-                           <input type="radio" checked={data.documentType === 'receipt'} onChange={() => setData({...data, documentType: 'receipt'})} className="w-4 h-4 text-[#c4a66a]" />
-                           <span className="text-sm">Official Receipt</span>
-                       </label>
-                   </div>
-               </div>
-               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                   <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Currency</label>
-                   <div className="flex gap-4">
-                       <label className="flex items-center gap-2 cursor-pointer">
-                           <input type="radio" checked={data.currency === 'NGN'} onChange={() => handleCurrencyChange('NGN')} className="w-4 h-4 text-[#c4a66a]" />
-                           <span className="text-sm">NGN (Naira)</span>
-                       </label>
-                       <label className="flex items-center gap-2 cursor-pointer">
-                           <input type="radio" checked={data.currency === 'USD'} onChange={() => handleCurrencyChange('USD')} className="w-4 h-4 text-[#c4a66a]" />
-                           <span className="text-sm">USD (Dollars)</span>
-                       </label>
-                   </div>
+       <div className="max-w-4xl mx-auto space-y-6">
+           <div className="bg-gray-50 p-6 rounded-lg border">
+               <div className="grid grid-cols-2 gap-4">
+                    <input type="text" placeholder="Guest Name" className="p-2 border rounded" value={data.guestName} onChange={e => setData({...data, guestName: e.target.value})} />
+                    <input type="text" placeholder="Room Number" className="p-2 border rounded" value={data.roomNumber} onChange={e => setData({...data, roomNumber: e.target.value})} />
                </div>
            </div>
-
-           {/* Guest Information Panel */}
-           <div className="border border-gray-200 rounded-lg shadow-sm">
-               <div className="bg-[#2c3e50] p-3 rounded-t-lg flex justify-between items-center text-white">
-                   <h3 className="font-bold flex items-center gap-2">
-                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>
-                       Guest Information
-                   </h3>
-                   <div className="flex items-center gap-2">
-                       <span className="text-xs uppercase opacity-80 font-bold">Document Date:</span>
-                       <input 
-                         type="date" 
-                         className="border-none rounded p-1 text-xs bg-white text-[#2c3e50] font-bold" 
-                         value={data.date} 
-                         onChange={(e) => setData({...data, date: e.target.value})} 
-                       />
-                   </div>
-               </div>
-               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-white">
-                   <div>
-                       <label className="block text-xs font-bold text-gray-500 uppercase">Guest Name <span className="text-red-500">*</span></label>
-                       <input type="text" className="w-full mt-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-[#c4a66a] outline-none" value={data.guestName} onChange={(e) => setData({...data, guestName: e.target.value})} placeholder="Full Name" />
-                   </div>
-                   <div>
-                       <label className="block text-xs font-bold text-gray-500 uppercase">Email</label>
-                       <input type="email" className="w-full mt-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-[#c4a66a] outline-none" value={data.guestEmail} onChange={(e) => setData({...data, guestEmail: e.target.value})} placeholder="guest@example.com" />
-                   </div>
-                   <div>
-                       <label className="block text-xs font-bold text-gray-500 uppercase">Phone</label>
-                       <input type="text" className="w-full mt-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-[#c4a66a] outline-none" value={data.phoneContact} onChange={(e) => setData({...data, phoneContact: e.target.value})} placeholder="+234..." />
-                   </div>
-                   <div>
-                       <label className="block text-xs font-bold text-gray-500 uppercase">Room Number Assigned <span className="text-red-500">*</span></label>
-                       <input type="text" className="w-full mt-1 border border-gray-300 rounded p-2 focus:ring-2 focus:ring-[#c4a66a] outline-none font-bold" value={data.roomNumber} onChange={(e) => setData({...data, roomNumber: e.target.value})} placeholder="e.g. 101, 102" />
-                   </div>
-               </div>
-           </div>
-
-           {/* Room Bookings */}
            <div>
-               <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-lg text-[#2c3e50] flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
-                        Room Bookings
-                    </h3>
-                    <button onClick={addBooking} className="text-sm bg-[#c4a66a] text-white px-3 py-1 rounded hover:bg-[#b39556] font-bold shadow-sm transition-all">+ Add Room</button>
-               </div>
-               <div className="overflow-x-auto shadow-sm rounded-lg border border-gray-200">
-                   <table className="w-full text-sm">
-                       <thead className="bg-[#2c3e50] text-white">
-                           <tr>
-                               <th className="p-3 text-left">Room Type</th>
-                               <th className="p-3 text-center w-16">Qty</th>
-                               <th className="p-3 text-left">Check In</th>
-                               <th className="p-3 text-left">Check Out</th>
-                               <th className="p-3 text-center w-16">Nights</th>
-                               <th className="p-3 text-right w-24">Rate</th>
-                               <th className="p-3 text-right w-32">Subtotal</th>
-                               <th className="p-3 w-10"></th>
-                           </tr>
-                       </thead>
-                       <tbody className="divide-y text-gray-900 bg-white">
-                           {data.bookings.map(b => (
-                               <tr key={b.id} className="hover:bg-gray-50">
-                                   <td className="p-2">
-                                       <select className="w-full border-none rounded p-1 bg-white text-gray-900 font-medium outline-none" value={b.roomType} onChange={(e) => updateBooking(b.id, 'roomType', e.target.value)}>
-                                           {Object.values(RoomType).map(rt => <option key={rt} value={rt}>{rt}</option>)}
-                                       </select>
-                                   </td>
-                                   <td className="p-2"><input type="number" min="1" className="w-full border border-gray-200 rounded p-1 text-center font-bold" value={b.quantity} onChange={(e) => updateBooking(b.id, 'quantity', parseInt(e.target.value))} /></td>
-                                   <td className="p-2"><input type="date" className="w-full border-none rounded p-1 text-xs" value={b.checkIn} onChange={(e) => updateBooking(b.id, 'checkIn', e.target.value)} /></td>
-                                   <td className="p-2"><input type="date" className="w-full border-none rounded p-1 text-xs" value={b.checkOut} onChange={(e) => updateBooking(b.id, 'checkOut', e.target.value)} /></td>
-                                   <td className="p-2"><input type="number" min="0" className="w-full border border-gray-200 rounded p-1 text-center bg-gray-50 font-bold" value={b.nights} onChange={(e) => updateBooking(b.id, 'nights', e.target.value)} /></td>
-                                   <td className="p-2"><input type="number" className="w-full border border-gray-200 rounded p-1 text-right" value={b.ratePerNight} onChange={(e) => updateBooking(b.id, 'ratePerNight', parseFloat(e.target.value))} /></td>
-                                   <td className="p-2 text-right font-bold text-[#c4a66a]">{formatCurrencyWithCode(b.subtotal, data.currency)}</td>
-                                   <td className="p-2"><button onClick={() => removeBooking(b.id)} className="text-red-400 hover:text-red-600 font-bold text-xl">✕</button></td>
-                               </tr>
-                           ))}
-                           {data.bookings.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-gray-400 italic bg-gray-50">No room bookings added yet.</td></tr>}
-                       </tbody>
-                   </table>
+               <div className="flex justify-between mb-2"><h3 className="font-bold">Bookings</h3><button onClick={addBooking} className="text-xs text-[#c4a66a] font-bold">+ Add</button></div>
+               <div className="bg-white border rounded">
+                   {data.bookings.map(b => (
+                       <div key={b.id} className="p-3 border-b flex gap-3 items-center">
+                           <select className="flex-1 p-1" value={b.roomType} onChange={e => updateBooking(b.id, 'roomType', e.target.value)}>{Object.values(RoomType).map(rt => <option key={rt} value={rt}>{rt}</option>)}</select>
+                           <input type="number" className="w-16 border p-1" value={b.quantity} onChange={e => updateBooking(b.id, 'quantity', parseInt(e.target.value))} />
+                           <input type="date" className="w-32 border p-1" value={b.checkIn} onChange={e => updateBooking(b.id, 'checkIn', e.target.value)} />
+                           <div className="font-bold">₦{b.subtotal.toLocaleString()}</div>
+                       </div>
+                   ))}
                </div>
            </div>
-
-           {/* Additional Charges / Drink Automation */}
            <div>
-               <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-lg text-[#2c3e50] flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" /></svg>
-                        Additional Charges (Drinks & Services)
-                    </h3>
-                    <div className="flex gap-2">
-                        <button onClick={addCharge} className="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 font-bold shadow-sm">+ Add Charge</button>
-                    </div>
-               </div>
-               <div className="overflow-x-auto shadow-sm rounded-lg border border-gray-200 bg-white">
-                   <table className="w-full text-sm">
-                       <thead className="bg-[#2c3e50] text-white">
-                           <tr>
-                               <th className="p-3 text-left">Description (Start typing for Drink list)</th>
-                               <th className="p-3 text-center w-20">Qty</th>
-                               <th className="p-3 text-right w-32">Unit Price</th>
-                               <th className="p-3 text-right w-32">Amount</th>
-                               <th className="p-3 w-10"></th>
-                           </tr>
-                       </thead>
-                       <tbody className="divide-y text-gray-900 border-t border-gray-100">
-                           {data.additionalChargeItems.map(c => (
-                               <tr key={c.id} className="hover:bg-blue-50 transition-colors">
-                                   <td className="p-2 relative">
-                                       <input 
-                                          type="text" 
-                                          list="drinks-list" 
-                                          className="w-full border border-gray-200 rounded p-1.5 focus:ring-1 focus:ring-[#c4a66a] outline-none" 
-                                          placeholder="e.g. Hennessy VS, Water, Laundry..." 
-                                          value={c.description} 
-                                          onChange={(e) => updateCharge(c.id, 'description', e.target.value)} 
-                                       />
-                                       {DRINK_LIST.find(d => d.name === c.description) && (
-                                           <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-green-100 text-green-700 text-[10px] px-1.5 rounded-full font-bold uppercase tracking-tighter">Matched</span>
-                                       )}
-                                   </td>
-                                   <td className="p-2"><input type="number" min="1" className="w-full border border-gray-200 rounded p-1.5 text-center font-bold" value={c.quantity || 1} onChange={(e) => updateCharge(c.id, 'quantity', parseFloat(e.target.value))} /></td>
-                                   <td className="p-2"><input type="number" className="w-full border border-gray-200 rounded p-1.5 text-right font-medium" value={c.unitPrice || 0} onChange={(e) => updateCharge(c.id, 'unitPrice', parseFloat(e.target.value))} /></td>
-                                   <td className="p-2"><input type="number" className="w-full border-none rounded p-1.5 text-right bg-transparent font-bold text-[#c4a66a]" value={c.amount} readOnly /></td>
-                                   <td className="p-2"><button onClick={() => removeCharge(c.id)} className="text-red-400 hover:text-red-600 font-bold text-xl">✕</button></td>
-                               </tr>
-                           ))}
-                           {data.additionalChargeItems.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-gray-400 italic">No additional charges added.</td></tr>}
-                       </tbody>
-                   </table>
-               </div>
+               <div className="flex justify-between mb-2"><h3 className="font-bold">Payments</h3><button onClick={addPayment} className="text-xs text-green-600 font-bold">+ Add</button></div>
+               {data.payments.map(p => (
+                   <div key={p.id} className="p-3 border rounded mb-2 flex gap-3 items-center">
+                        <select className="p-1" value={p.paymentMethod} onChange={e => setData({...data, payments: data.payments.map(px => px.id === p.id ? {...px, paymentMethod: e.target.value as any} : px)})}>{Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}</select>
+                        <input type="number" className="flex-1 border p-1" placeholder="Amount" value={p.amount} onChange={e => setData({...data, payments: data.payments.map(px => px.id === p.id ? {...px, amount: parseFloat(e.target.value) || 0} : px)})} />
+                   </div>
+               ))}
            </div>
-
-           {/* Payments & Summary Grid */}
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-               {/* Left: Payments & Verification */}
-               <div className="space-y-6">
-                   <div>
-                       <div className="flex justify-between items-center mb-2">
-                            <h3 className="font-bold text-lg text-[#2c3e50] flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
-                                Payments
-                            </h3>
-                            <button onClick={addPayment} className="text-sm bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 font-bold shadow-sm transition-all">+ Add Payment</button>
-                       </div>
-                       <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                           <table className="w-full text-sm">
-                               <thead className="bg-gray-100 border-b text-gray-600 uppercase text-[10px] tracking-widest font-bold">
-                                   <tr>
-                                       <th className="p-3 text-left w-28">Date</th>
-                                       <th className="p-3 text-left">Method & Ref</th>
-                                       <th className="p-3 text-right w-32">Amount</th>
-                                       <th className="p-3 w-8"></th>
-                                   </tr>
-                               </thead>
-                               <tbody className="divide-y text-gray-900">
-                                   {data.payments.map(p => (
-                                       <tr key={p.id} className="hover:bg-green-50">
-                                           <td className="p-2"><input type="date" className="w-full border-none rounded p-1 text-xs font-bold" value={p.date} onChange={(e) => updatePayment(p.id, 'date', e.target.value)} /></td>
-                                           <td className="p-2">
-                                               <div className="flex flex-col gap-1">
-                                                   <select className="w-full border-none rounded p-1 text-xs font-bold bg-white" value={p.paymentMethod} onChange={(e) => updatePayment(p.id, 'paymentMethod', e.target.value)}>
-                                                       {Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}
-                                                   </select>
-                                                   <input type="text" className="w-full border border-gray-100 rounded px-1.5 py-0.5 text-xs bg-gray-50" placeholder="Reference No." value={p.reference || ''} onChange={(e) => updatePayment(p.id, 'reference', e.target.value)} />
-                                               </div>
-                                           </td>
-                                           <td className="p-2"><input type="number" className="w-full border border-gray-200 rounded p-1.5 text-right font-bold text-green-700" value={p.amount} onChange={(e) => updatePayment(p.id, 'amount', parseFloat(e.target.value))} /></td>
-                                           <td className="p-2"><button onClick={() => removePayment(p.id)} className="text-red-400 hover:text-red-600 text-xl font-bold">✕</button></td>
-                                       </tr>
-                                   ))}
-                                   {data.payments.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-gray-400 italic">No payments recorded.</td></tr>}
-                               </tbody>
-                           </table>
-                       </div>
-                   </div>
-
-                   <div className="bg-blue-50 p-5 rounded-lg border border-blue-200 shadow-sm">
-                        <h4 className="font-bold text-blue-800 text-sm mb-3 flex items-center gap-2 uppercase tracking-wide">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 4.925-3.067 9.13-7.4 10.74a11.952 11.952 0 01-1.4.459 12.004 12.004 0 01-1.4-.459C3.067 16.13 0 11.925 0 7c0-.68.056-1.35.166-2.001a11.954 11.954 0 011.634-2.887 11.954 11.954 0 011.366-1.512zM10 15a1 1 0 100-2 1 1 0 000 2zm1-8a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" /></svg>
-                            Payment Verification (Office Use)
-                        </h4>
-                        <div className="space-y-4">
-                             <div>
-                                 <label className="block text-[10px] font-bold text-blue-600 uppercase mb-1">Transaction Ref Verified</label>
-                                 <input 
-                                    type="text" 
-                                    className="w-full border border-blue-200 rounded p-2 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none" 
-                                    placeholder="Enter verified reference number"
-                                    value={data.verificationDetails?.paymentReference || ''} 
-                                    onChange={(e) => setData({
-                                        ...data, 
-                                        verificationDetails: { 
-                                            paymentReference: e.target.value, 
-                                            verifiedBy: data.verificationDetails?.verifiedBy || user.name, 
-                                            dateVerified: data.verificationDetails?.dateVerified || new Date().toISOString().split('T')[0]
-                                        }
-                                    })} 
-                                 />
-                             </div>
-                        </div>
-                   </div>
-               </div>
-               
-               {/* Right: Summary Panel */}
-               <div className="bg-[#2c3e50] p-8 rounded-xl shadow-2xl text-white">
-                   <h3 className="text-xl font-bold mb-6 flex justify-between items-center border-b border-[#3e5871] pb-4">
-                       Final Summary
-                       <span className="text-[#c4a66a] text-sm uppercase font-normal">{data.currency}</span>
-                   </h3>
-                   <div className="space-y-4 text-sm">
-                       <div className="flex justify-between items-center opacity-80">
-                           <span>Subtotal:</span>
-                           <span className="font-mono text-lg">{formatCurrencyWithCode(totals.subtotal, data.currency)}</span>
-                       </div>
-                       
-                       <div className="flex justify-between items-center">
-                           <span className="opacity-80">Discount:</span>
-                           <input 
-                                type="number" 
-                                className="w-28 bg-[#3e5871] border-none rounded p-1 text-right text-sm text-red-300 font-bold focus:ring-2 focus:ring-[#c4a66a] outline-none" 
-                                value={data.discount} 
-                                onChange={(e) => setData({...data, discount: parseFloat(e.target.value) || 0})} 
-                           />
-                       </div>
-
-                       <div className="space-y-2 pt-2">
-                           <input 
-                                type="text" 
-                                className="bg-transparent border-b border-[#3e5871] text-xs w-full mb-1 italic opacity-60 focus:opacity-100 outline-none" 
-                                placeholder="Special Discount Name (e.g. Festive Offer)"
-                                value={data.holidaySpecialDiscountName}
-                                onChange={(e) => setData({...data, holidaySpecialDiscountName: e.target.value})}
-                           />
-                           <div className="flex justify-between items-center">
-                               <span className="opacity-80">Special Discount:</span>
-                               <input 
-                                    type="number" 
-                                    className="w-28 bg-[#3e5871] border-none rounded p-1 text-right text-sm text-red-300 font-bold focus:ring-2 focus:ring-[#c4a66a] outline-none" 
-                                    value={data.holidaySpecialDiscount} 
-                                    onChange={(e) => setData({...data, holidaySpecialDiscount: parseFloat(e.target.value) || 0})} 
-                               />
-                           </div>
-                       </div>
-
-                       <div className="flex justify-between items-center pt-2 border-t border-[#3e5871]">
-                           <span className="opacity-80">Service Charge (5%):</span>
-                           <input 
-                                type="number" 
-                                className="w-28 bg-[#3e5871] border-none rounded p-1 text-right text-sm text-green-300 font-bold focus:ring-2 focus:ring-[#c4a66a] outline-none" 
-                                value={data.serviceCharge} 
-                                onChange={(e) => {
-                                    setData({...data, serviceCharge: parseFloat(e.target.value) || 0});
-                                    setIsAutoServiceCharge(false); 
-                                }} 
-                           />
-                       </div>
-
-                       <div className="flex justify-between items-center opacity-60 text-[11px]">
-                           <span>VAT (7.5% Inclusive):</span>
-                           <span>{formatCurrencyWithCode(totals.taxAmount, data.currency)}</span>
-                       </div>
-
-                       <div className="pt-6 border-t border-[#3e5871] space-y-4">
-                           <div className="flex justify-between items-center">
-                               <span className="text-xl font-bold uppercase tracking-tighter">Total Due</span>
-                               <span className="text-2xl font-bold text-[#c4a66a] font-mono">{formatCurrencyWithCode(totals.totalAmountDue, data.currency)}</span>
-                           </div>
-
-                           <div className="flex justify-between items-center text-green-400">
-                               <span className="font-bold uppercase text-xs">Total Received</span>
-                               <span className="text-xl font-bold font-mono">{formatCurrencyWithCode(totals.amountReceived, data.currency)}</span>
-                           </div>
-                           
-                           <div className={`flex justify-between items-center p-3 rounded-lg ${totals.balance === 0 ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
-                               <span className="font-bold uppercase text-sm">Balance Due</span>
-                               <span className="text-2xl font-bold font-mono">{formatCurrencyWithCode(Math.abs(totals.balance), data.currency)}</span>
-                           </div>
-                       </div>
-                       
-                       <div className="text-[10px] italic opacity-50 text-center mt-6">
-                           "{totals.amountInWords}"
-                       </div>
-                   </div>
-               </div>
+           <div className="bg-[#2c3e50] text-white p-6 rounded-lg text-right">
+               <div className="text-lg opacity-80">Total Due</div>
+               <div className="text-3xl font-bold text-[#c4a66a]">{formatCurrencyWithCode(totals.totalAmountDue, data.currency)}</div>
            </div>
        </div>
     </div>
@@ -2158,322 +1097,56 @@ const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
 const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName }: any) => {
     const [guestName, setGuestName] = useState(initialGuestName || 'Walk-In Guest');
     const [currency, setCurrency] = useState<'NGN'|'USD'>(initialData?.currency || 'NGN');
-    const [items, setItems] = useState<WalkInChargeItem[]>(() => {
-        if (initialData?.charges) {
-             return initialData.charges.map((i: any) => ({
-                 ...i,
-                 quantity: i.quantity || 1,
-                 unitPrice: i.unitPrice !== undefined ? i.unitPrice : i.amount
-             }));
-        }
-        return [
-            { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, quantity: 1, unitPrice: 0, paymentMethod: PaymentMethod.POS }
-        ];
-    });
+    const [items, setItems] = useState<WalkInChargeItem[]>(initialData?.charges || [{ id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, quantity: 1, unitPrice: 0, paymentMethod: PaymentMethod.POS }]);
     const [payments, setPayments] = useState<WalkInPayment[]>(initialData?.payments || []);
-    
-    useEffect(() => {
-        if (initialData && (!initialData.payments || initialData.payments.length === 0) && initialData.amountPaid > 0 && payments.length === 0) {
-             setPayments([{
-                 id: uuid(),
-                 amount: initialData.amountPaid,
-                 method: initialData.paymentMethod || PaymentMethod.CASH,
-                 reference: ''
-             }]);
-        }
-    }, [initialData]);
-
     const [discount, setDiscount] = useState(initialData?.discount || 0);
-    const [customServiceCharge, setCustomServiceCharge] = useState<number | null>(initialData ? initialData.serviceCharge : null);
-
-    const addItem = () => {
-        setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, quantity: 1, unitPrice: 0, amount: 0, paymentMethod: PaymentMethod.POS }]);
-    };
-
-    // New specific "Quick Add Drink" functionality
-    const addDrinkRow = (drinkName: string) => {
-        const drink = DRINK_LIST.find(d => d.name === drinkName);
-        if (!drink) return;
-        
-        const newItem: WalkInChargeItem = {
-            id: uuid(),
-            date: new Date().toISOString().split('T')[0],
-            service: WalkInService.BAR,
-            otherServiceDescription: drink.name,
-            quantity: 1,
-            unitPrice: drink.price,
-            amount: drink.price,
-            paymentMethod: PaymentMethod.POS
-        };
-        setItems([...items, newItem]);
-    };
-
-    const removeItem = (id: string) => {
-        if (items.length > 1) setItems(items.filter(i => i.id !== id));
-        else setItems([{ ...items[0], quantity: 1, unitPrice: 0, amount: 0, service: WalkInService.RESTAURANT }]);
-    };
-
-    const updateItem = (id: string, field: keyof WalkInChargeItem, value: any) => {
-        setItems(items.map(i => {
-            if (i.id === id) {
-                let updated = { ...i, [field]: value };
-                
-                // Auto-fill price if otherServiceDescription matches a drink name
-                if (field === 'otherServiceDescription' && value) {
-                    const trimmedValue = value.toString().trim().toLowerCase();
-                    const drink = DRINK_LIST.find(d => d.name.toLowerCase() === trimmedValue);
-                    if (drink) {
-                        updated.otherServiceDescription = drink.name; // Standardize casing
-                        updated.unitPrice = drink.price;
-                        updated.service = WalkInService.BAR; // Auto-set to Bar
-                        updated.amount = (updated.quantity || 1) * drink.price;
-                    }
-                }
-                
-                if (field === 'quantity' || field === 'unitPrice') {
-                    updated.amount = (updated.quantity || 0) * (updated.unitPrice || 0);
-                }
-                return updated;
-            }
-            return i;
-        }));
-    };
-
-    const addPayment = () => {
-        setPayments([...payments, { id: uuid(), amount: 0, method: PaymentMethod.POS, reference: '' }]);
-    };
-    
-    const removePayment = (id: string) => {
-        setPayments(payments.filter(p => p.id !== id));
-    };
-
-    const updatePayment = (id: string, field: keyof WalkInPayment, value: any) => {
-        setPayments(payments.map(p => p.id === id ? { ...p, [field]: value } : p));
-    };
 
     const subtotal = items.reduce((sum, i) => sum + (i.amount || 0), 0);
-    const taxable = Math.max(0, subtotal - discount);
-    
-    const calculatedServiceCharge = Math.round(taxable * 0.05);
-    const serviceCharge = customServiceCharge !== null ? customServiceCharge : calculatedServiceCharge;
-    
-    const tax = Math.max(0, taxable - (taxable / 1.075));
-    const totalDue = Math.max(0, taxable + serviceCharge);
-    
+    const serviceCharge = Math.round((subtotal - discount) * 0.05);
+    const tax = Math.max(0, (subtotal - discount) - ((subtotal - discount) / 1.075));
+    const totalDue = Math.max(0, (subtotal - discount) + serviceCharge);
     const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
     const balance = totalPaid - totalDue;
 
-    const handleSave = () => {
-        if (!guestName) { alert('Guest Name is required'); return; }
-        
-        const legacyMethod = payments.length > 0 ? payments[0].method : PaymentMethod.PENDING;
-        
-        const updatedItems = items.map(i => ({...i, paymentMethod: legacyMethod}));
-
-        const transaction: WalkInTransaction = {
-            id: initialData?.id || `WIG-${Date.now().toString().slice(-6)}`,
-            transactionDate: initialData?.transactionDate || new Date().toISOString(),
-            charges: updatedItems,
-            currency,
-            subtotal,
-            discount,
-            serviceCharge,
-            tax,
-            amountPaid: totalPaid, 
-            balance: balance < 0 ? balance : 0,
-            cashier: user.name,
-            paymentMethod: legacyMethod, 
-            payments: payments
-        };
-        onSave(transaction, guestName);
+    const addItem = () => setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, quantity: 1, unitPrice: 0, amount: 0, paymentMethod: PaymentMethod.POS }]);
+    const addDrink = (name: string) => {
+        const d = DRINK_LIST.find(dx => dx.name === name);
+        if (d) setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.BAR, otherServiceDescription: d.name, quantity: 1, unitPrice: d.price, amount: d.price, paymentMethod: PaymentMethod.POS }]);
     };
-
-    const symbol = currency === 'NGN' ? '₦' : '$';
+    const addPayment = () => setPayments([...payments, { id: uuid(), amount: 0, method: PaymentMethod.POS, reference: '' }]);
+    const handleSave = () => { if (!guestName) return; onSave({ id: initialData?.id || `WIG-${Date.now().toString().slice(-6)}`, transactionDate: initialData?.transactionDate || new Date().toISOString(), charges: items, currency, subtotal, discount, serviceCharge, tax, amountPaid: totalPaid, balance: balance < 0 ? balance : 0, cashier: user.name, paymentMethod: PaymentMethod.POS, payments }, guestName); };
 
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 text-gray-900 animate-fade-in">
-            <datalist id="walkin-drinks-list">
-                {DRINK_LIST.sort((a,b) => a.name.localeCompare(b.name)).map(d => (
-                    <option key={d.name} value={d.name}>{d.name} (₦{d.price.toLocaleString()})</option>
-                ))}
-            </datalist>
-            
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[95vh] border-t-8 border-[#c4a66a]">
-                <div className="p-6 pb-2 flex justify-between items-center bg-white border-b border-gray-100">
-                    <div className="flex flex-col">
-                        <h2 className="text-2xl font-bold text-[#2c3e50]">{initialData ? 'Edit Walk-In Charge' : 'New Walk-In Guest'}</h2>
-                        <span className="text-xs text-[#c4a66a] font-bold uppercase tracking-widest">Tidè Hotels and Resorts</span>
-                    </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-3xl leading-none transition-colors">&times;</button>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="p-6 border-b flex justify-between items-center">
+                    <h2 className="text-xl font-bold">New Walk-In Docket</h2>
+                    <button onClick={onClose} className="text-2xl">&times;</button>
                 </div>
-
-                <div className="p-6 space-y-5 overflow-y-auto flex-grow custom-scrollbar">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Guest / Docket Name <span className="text-red-500">*</span></label>
-                            <input type="text" className="w-full border border-gray-200 rounded-lg p-2 bg-gray-50 text-[#2c3e50] font-bold focus:ring-2 focus:ring-[#c4a66a] outline-none" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="e.g. Table 4 Guest" />
+                <div className="p-6 space-y-4 overflow-y-auto">
+                    <input type="text" className="w-full border p-3 rounded font-bold" placeholder="Guest Name" value={guestName} onChange={e => setGuestName(e.target.value)} />
+                    <div className="flex justify-between items-center"><span className="font-bold">Charges</span> <button onClick={addItem} className="text-xs bg-[#c4a66a] text-white px-2 py-1 rounded">+ Add Item</button></div>
+                    <select className="w-full text-xs p-1 border" onChange={e => { addDrink(e.target.value); e.target.value = ''; }}><option value="">+ Quick Add Drink</option>{DRINK_LIST.map(d => <option key={d.name} value={d.name}>{d.name} (₦{d.price})</option>)}</select>
+                    {items.map(item => (
+                        <div key={item.id} className="p-3 border rounded bg-gray-50 flex gap-2 items-center">
+                            <input type="text" className="flex-1 text-sm border-none bg-transparent" placeholder="Description" value={item.otherServiceDescription || ''} onChange={e => setItems(items.map(ix => ix.id === item.id ? {...ix, otherServiceDescription: e.target.value} : ix))} />
+                            <input type="number" className="w-20 text-right font-bold text-[#c4a66a]" value={item.amount} onChange={e => setItems(items.map(ix => ix.id === item.id ? {...ix, amount: parseFloat(e.target.value) || 0} : ix))} />
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Currency</label>
-                            <select className="w-full border border-gray-200 rounded-lg p-2 bg-gray-50 text-[#2c3e50] focus:ring-2 focus:ring-[#c4a66a] outline-none" value={currency} onChange={(e) => setCurrency(e.target.value as any)}>
-                                <option value="NGN">NGN (Naira)</option>
-                                <option value="USD">USD (Dollars)</option>
-                            </select>
-                        </div>
+                    ))}
+                    <div className="bg-[#2c3e50] text-white p-4 rounded-lg">
+                        <div className="flex justify-between text-lg font-bold"><span>Total Due</span> <span>₦{totalDue.toLocaleString()}</span></div>
                     </div>
-
-                    {/* Services/Charges Section */}
-                    <div className="border border-gray-100 rounded-xl p-4 bg-gray-50/50">
-                        <div className="flex justify-between items-center mb-3">
-                            <h4 className="text-xs font-bold text-[#2c3e50] uppercase tracking-wide">Charges & Items</h4>
-                            <div className="flex gap-2">
-                                <select 
-                                    className="text-xs bg-[#2c3e50] text-white px-2 py-1 rounded font-bold cursor-pointer"
-                                    onChange={(e) => { addDrinkRow(e.target.value); e.target.value = ''; }}
-                                    defaultValue=""
-                                >
-                                    <option value="" disabled>+ Fast Drink Add</option>
-                                    {DRINK_LIST.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
-                                </select>
-                                <button onClick={addItem} className="text-xs bg-[#c4a66a] text-white px-3 py-1 rounded font-bold hover:bg-[#b39556] transition-all shadow-sm">+ Manual Add</button>
-                            </div>
+                    <div className="flex justify-between items-center"><span className="font-bold">Payments</span> <button onClick={addPayment} className="text-xs text-green-600 font-bold">+ Split</button></div>
+                    {payments.map(p => (
+                        <div key={p.id} className="flex gap-2 p-2 border rounded">
+                             <select className="text-xs" value={p.method} onChange={e => setPayments(payments.map(px => px.id === p.id ? {...px, method: e.target.value as any} : px))}>{Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}</select>
+                             <input type="number" className="flex-1 text-right font-bold" placeholder="Paid" value={p.amount} onChange={e => setPayments(payments.map(px => px.id === p.id ? {...px, amount: parseFloat(e.target.value) || 0} : px))} />
                         </div>
-                        
-                        <div className="space-y-3">
-                            {items.map((item, index) => (
-                               <div key={item.id} className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm relative group">
-                                   <button onClick={() => removeItem(item.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-red-200">✕</button>
-                                   <div className="grid grid-cols-12 gap-2 mb-2">
-                                       <div className="col-span-5">
-                                           <label className="block text-[9px] font-bold text-gray-400 uppercase">Service</label>
-                                           <select className="w-full border-none p-0 text-sm font-bold bg-transparent outline-none text-[#2c3e50]" value={item.service} onChange={(e) => updateItem(item.id, 'service', e.target.value)}>
-                                                {Object.values(WalkInService).map(s => <option key={s} value={s}>{s}</option>)}
-                                           </select>
-                                       </div>
-                                       <div className="col-span-2">
-                                           <label className="block text-[9px] font-bold text-gray-400 uppercase text-center">Qty</label>
-                                           <input type="number" min="1" className="w-full border border-gray-100 rounded px-1 text-center text-xs font-bold bg-gray-50" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value))} />
-                                       </div>
-                                       <div className="col-span-2">
-                                           <label className="block text-[9px] font-bold text-gray-400 uppercase text-right">Unit</label>
-                                           <input type="number" className="w-full border border-gray-100 rounded px-1 text-right text-xs font-medium bg-gray-50" value={item.unitPrice} onChange={(e) => updateItem(item.id, 'unitPrice', parseFloat(e.target.value))} />
-                                       </div>
-                                       <div className="col-span-3">
-                                           <label className="block text-[9px] font-bold text-gray-400 uppercase text-right">Total</label>
-                                           <div className="text-right text-xs font-bold text-[#c4a66a] mt-1">{symbol}{item.amount.toLocaleString()}</div>
-                                       </div>
-                                   </div>
-                                   <div className="relative">
-                                       <input 
-                                          type="text" 
-                                          list="walkin-drinks-list"
-                                          className="w-full border-b border-gray-100 text-xs py-1 focus:border-[#c4a66a] outline-none text-gray-600 placeholder-gray-300 italic" 
-                                          placeholder="Item Description (Drink match active...)" 
-                                          value={item.otherServiceDescription || ''} 
-                                          onChange={(e) => updateItem(item.id, 'otherServiceDescription', e.target.value)} 
-                                       />
-                                       {DRINK_LIST.find(d => d.name === item.otherServiceDescription) && (
-                                           <span className="absolute right-0 top-1 text-[8px] bg-green-50 text-green-600 px-1 rounded-full font-bold uppercase">Drink!</span>
-                                       )}
-                                   </div>
-                               </div>
-                            ))}
-                        </div>
-                    </div>
-                    
-                    {/* Totals Summary */}
-                    <div className="bg-[#2c3e50] rounded-xl p-5 text-white shadow-lg space-y-3">
-                        <div className="flex justify-between items-center text-xs opacity-70">
-                            <span>Subtotal Charges:</span>
-                            <span className="font-mono">{symbol} {subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs opacity-70">Discount:</span>
-                            <input type="number" className="w-24 bg-[#3e5871] border-none rounded px-2 py-0.5 text-right text-xs text-red-300 font-bold outline-none" value={discount} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} />
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs opacity-70">Service Charge (5%):</span>
-                            <input 
-                                type="number" 
-                                className="w-24 bg-[#3e5871] border-none rounded px-2 py-0.5 text-right text-xs text-green-300 font-bold outline-none" 
-                                value={serviceCharge} 
-                                onChange={(e) => setCustomServiceCharge(parseFloat(e.target.value) || 0)} 
-                            />
-                        </div>
-                        <div className="flex justify-between items-center text-xs opacity-40">
-                            <span>Tax (7.5% Included):</span>
-                            <span>{symbol}{tax.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                        </div>
-                        <div className="pt-2 border-t border-[#3e5871] flex justify-between items-center">
-                            <span className="text-sm font-bold uppercase tracking-wider">Total Due</span>
-                            <span className="text-xl font-bold text-[#c4a66a] font-mono">{symbol}{totalDue.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                        </div>
-                    </div>
-
-                    {/* Payments Grid */}
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide">Payments Received</h4>
-                             <button onClick={addPayment} className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold hover:bg-green-200 uppercase">+ Split Payment</button>
-                        </div>
-                        
-                        <div className="space-y-2">
-                            {payments.map((p, index) => (
-                               <div key={p.id} className="flex gap-2 items-center bg-green-50/50 border border-green-100 p-2 rounded-lg">
-                                   <select 
-                                      className="w-1/3 bg-transparent text-[11px] font-bold text-green-800 outline-none border-none"
-                                      value={p.method}
-                                      onChange={(e) => updatePayment(p.id, 'method', e.target.value as PaymentMethod)}
-                                   >
-                                       {Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}
-                                   </select>
-                                   <input 
-                                      type="text"
-                                      className="w-1/4 bg-white/50 border-none rounded px-2 py-1 text-[10px] text-green-900"
-                                      placeholder="Ref (POS/Trf)"
-                                      value={p.reference || ''}
-                                      onChange={(e) => updatePayment(p.id, 'reference', e.target.value)}
-                                   />
-                                   <input 
-                                      type="number" 
-                                      className="flex-grow bg-white border border-green-200 rounded px-2 py-1 text-right text-xs font-bold text-green-700 focus:ring-1 focus:ring-green-400 outline-none" 
-                                      placeholder="Amount Paid"
-                                      value={p.amount} 
-                                      onChange={(e) => updatePayment(p.id, 'amount', parseFloat(e.target.value))} 
-                                   />
-                                   <button onClick={() => removePayment(p.id)} className="text-red-300 hover:text-red-500 p-1">✕</button>
-                               </div>
-                            ))}
-                            {payments.length === 0 && <div className="text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-xs text-gray-400 uppercase font-bold tracking-widest">Awaiting Payment</div>}
-                        </div>
-                        
-                        <div className="flex justify-between items-center px-2 py-1">
-                             <span className="font-bold text-xs text-green-800">Grand Total Paid:</span>
-                             <span className="font-bold text-lg text-green-800 font-mono">{symbol}{totalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                        </div>
-                    </div>
+                    ))}
                 </div>
-
-                <div className="p-6 pt-4 bg-gray-50 border-t border-gray-100">
-                     <div className="flex justify-between items-center mb-6 px-2">
-                        <span className="text-sm font-bold text-[#2c3e50] uppercase">Balance:</span>
-                        <div className="flex flex-col items-end">
-                            <span className={`text-2xl font-bold font-mono ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                {symbol} {Math.abs(balance).toLocaleString(undefined, {minimumFractionDigits: 2})} 
-                            </span>
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                {balance < 0 ? 'Pending Collection' : balance > 0 ? 'Change to Guest' : 'Settled'}
-                            </span>
-                        </div>
-                     </div>
-
-                     <div className="grid grid-cols-2 gap-3">
-                        <button onClick={onClose} className="px-4 py-3 border border-gray-300 text-gray-500 rounded-xl hover:bg-white font-bold transition-all">Dismiss</button>
-                        <button onClick={handleSave} className="px-4 py-3 bg-[#c4a66a] text-white rounded-xl font-bold shadow-lg hover:bg-[#b39556] transition-all flex items-center justify-center gap-2">
-                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
-                           Print & Save
-                        </button>
-                     </div>
+                <div className="p-6 bg-gray-50 border-t flex gap-3">
+                    <button onClick={onClose} className="flex-1 py-3 border rounded font-bold">Cancel</button>
+                    <button onClick={handleSave} className="flex-1 py-3 bg-[#c4a66a] text-white rounded font-bold">Print & Save</button>
                 </div>
             </div>
         </div>
@@ -2491,152 +1164,40 @@ const App = () => {
 
     useEffect(() => {
         const stored = localStorage.getItem('tide_transactions');
-        if (stored) {
-            try { setTransactions(JSON.parse(stored)); } catch(e) { console.error(e); }
-        }
-        
+        if (stored) { try { setTransactions(JSON.parse(stored)); } catch(e) {} }
         const storedUser = localStorage.getItem('tide_user');
-        if (storedUser) {
-             setUser(JSON.parse(storedUser));
-        }
+        if (storedUser) setUser(JSON.parse(storedUser));
     }, []);
 
-    useEffect(() => {
-        localStorage.setItem('tide_transactions', JSON.stringify(transactions));
-    }, [transactions]);
+    useEffect(() => { localStorage.setItem('tide_transactions', JSON.stringify(transactions)); }, [transactions]);
 
-    const handleLogin = (u: any) => {
-        setUser(u);
-        localStorage.setItem('tide_user', JSON.stringify(u));
-        setView('dashboard');
-    };
-
-    const handleLogout = () => {
-        setUser(null);
-        localStorage.removeItem('tide_user');
-        setView('login');
-    };
-
-    const handleCreateInvoice = () => {
-        setEditingInvoice(null);
-        setView('invoice');
-    };
-
-    const handleEditTransaction = (t: RecordedTransaction) => {
-        if (t.type === 'Hotel Stay') {
-            setEditingInvoice(t.data as InvoiceData);
-            setView('invoice');
-        } else {
-            setEditingWalkIn({ data: t.data as WalkInTransaction, guestName: t.guestName });
-            setShowWalkInModal(true);
-        }
-    };
-
-    const handleSaveInvoice = (invoiceData: InvoiceData, isAutoSave: boolean = false) => {
-        const existingById = transactions.findIndex(t => 
-             (t.data as any).id === invoiceData.id 
-        );
-
-        const newRecord: RecordedTransaction = {
-            id: invoiceData.receiptNo,
-            type: 'Hotel Stay',
-            date: invoiceData.date,
-            guestName: invoiceData.guestName,
-            amount: invoiceData.totalAmountDue,
-            balance: invoiceData.balance,
-            currency: invoiceData.currency,
-            data: invoiceData
-        };
-
-        if (existingById >= 0) {
-            const updated = [...transactions];
-            updated[existingById] = newRecord;
-            setTransactions(updated);
-        } else {
-            setTransactions([newRecord, ...transactions]);
-        }
-
-        if (!isAutoSave) {
-            setView('dashboard');
-            setEditingInvoice(null);
-        }
-    };
-
-    const handleDeleteTransaction = (id: string) => {
-        setTransactions(transactions.filter(t => t.id !== id));
+    const handleLogin = (u: any) => { setUser(u); localStorage.setItem('tide_user', JSON.stringify(u)); setView('dashboard'); };
+    const handleLogout = () => { setUser(null); localStorage.removeItem('tide_user'); setView('login'); };
+    const handleSaveInvoice = (id: InvoiceData) => {
+        const existing = transactions.findIndex(t => (t.data as any).id === id.id);
+        const record: RecordedTransaction = { id: id.receiptNo, type: 'Hotel Stay', date: id.date, guestName: id.guestName, amount: id.totalAmountDue, balance: id.balance, currency: id.currency, data: id };
+        if (existing >= 0) { const upd = [...transactions]; upd[existing] = record; setTransactions(upd); } else { setTransactions([record, ...transactions]); }
+        setView('dashboard'); setEditingInvoice(null);
     };
 
     const handleSaveWalkIn = (data: WalkInTransaction, guestName: string) => {
-        const existingIndex = transactions.findIndex(t => t.id === data.id);
-        
-        const newRecord: RecordedTransaction = {
-            id: data.id,
-            type: 'Walk-In',
-            date: data.transactionDate.split('T')[0],
-            guestName: guestName,
-            amount: data.amountPaid,
-            balance: data.balance,
-            currency: data.currency,
-            data: data
-        };
-
-        if (existingIndex >= 0) {
-            const updated = [...transactions];
-            updated[existingIndex] = newRecord;
-            setTransactions(updated);
-        } else {
-            setTransactions([newRecord, ...transactions]);
-        }
-        
-        setShowWalkInModal(false);
-        setEditingWalkIn(null);
-        printWalkInReceipt(data, guestName);
+        const existing = transactions.findIndex(t => t.id === data.id);
+        const record: RecordedTransaction = { id: data.id, type: 'Walk-In', date: data.transactionDate.split('T')[0], guestName, amount: data.amountPaid, balance: data.balance, currency: data.currency, data };
+        if (existing >= 0) { const upd = [...transactions]; upd[existing] = record; setTransactions(upd); } else { setTransactions([record, ...transactions]); }
+        setShowWalkInModal(false); printWalkInReceipt(data, guestName);
     };
 
-    if (showWelcome) {
-        return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
-    }
-
-    if (!user) {
-        return <LoginScreen onLogin={handleLogin} />;
-    }
-
-    if (view === 'invoice') {
-        return <InvoiceForm initialData={editingInvoice} onSave={handleSaveInvoice} onCancel={() => setView('dashboard')} user={user} />;
-    }
+    if (showWelcome) return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
+    if (!user) return <LoginScreen onLogin={handleLogin} />;
+    if (view === 'invoice') return <InvoiceForm initialData={editingInvoice} onSave={handleSaveInvoice} onCancel={() => setView('dashboard')} user={user} />;
 
     return (
         <>
-            <Dashboard 
-                user={user} 
-                onLogout={handleLogout} 
-                onCreateInvoice={handleCreateInvoice} 
-                transactions={transactions}
-                onDeleteTransaction={handleDeleteTransaction}
-                onEditTransaction={handleEditTransaction}
-                onCreateWalkIn={() => { setEditingWalkIn(null); setShowWalkInModal(true); }}
-            />
-            {showWalkInModal && (
-                <WalkInGuestModal 
-                    onClose={() => { setShowWalkInModal(false); setEditingWalkIn(null); }}
-                    onSave={handleSaveWalkIn}
-                    user={user}
-                    initialData={editingWalkIn?.data}
-                    initialGuestName={editingWalkIn?.guestName}
-                />
-            )}
+            <Dashboard user={user} onLogout={handleLogout} onCreateInvoice={() => { setEditingInvoice(null); setView('invoice'); }} transactions={transactions} onDeleteTransaction={(id: string) => setTransactions(transactions.filter(t => t.id !== id))} onEditTransaction={(t: RecordedTransaction) => { if (t.type === 'Hotel Stay') { setEditingInvoice(t.data as InvoiceData); setView('invoice'); } else { setEditingWalkIn({ data: t.data as WalkInTransaction, guestName: t.guestName }); setShowWalkInModal(true); } }} onCreateWalkIn={() => { setEditingWalkIn(null); setShowWalkInModal(true); }} />
+            {showWalkInModal && <WalkInGuestModal onClose={() => setShowWalkInModal(false)} onSave={handleSaveWalkIn} user={user} initialData={editingWalkIn?.data} initialGuestName={editingWalkIn?.guestName} />}
         </>
     );
 };
 
-const rootElement = document.getElementById('root');
-if (rootElement) {
-  const root = createRoot(rootElement);
-  root.render(
-    <React.StrictMode>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    </React.StrictMode>
-  );
-}
+const root = createRoot(document.getElementById('root')!);
+root.render(<ErrorBoundary><App /></ErrorBoundary>);
