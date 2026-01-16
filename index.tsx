@@ -9,14 +9,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Fixed: Explicitly typed the Component with Props and State to resolve 'props' access errors
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
-  
+  // Fix: Removed the unnecessary constructor to allow React to handle props correctly via base class
+  // or use super(props) correctly.
   static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
 
   render() {
@@ -30,7 +27,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fixed: this.props is now correctly recognized due to generic types in class declaration
     return this.props.children;
   }
 }
@@ -122,18 +118,20 @@ const calculateInclusiveFinancials = (grossAmount: number) => {
   return { net, svc, vat };
 };
 
-const exportToCSV = (transactions: Transaction[]) => {
+const exportToCSV = (transactions: Transaction[], filename: string = "TIDE_LEDGER") => {
   if (transactions.length === 0) {
     alert("No records found to export.");
     return;
   }
 
-  const headers = ["ID", "Type", "Date", "Guest Name", "Ref/Room", "Total Due", "Total Paid", "Balance", "Cashier"];
+  const headers = ["ID", "Type", "Date", "Guest Name", "Phone", "Email", "Ref/Room", "Total Due", "Total Paid", "Balance", "Cashier"];
   const rows = transactions.map(t => [
     t.id,
     t.type,
     new Date(t.date).toLocaleString(),
     t.guestName.replace(/,/g, ''),
+    (t.guestPhone || "").replace(/,/g, ''),
+    (t.guestEmail || "").replace(/,/g, ''),
     (t.roomNumber || "").replace(/,/g, ''),
     t.totalDue.toFixed(2),
     t.totalPaid.toFixed(2),
@@ -146,7 +144,7 @@ const exportToCSV = (transactions: Transaction[]) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.setAttribute("href", url);
-  link.setAttribute("download", `TIDE_LEDGER_${new Date().toISOString().split('T')[0]}.csv`);
+  link.setAttribute("download", `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -345,6 +343,17 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
     });
   };
 
+  const handleExportIndividual = () => {
+    if (!guest.trim()) return alert("VALIDATION ERROR: Guest Name required for export.");
+    const snapshot: Transaction = {
+      id: initial?.id || `SNAP-${uuid()}`, type: 'RESERVATION', date: new Date().toISOString(),
+      guestName: guest, guestEmail: email, guestPhone: phone, guestIDType: idType, guestIDOtherSpec: idOther, guestIDNumber: idNum,
+      roomNumber: roomNo, rooms, subtotal: net, serviceCharge: finalSvc, vat: finalVat, discount, totalDue,
+      payments, totalPaid, balance: currentBalance, cashier: cashierName
+    };
+    exportToCSV([snapshot], `RESERVATION_${guest.replace(/\s+/g, '_').toUpperCase()}`);
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
       <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} className="max-w-7xl w-full max-h-[92vh] flex flex-col">
@@ -354,7 +363,13 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
               <span className="w-1.5 h-6 bg-[#c4a66a] rounded-full"></span>
               Reservation Folio
             </h2>
-            <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-white/5 flex items-center justify-center text-white/40 hover:text-white transition-all">&times;</button>
+            <div className="flex items-center gap-4">
+               <button onClick={handleExportIndividual} className="flex items-center gap-2 bg-emerald-500/10 text-emerald-500 px-6 py-2.5 rounded-xl border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                 Export Folio
+               </button>
+               <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-white/5 flex items-center justify-center text-white/40 hover:text-white transition-all">&times;</button>
+            </div>
           </div>
           
           <div className="p-8 overflow-y-auto custom-scrollbar space-y-8 flex-1">
@@ -481,13 +496,27 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
     });
   };
 
+  const handleExportIndividual = () => {
+    const snapshot: Transaction = {
+      id: initial?.id || `SNAP-${uuid()}`, type: 'WALK-IN', date: new Date().toISOString(),
+      guestName: guest, items, subtotal: net, serviceCharge: svc, vat, discount: 0,
+      totalDue, payments, totalPaid, balance: currentBalance, cashier: user
+    };
+    exportToCSV([snapshot], `POS_ENTRY_${guest.replace(/\s+/g, '_').toUpperCase()}`);
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4">
       <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="max-w-xl w-full">
         <GlassCard className="space-y-6">
           <div className="flex justify-between items-center border-b border-white/5 pb-4">
             <h2 className="text-2xl font-black text-white uppercase tracking-tighter">POS Direct Sale</h2>
-            <button onClick={onClose} className="text-white/20 text-3xl hover:text-white transition-all">&times;</button>
+            <div className="flex items-center gap-3">
+               <button onClick={handleExportIndividual} className="bg-emerald-500/10 text-emerald-500 p-2 rounded-lg border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all" title="Export Snapshot">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+               </button>
+               <button onClick={onClose} className="text-white/20 text-3xl hover:text-white transition-all">&times;</button>
+            </div>
           </div>
           
           <InputField label="Customer / Tab Label" value={guest} onChange={(e:any)=>setGuest(e.target.value)} required />
