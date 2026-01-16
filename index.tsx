@@ -1,205 +1,105 @@
 
-import React, { Component, useState, useEffect, useMemo, ErrorInfo, ReactNode } from 'react';
+import React, { Component, useState, useEffect, ReactNode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ERROR BOUNDARY
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-interface ErrorBoundaryProps {
-  children?: ReactNode;
-}
+interface ErrorBoundaryProps { children?: ReactNode; }
+interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
+// Use explicit type parameters for Component to ensure this.props and this.state are correctly typed.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
-  declare props: Readonly<ErrorBoundaryProps>;
 
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
   }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
-  }
+  
+  static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-          <div className="bg-white p-8 rounded shadow-xl max-w-lg w-full border-l-4 border-red-500">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">Something went wrong.</h1>
-            <p className="text-gray-700 mb-4">The application encountered an unexpected error.</p>
-            <div className="bg-gray-100 p-4 rounded text-sm overflow-auto max-h-40 mb-4 font-mono">
-              {this.state.error?.toString()}
-            </div>
-            <button 
-              onClick={() => { localStorage.clear(); window.location.reload(); }}
-              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 w-full"
-            >
-              Clear Data & Reload App
-            </button>
+        <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
+          <div className="bg-[#1e293b] p-10 rounded-3xl shadow-2xl max-w-lg w-full border-2 border-red-500/30 text-center">
+            <h1 className="text-3xl font-black text-red-500 mb-4 uppercase">System Error</h1>
+            <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full bg-[#c4a66a] text-white py-4 rounded-2xl font-black">REBOOT SYSTEM</button>
           </div>
         </div>
       );
     }
-
+    // Fix: line 32 error was likely caused by a mismatch in class component typing during compilation.
+    // Explicitly using this.props.children.
     return this.props.children;
   }
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// GLOBAL DECLARATIONS & TYPES
+// DATA MODELS & CONSTANTS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-declare const window: any;
+const HOTEL_ADDRESS = "38 S.O. Williams Street, Utako, Abuja.";
 
 export enum RoomType {
   SOJOURN_ROOM = 'The Sojourn Room (Standard)',
   TRANQUIL_ROOM = 'The Tranquil Room (Double)',
-  HARMONY_STUDIO = 'The Harmony Studio (Double Deluxe/Superior Executive)',
-  SERENITY_STUDIO = 'The Serenity Studio (Studio, Executive Room)',
-  NARRATIVE_SUITE = 'The Narrative Suite (One Bedroom Business Suite)',
-  ODYSSEY_SUITE = 'The Odyssey Suite (One Bedroom Executive Suite)',
-  TIDE_SIGNATURE_SUITE = 'The Tidé Signature Suite (One Bedroom Presidential Suite)',
+  HARMONY_STUDIO = 'The Harmony Studio (Double Deluxe)',
+  SERENITY_STUDIO = 'The Serenity Studio (Executive Room)',
+  NARRATIVE_SUITE = 'The Narrative Suite (Business Suite)',
+  ODYSSEY_SUITE = 'The Odyssey Suite (Executive Suite)',
+  TIDE_SIGNATURE_SUITE = 'The Tidé Signature Suite (Presidential)',
 }
 
-export enum PaymentMethod {
-  CASH = 'Cash',
-  POS = 'POS',
-  BANK_TRANSFER = 'Bank Transfer',
-  PENDING = 'Pending',
-  OTHER = 'Other',
+export enum PaymentMethod { CASH = 'Cash', POS = 'POS', TRANSFER = 'Bank Transfer', CHEQUE = 'Cheque' }
+
+export enum IDType {
+  NIN = 'NIN',
+  NATIONAL_ID = 'National ID',
+  PASSPORT = 'Passport Card',
+  DRIVERS = 'Drivers License',
+  VOTERS = 'Voter’s Card',
+  STUDENT_ID = 'Student ID',
+  OTHER = 'Other'
 }
 
-export enum InvoiceStatus {
-  PENDING = 'Pending Payment',
-  PARTIAL = 'Partially Paid',
-  PAID = 'Fully Paid',
-}
-
-export interface AdditionalChargeItem {
+export interface BookingRoom {
   id: string;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  amount: number;
-}
-
-export interface BookingItem {
-  id:string;
   roomType: RoomType;
-  quantity: number;
   checkIn: string;
   checkOut: string;
   nights: number;
   ratePerNight: number;
-  subtotal: number;
-}
-
-export interface PaymentItem {
-  id: string;
-  date: string;
-  amount: number;
-  paymentMethod: PaymentMethod;
-  reference?: string;
-  recordedBy: string;
-}
-
-export interface VerificationDetails {
-  paymentReference: string;
-  verifiedBy: string;
-  dateVerified: string;
-}
-
-export interface InvoiceData {
-  id: string;
-  invoiceNo?: string;
-  receiptNo: string;
-  date: string;
-  lastUpdatedAt: string;
-  guestName: string;
-  guestEmail: string;
-  phoneContact: string;
-  roomNumber: string;
-  documentType: 'reservation' | 'receipt';
-  status: InvoiceStatus;
-  bookings: BookingItem[];
-  additionalChargeItems: AdditionalChargeItem[];
-  subtotal: number;
-  discount: number;
-  holidaySpecialDiscountName: string;
-  holidaySpecialDiscount: number;
-  serviceCharge: number; 
-  taxPercentage: number;
-  taxAmount: number;
-  totalAmountDue: number;
-  payments: PaymentItem[];
-  amountReceived: number;
-  balance: number;
-  amountInWords: string;
-  paymentPurpose: string;
-  receivedBy: string;
-  designation: string;
-  currency: 'NGN' | 'USD';
-  verificationDetails?: VerificationDetails;
-}
-
-export enum WalkInService {
-  RESTAURANT = 'Restaurant',
-  BAR = 'Bar',
-  LAUNDRY = 'Laundry',
-  OTHER = 'Other',
-}
-
-export interface WalkInChargeItem {
-  id: string;
-  date: string;
-  service: WalkInService;
-  otherServiceDescription?: string;
   quantity: number;
-  unitPrice: number;
-  amount: number;
-  paymentMethod: PaymentMethod;
 }
 
-export interface WalkInPayment {
-  id: string;
-  amount: number;
-  method: PaymentMethod;
-  reference?: string;
-}
+export interface PaymentEntry { id: string; amount: number; method: PaymentMethod; reference?: string; }
 
-export interface WalkInTransaction {
+export interface Transaction {
   id: string;
-  transactionDate: string;
-  charges: WalkInChargeItem[];
-  currency: 'NGN' | 'USD';
+  type: 'RESERVATION' | 'WALK-IN';
+  date: string;
+  guestName: string;
+  guestEmail?: string;
+  guestPhone?: string;
+  guestIDType?: IDType;
+  guestIDOtherSpec?: string;
+  guestIDNumber?: string;
+  roomNumber?: string;
+  rooms?: BookingRoom[];
+  items?: { description: string; amount: number }[];
   subtotal: number;
-  discount: number;
   serviceCharge: number;
-  tax: number; 
-  amountPaid: number;
+  vat: number;
+  discount: number;
+  totalDue: number;
+  payments: PaymentEntry[];
+  totalPaid: number;
   balance: number;
   cashier: string;
-  paymentMethod: PaymentMethod; // Deprecated but kept for backward compatibility
-  payments: WalkInPayment[]; 
 }
 
-export interface RecordedTransaction {
-  id: string; 
-  type: 'Hotel Stay' | 'Walk-In';
-  date: string;
-  guestName: string; 
-  amount: number; 
-  balance: number;
-  currency: 'NGN' | 'USD';
-  data: InvoiceData | WalkInTransaction;
-}
-
-const ROOM_RATES_NGN: Record<RoomType, number> = {
+const ROOM_RATES: Record<RoomType, number> = {
   [RoomType.SOJOURN_ROOM]: 94050,
   [RoomType.TRANQUIL_ROOM]: 115140,
   [RoomType.HARMONY_STUDIO]: 128250,
@@ -209,994 +109,653 @@ const ROOM_RATES_NGN: Record<RoomType, number> = {
   [RoomType.TIDE_SIGNATURE_SUITE]: 265050,
 };
 
-const ROOM_RATES_USD: Record<RoomType, number> = {
-  [RoomType.SOJOURN_ROOM]: 100,
-  [RoomType.TRANQUIL_ROOM]: 130,
-  [RoomType.HARMONY_STUDIO]: 150,
-  [RoomType.SERENITY_STUDIO]: 200,
-  [RoomType.NARRATIVE_SUITE]: 250,
-  [RoomType.ODYSSEY_SUITE]: 280,
-  [RoomType.TIDE_SIGNATURE_SUITE]: 350,
-};
-
-const DRINK_LIST = [
-  { name: 'Heineken (Can)', price: 2000, category: 'Beer' },
-  { name: 'Heineken (Bottle)', price: 2500, category: 'Beer' },
-  { name: 'Desperado', price: 1150, category: 'Beer' },
-  { name: 'Guinness Stout (Small)', price: 1500, category: 'Beer' },
-  { name: 'Guinness Stout (Large)', price: 2500, category: 'Beer' },
-  { name: 'Star Lager', price: 1500, category: 'Beer' },
-  { name: 'Gulder', price: 1500, category: 'Beer' },
-  { name: 'Budweiser', price: 1800, category: 'Beer' },
-  { name: 'Legend Extra Stout', price: 1500, category: 'Beer' },
-  { name: 'Smirnoff Double Black', price: 1150, category: 'Beer' },
-  { name: 'Trophy Lager', price: 1200, category: 'Beer' },
-  { name: 'Heros Lager', price: 1200, category: 'Beer' },
-  { name: 'Water (75cl)', price: 1000, category: 'Soft' },
-  { name: 'Water (1.5L)', price: 1500, category: 'Soft' },
-  { name: 'Coca Cola', price: 1000, category: 'Soft' },
-  { name: 'Fanta Orange', price: 1000, category: 'Soft' },
-  { name: 'Sprite', price: 1000, category: 'Soft' },
-  { name: 'Pepsi', price: 1000, category: 'Soft' },
-  { name: 'Amstel Malt', price: 700, category: 'Soft' },
-  { name: 'Maltina', price: 700, category: 'Soft' },
-  { name: 'Schweppes (Tonic/Bitter Lemon/Ginger)', price: 1200, category: 'Soft' },
-  { name: 'Bitter Lemon', price: 1000, category: 'Soft' },
-  { name: 'Red Bull', price: 1700, category: 'Energy' },
-  { name: 'Monster Energy', price: 1800, category: 'Energy' },
-  { name: 'Power Horse', price: 1500, category: 'Energy' },
-  { name: 'Black Bullet', price: 1500, category: 'Energy' },
-  { name: 'Chi Exotic', price: 2500, category: 'Juice' },
-  { name: 'Chivita (1L)', price: 2500, category: 'Juice' },
-  { name: 'Five Alive', price: 2500, category: 'Juice' },
-  { name: 'Chi Ice Tea', price: 2000, category: 'Juice' },
-  { name: 'Chamdor (Sparkling)', price: 6000, category: 'Wine' },
-  { name: 'Andre Rose', price: 15000, category: 'Wine' },
-  { name: 'Carlo Rossi (Red/White)', price: 12000, category: 'Wine' },
-  { name: 'Moet & Chandon Imperial', price: 95000, category: 'Champagne' },
-  { name: 'Veuve Clicquot', price: 110000, category: 'Champagne' },
-  { name: 'Don Perignon', price: 450000, category: 'Champagne' },
-  { name: 'Hennessy VS', price: 75000, category: 'Spirit' },
-  { name: 'Hennessy VSOP', price: 110000, category: 'Spirit' },
-  { name: 'Martell Blue Swift', price: 95000, category: 'Spirit' },
-  { name: 'Glenfiddich 12yrs', price: 85000, category: 'Spirit' },
-  { name: 'Glenfiddich 15yrs', price: 125000, category: 'Spirit' },
-  { name: 'Jameson Irish Whiskey', price: 45000, category: 'Spirit' },
-  { name: 'Jack Daniels', price: 55000, category: 'Spirit' },
-  { name: 'Absolut Vodka', price: 35000, category: 'Spirit' },
-  { name: 'Gordon Gin (Small)', price: 4000, category: 'Spirit' },
-  { name: 'Gordon Gin (Large)', price: 25000, category: 'Spirit' },
-  { name: 'Olmeca Tequila White', price: 40000, category: 'Spirit' },
-  { name: 'Campari (Medium)', price: 35000, category: 'Spirit' },
-  { name: 'Campari (Small)', price: 13000, category: 'Spirit' },
-  { name: 'Vermouth Rosso', price: 30000, category: 'Spirit' },
+const BANK_DETAILS = [
+  { bank: 'Zenith Bank', account: '1311027935', name: 'Tidé Hotels and Resorts' },
+  { bank: 'Moniepoint', account: '5169200615', name: 'Tidé Hotels and Resorts' }
 ];
 
-const uuid = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+const uuid = () => Math.random().toString(36).substring(2, 11).toUpperCase();
+
+const formatNaira = (amt: number) => {
+  const cleanAmt = Math.abs(amt) < 0.01 ? 0 : amt;
+  return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(cleanAmt);
 };
 
-const ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
-const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
-const SCALES = ['', 'thousand', 'million', 'billion', 'trillion', 'quadrillion'];
-
-function convertChunkToWords(num: number): string {
-  if (num === 0) return '';
-  if (num < 20) return ONES[num];
-  if (num < 100) {
-    const ten = Math.floor(num / 10);
-    const one = num % 10;
-    return TENS[ten] + (one > 0 ? ' ' + ONES[one] : '');
-  }
-  const hundred = Math.floor(num / 100);
-  const remainder = num % 100;
-  let words = ONES[hundred] + ' hundred';
-  if (remainder > 0) words += ' ' + convertChunkToWords(remainder);
-  return words;
-}
-
-function numberToWords(num: number): string {
-  if (num === 0) return 'zero';
-  let words = '';
-  let scaleIndex = 0;
-  while (num > 0) {
-    const chunk = num % 1000;
-    if (chunk !== 0) {
-      const chunkWords = convertChunkToWords(chunk);
-      const scaleWord = SCALES[scaleIndex] ? ' ' + SCALES[scaleIndex] : '';
-      words = chunkWords + scaleWord + (words ? ' ' + words : '');
-    }
-    num = Math.floor(num / 1000);
-    scaleIndex++;
-  }
-  return words.trim();
-}
-
-function capitalizeFirstLetter(s: string): string {
-    if (!s) return '';
-    return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function formatCurrencyAmountInWords(amount: number, currencyMajor: string, currencyMinor: string): string {
-  if (isNaN(amount) || amount < 0) return 'Invalid Amount';
-  let majorUnit = Math.floor(amount);
-  let minorUnit = Math.round((amount - majorUnit) * 100);
-  if (minorUnit === 100) { majorUnit += 1; minorUnit = 0; }
-  const majorWords = capitalizeFirstLetter(numberToWords(majorUnit));
-  let result = `${majorWords} ${currencyMajor}`;
-  if (minorUnit > 0) {
-    const minorWords = capitalizeFirstLetter(numberToWords(minorUnit));
-    result += ` and ${minorWords} ${currencyMinor}`;
-  }
-  return `${result} only`;
-}
-
-function convertAmountToWords(amount: number, currency: 'NGN' | 'USD'): string {
-    return currency === 'USD' 
-      ? formatCurrencyAmountInWords(amount, 'Dollars', 'Cents') 
-      : formatCurrencyAmountInWords(amount, 'Naira', 'Kobo');
-}
-
-const formatDateForDisplay = (dateString: string): string => {
-  if (!dateString) return '';
-  try {
-      let d = new Date(dateString);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-          const parts = dateString.split('-');
-          d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-      }
-      if (isNaN(d.getTime())) return dateString;
-      const day = d.getDate();
-      const month = d.toLocaleString('default', { month: 'short' });
-      const year = d.getFullYear();
-      let suffix = 'th';
-      if (day % 10 === 1 && day !== 11) suffix = 'st';
-      else if (day % 10 === 2 && day !== 12) suffix = 'nd';
-      else if (day % 10 === 3 && day !== 13) suffix = 'rd';
-      return `${month} ${day}${suffix} ${year}`;
-  } catch (e) { return dateString; }
-};
-
-const calculateNights = (checkIn: string, checkOut: string): number => {
-    if (!checkIn || !checkOut) return 0;
-    try {
-        const startDate = new Date(checkIn);
-        const endDate = new Date(checkOut);
-        startDate.setHours(12, 0, 0, 0);
-        endDate.setHours(12, 0, 0, 0);
-        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || endDate <= startDate) return 0;
-        const diffTime = endDate.getTime() - startDate.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? diffDays : 0;
-    } catch (e) { return 0; }
-};
-
-const formatCurrencyWithCode = (amount: number, currency: 'NGN' | 'USD') => {
-  const formatter = new Intl.NumberFormat('en-NG', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const symbol = currency === 'NGN' ? '₦' : '$';
-  return amount < 0 ? `-${symbol} ${formatter.format(Math.abs(amount))}` : `${symbol} ${formatter.format(amount)}`;
+const calculateInclusiveFinancials = (grossAmount: number) => {
+  const net = grossAmount / 1.175;
+  const svc = net * 0.10;
+  const vat = net * 0.075;
+  return { net, svc, vat };
 };
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// GENERATORS
+// PRINT ENGINE
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-const createInvoiceDoc = (data: InvoiceData): any => {
-  try {
-    const jsPDF = (window as any).jsPDF;
-    if (!jsPDF) { alert("PDF Library not loaded."); return null; }
-    const doc = new jsPDF();
-    if (typeof doc.autoTable !== 'function') { alert("PDF Plugin error."); return null; }
+const printReceipt = (tx: Transaction) => {
+  const p = window.open('', '_blank');
+  if (!p) return;
 
-    const isReservation = data.documentType === 'reservation';
-    const amountReceived = data.amountReceived;
-    const decimalFormatter = new Intl.NumberFormat('en-NG', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const symbol = data.currency === 'NGN' ? 'N' : '$'; 
-    const formatMoney = (amount: number) => decimalFormatter.format(amount);
-    const formatMoneyWithPrefix = (amount: number) => {
-        const formattedAbs = decimalFormatter.format(Math.abs(amount));
-        return amount < 0 ? `-${symbol} ${formattedAbs}` : `${symbol} ${formattedAbs}`;
-    }
-
-    doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor('#c4a66a');
-    doc.text('TIDE HOTELS AND RESORTS', 105, 15, { align: 'center' }); 
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor('#2c3e50');
-    doc.text('Where Boldness Meets Elegance.', 105, 22, { align: 'center' }); 
-    doc.setFontSize(9);
-    doc.text('38 S.O Williams Street Off Anthony Enahoro Street Utako Abuja', 105, 27, { align: 'center' }); 
-    doc.setLineWidth(0.5);
-    doc.line(80, 30, 130, 30); 
-
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(isReservation ? '#E53E3E' : '#2c3e50');
-    doc.text(isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT', 105, 40, { align: 'center' });
-    doc.setTextColor('#2c3e50');
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${isReservation ? 'Invoice No:' : 'Receipt No:'} ${data.receiptNo}`, 14, 50); 
-    doc.text(`Date: ${formatDateForDisplay(data.date)}`, 196, 50, { align: 'right' });
-    let finalY = 50;
-
-    if (data.verificationDetails && !isReservation) {
-        doc.autoTable({
-            startY: finalY + 4,
-            body: [
-                ['Payment Reference:', data.verificationDetails.paymentReference || 'N/A'],
-                ['Verified By:', data.verificationDetails.verifiedBy],
-                ['Date Verified:', formatDateForDisplay(data.verificationDetails.dateVerified)],
-            ],
-            theme: 'plain',
-            styles: { font: 'helvetica', fontSize: 10, cellPadding: 1, fillColor: '#f0fff4' },
-            columnStyles: { 0: { fontStyle: 'bold' } },
-            margin: { left: 14, right: 14 }
-        });
-        finalY = doc.lastAutoTable.finalY;
-    }
-    
-    doc.autoTable({
-        startY: finalY + (data.verificationDetails && !isReservation ? 2 : 4),
-        body: [
-            ['Received From (Guest):', data.guestName],
-            ['Email:', data.guestEmail],
-            ['Phone/Contact:', data.phoneContact],
-            ['Room Number(s):', data.roomNumber],
-        ],
-        theme: 'plain',
-        styles: { font: 'helvetica', fontSize: 10, cellPadding: 1.5 },
-        columnStyles: { 0: { fontStyle: 'bold' } },
-        margin: { left: 14, right: 14 }
-    });
-    finalY = doc.lastAutoTable.finalY;
-
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Bookings', 14, finalY + 8); 
-
-    doc.autoTable({
-      startY: finalY + 11,
-      head: [["S/N", "Room Type", "Qty", "Duration", "Check-In", "Check-Out", "Nights", `Rate/Night`, `Subtotal (${symbol})`]],
-      body: data.bookings.map((booking, index) => [
-        index + 1,
-        booking.roomType,
-        booking.quantity,
-        `${booking.nights} night${booking.nights > 1 ? 's' : ''}`,
-        formatDateForDisplay(booking.checkIn),
-        formatDateForDisplay(booking.checkOut),
-        booking.nights,
-        formatMoney(booking.ratePerNight),
-        formatMoney(booking.subtotal)
-      ]),
-      theme: 'grid',
-      headStyles: { fillColor: '#2c3e50', fontSize: 8 },
-      styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.5 }, 
-      columnStyles: { 2: { halign: 'center' }, 6: { halign: 'center' }, 7: { halign: 'right' }, 8: { halign: 'right' } }
-    });
-    finalY = doc.lastAutoTable.finalY;
-    
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
-    doc.setTextColor(100);
-    doc.text('Note: Festive Season Offer applied.', 14, finalY + 5);
-    finalY += 5;
-
-    if (data.additionalChargeItems.length > 0) {
-        finalY += 4;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Additional Charges', 14, finalY + 8);
-        doc.autoTable({
-          startY: finalY + 11,
-          head: [["S/N", "Description", "Qty", `Unit Price (${symbol})`, `Amount (${symbol})`]],
-          body: data.additionalChargeItems.map((item, index) => [
-            index+1, 
-            item.description, 
-            item.quantity || 1, 
-            formatMoney(item.unitPrice || item.amount), 
-            formatMoney(item.amount)
-          ]),
-          theme: 'grid',
-          headStyles: { fillColor: '#2c3e50' },
-          styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.5 },
-          columnStyles: { 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
-        });
-        finalY = doc.lastAutoTable.finalY;
-    }
-    
-    if (data.payments.length > 0) {
-        finalY += 4;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Payments Received', 14, finalY + 8);
-        doc.autoTable({
-          startY: finalY + 11,
-          head: [["Date", "Method", "Reference", `Amount (${symbol})`]],
-          body: data.payments.map(item => [formatDateForDisplay(item.date), item.paymentMethod, item.reference || 'N/A', formatMoney(item.amount)]),
-          theme: 'grid',
-          headStyles: { fillColor: '#16a34a' },
-          styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.5 },
-          columnStyles: { 3: { halign: 'right' } }
-        });
-        finalY = doc.lastAutoTable.finalY;
-    }
-
-    const pageHeight = doc.internal.pageSize.height;
-    let y = finalY + 8;
-    const checkPageBreak = (h: number) => { if (y + h > pageHeight - 15) { doc.addPage(); y = 20; } };
-
-    checkPageBreak(65);
-    const sxL = 155, sxV = 196, lh = 6;
-    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-    doc.text('Subtotal:', sxL, y, { align: 'right' });
-    doc.setFont('helvetica', 'bold'); doc.text(formatMoneyWithPrefix(data.subtotal), sxV, y, { align: 'right' });
-    y += lh;
-    if (data.discount > 0) {
-      doc.setFont('helvetica', 'normal'); doc.text('Discount:', sxL, y, { align: 'right' });
-      doc.setFont('helvetica', 'bold'); doc.text(formatMoneyWithPrefix(-data.discount), sxV, y, { align: 'right' });
-      y += lh;
-    }
-    if (data.holidaySpecialDiscount > 0) {
-      doc.setFont('helvetica', 'normal'); doc.text(`${data.holidaySpecialDiscountName}:`, sxL, y, { align: 'right' });
-      doc.setFont('helvetica', 'bold'); doc.text(formatMoneyWithPrefix(-data.holidaySpecialDiscount), sxV, y, { align: 'right' });
-      y += lh;
-    }
-    doc.setFont('helvetica', 'normal'); doc.text('Tax (7.5% Inclusive):', sxL, y, { align: 'right' });
-    doc.setFont('helvetica', 'bold'); doc.text(formatMoneyWithPrefix(data.taxAmount), sxV, y, { align: 'right' });
-    y += 2;
-    doc.setLineWidth(0.3); doc.line(sxL - 35, y, sxV, y); y += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL AMOUNT DUE:', sxL, y, { align: 'right' }); doc.text(formatMoneyWithPrefix(data.totalAmountDue), sxV, y, { align: 'right' });
-    y += lh;
-    doc.text('AMOUNT RECEIVED:', sxL, y, { align: 'right' }); doc.text(formatMoneyWithPrefix(amountReceived), sxV, y, { align: 'right' });
-    y += 2;
-    doc.setLineWidth(0.3); doc.line(sxL - 35, y, sxV, y); y += 5;
-    const balanceLabel = data.balance > 0 ? 'BALANCE DUE:' : data.balance < 0 ? 'CREDIT:' : 'BALANCE:';
-    doc.text(balanceLabel, sxL, y, { align: 'right' });
-    if (data.balance < 0) doc.setTextColor('#38A169'); else if (data.balance > 0) doc.setTextColor('#E53E3E'); 
-    doc.text(formatMoneyWithPrefix(Math.abs(data.balance)), sxV, y, { align: 'right' });
-    doc.setTextColor('#2c3e50'); y += 8;
-
-    checkPageBreak(20);
-    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-    const amountReceivedText = amountReceived > 0 ? data.amountInWords : 'Zero Naira only';
-    const splitAmountWords = doc.splitTextToSize(`Amount in Words: ${amountReceivedText}`, 180); 
-    doc.text(splitAmountWords, 14, y);
-    y += (splitAmountWords.length * 6) + 4;
-
-    if (data.status !== InvoiceStatus.PAID) {
-        checkPageBreak(70); 
-        const titleText = data.status === InvoiceStatus.PARTIAL ? 'Partial Payment Received.' : 'Payment Status: Pending';
-        doc.setFont('helvetica', 'bold'); doc.setTextColor(data.status === InvoiceStatus.PARTIAL ? '#E53E3E' : '#f59e0b');
-        doc.text(titleText, 14, y); y += 4;
-        doc.setTextColor(44, 62, 80); doc.setFont('helvetica', 'normal');
-        doc.text('Kindly settle the outstanding using the bank details below.', 14, y); y += 2;
-        doc.autoTable({
-            startY: y,
-            head: [['NAIRA ACCOUNTS', 'DOMICILIARY ACCOUNTS (PROVIDUS BANK)']],
-            body: [
-                ['MONIEPOINT: 5169200615\nPROVIDUS: 1306538190\nName: TIDE HOTELS & RESORTS', 'USD: 1308430669\nGBP: 1308430676\nEURO: 1308430683\nSwift: UMPLNGLA'],
-            ],
-            theme: 'grid',
-            styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.5, textColor: '#2c3e50', valign: 'top' },
-            headStyles: { fillColor: '#e2e8f0', textColor: '#2c3e50', fontStyle: 'bold', halign: 'center', fontSize: 8 },
-            margin: { left: 14, right: 14 }
-        });
-        y = (doc as any).lastAutoTable.finalY + 3;
-    } else {
-        checkPageBreak(25); y += 5;
-        doc.setFont('helvetica', 'bold'); doc.setTextColor('#38A169'); doc.setFontSize(12);
-        doc.text('FULL PAYMENT RECEIVED. THANK YOU.', 105, y, { align: 'center' });
-        y += 10; doc.setTextColor('#2c3e50');
-    }
-    
-    checkPageBreak(30); y += 10; 
-    doc.setLineWidth(0.5); doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor('#000000');
-    doc.line(14, y, 14 + 60, y); doc.text("Guest Signature", 14, y + 5);
-    doc.line(136, y, 196, y); doc.text("Cashier Signature", 136, y + 5);
-
-    return doc;
-  } catch (e) { alert("Error generating PDF."); return null; }
-};
-
-const printInvoice = (data: InvoiceData) => {
-  const decimalFormatter = new Intl.NumberFormat('en-NG', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const formatMoney = (amount: number) => decimalFormatter.format(amount);
-  const symbol = data.currency === 'NGN' ? '₦' : '$';
-  const formatMoneyWithPrefix = (amount: number) => {
-      const formattedAbs = decimalFormatter.format(Math.abs(amount));
-      return amount < 0 ? `-${symbol} ${formattedAbs}` : `${symbol} ${formattedAbs}`;
-  }
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) { alert('Please allow popups'); return; }
-  const isReservation = data.documentType === 'reservation';
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>${isReservation ? 'Invoice' : 'Receipt'} - ${data.receiptNo}</title>
-      <script src="https://cdn.tailwindcss.com"></script>
-    </head>
-    <body class="p-8 bg-white max-w-4xl mx-auto text-gray-900">
-      <div class="text-center mb-6">
-        <h1 class="text-3xl font-bold text-[#c4a66a]">TIDÈ HOTELS AND RESORTS</h1>
-        <p class="text-xs text-gray-600 mt-1">38 S.O Williams Street Utako Abuja</p>
-      </div>
-      <h2 class="text-xl font-bold text-center ${isReservation ? 'text-red-700' : 'text-[#2c3e50]'} mb-2">${isReservation ? 'INVOICE FOR RESERVATION' : 'OFFICIAL RECEIPT'}</h2>
-      <div class="flex justify-between text-sm mb-4">
-          <p><span class="font-bold">No:</span> ${data.receiptNo}</p>
-          <p><span class="font-bold">Date:</span> ${formatDateForDisplay(data.date)}</p>
-      </div>
-      <div class="mb-4 border border-gray-200 rounded p-3 text-sm">
-        <p><span class="font-bold">Guest:</span> ${data.guestName}</p>
-        <p><span class="font-bold">Room:</span> ${data.roomNumber}</p>
-      </div>
-      <table class="w-full text-sm mb-4">
-        <thead class="bg-[#2c3e50] text-white"><tr><th class="p-1">Room</th><th class="p-1">Qty</th><th class="p-1">Nights</th><th class="p-1 text-right">Total</th></tr></thead>
-        <tbody>${data.bookings.map(b => `<tr><td class="p-1 border-b">${b.roomType}</td><td class="p-1 border-b text-center">${b.quantity}</td><td class="p-1 border-b text-center">${b.nights}</td><td class="p-1 border-b text-right">${formatMoney(b.subtotal)}</td></tr>`).join('')}</tbody>
-      </table>
-      <div class="flex justify-end mb-6">
-        <div class="w-1/2 text-sm">
-          <div class="flex justify-between"><span>Subtotal:</span><span class="font-bold">${formatMoneyWithPrefix(data.subtotal)}</span></div>
-          <div class="flex justify-between font-bold border-t mt-2"><span>Total Due:</span><span>${formatMoneyWithPrefix(data.totalAmountDue)}</span></div>
-          <div class="flex justify-between"><span>Received:</span><span>${formatMoneyWithPrefix(data.amountReceived)}</span></div>
-          <div class="flex justify-between text-lg font-bold border-t"><span>Balance:</span><span>${formatMoneyWithPrefix(Math.abs(data.balance))}</span></div>
-        </div>
-      </div>
-      <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }</script>
-    </body>
-    </html>
-  `;
-  printWindow.document.write(html); printWindow.document.close();
-};
-
-const printWalkInReceipt = (data: WalkInTransaction, guestName: string) => {
-  const decimalFormatter = new Intl.NumberFormat('en-NG', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const formatMoney = (amount: number) => decimalFormatter.format(amount);
-  const symbol = data.currency === 'NGN' ? '₦' : '$';
+  const isReservation = tx.type === 'RESERVATION';
+  const isOwing = tx.balance < -0.1;
+  const absBalance = Math.abs(tx.balance);
+  const displayIDType = tx.guestIDType === IDType.OTHER ? (tx.guestIDOtherSpec || 'Other') : tx.guestIDType;
+  const issueDateStr = new Date(tx.date).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' });
+  const displayDiscount = tx.discount > 0 ? `- ${formatNaira(tx.discount)}` : formatNaira(0);
   
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) { alert('Please allow popups'); return; }
-
-  const chargesRows = data.charges.map((item) => {
-    const qty = item.quantity || 1;
-    const desc = item.otherServiceDescription || (item.service as string);
-    const displayDesc = qty > 1 ? `${qty}x ${desc}` : desc;
-    return `
-      <div class="row">
-        <div class="col-left">${displayDesc}</div>
-        <div class="col-right">${symbol}${formatMoney(item.amount)}</div>
-      </div>
-    `}).join('');
-
-  const totalDue = data.subtotal - data.discount + data.serviceCharge;
-
-  let paymentsHtml = '';
-  if (data.payments && data.payments.length > 0) {
-      const rows = data.payments.map(p => `
-        <div class="row">
-          <div class="col-left">${p.method} ${p.reference ? `(${p.reference})` : ''}</div>
-          <div class="col-right">${symbol}${formatMoney(p.amount)}</div>
-        </div>
-      `).join('');
-      paymentsHtml = `<div class="separator"></div><div class="bold mb-1">Payments</div>${rows}`;
-  }
-
-  let bankDetailsHtml = '';
-  if (data.balance < 0) {
-      bankDetailsHtml = `
-      <div class="separator"></div>
-      <div class="text-center bold mb-1">BANK DETAILS</div>
-      <div class="text-xs">Moniepoint: 5169200615</div>
-      <div class="text-xs">Providus: 1306538190</div>
-      <div class="text-xs">Name: Tide Hotels & Resorts</div>
-      `;
-  }
-
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Docket - ${data.id}</title>
-      <style> 
-        @media print { body { margin: 0; padding: 0; } } 
-        body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            font-size: 13px;
-            width: 80mm;
-            margin: 0 auto;
-            background: #fff;
-            color: #000;
-            padding: 5px 15px;
-            box-sizing: border-box;
-            line-height: 1.4;
-        }
-        .text-center { text-align: center; }
-        .bold { font-weight: 700; }
-        .mb-1 { margin-bottom: 4px; }
-        .mb-2 { margin-bottom: 8px; }
-        .separator { border-bottom: 1px solid #000; margin: 8px 0; border-style: double; }
-        .row { display: flex; justify-content: space-between; margin-bottom: 3px; }
-        .col-left { text-align: left; max-width: 65%; word-wrap: break-word; }
-        .col-right { text-align: right; flex: 1; }
-        .title { font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
-        .footer { font-size: 11px; margin-top: 20px; color: #444; }
-        .sig-block { margin-top: 25px; display: flex; justify-content: space-between; gap: 10px; }
-        .sig-line { border-top: 1px solid #000; width: 45%; padding-top: 4px; font-size: 10px; text-align: center; }
-      </style>
-    </head>
-    <body>
-      <div class="text-center mb-2">
-        <div class="title bold">TIDÈ HOTELS</div>
-        <div class="bold">AND RESORTS</div>
-        <div style="font-size: 11px;">Utako, Abuja</div>
-        <div class="separator"></div>
-        <div class="bold" style="font-size: 14px;">WALK-IN DOCKET</div>
-        <div style="font-size: 11px;">${formatDateForDisplay(data.transactionDate.split('T')[0])} | ${new Date(data.transactionDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-      </div>
-
-      <div class="row"><span>Receipt:</span><span>${data.id}</span></div>
-      <div class="row"><span>Guest:</span><span class="bold">${guestName}</span></div>
-      <div class="row"><span>Cashier:</span><span>${data.cashier}</span></div>
-
-      <div class="separator"></div>
-
-      <div class="row bold mb-1">
-        <div class="col-left">Description</div>
-        <div class="col-right">Amount</div>
-      </div>
-      
-      ${chargesRows}
-
-      <div class="separator"></div>
-
-      <div class="row"><span>Subtotal</span><span>${symbol}${formatMoney(data.subtotal)}</span></div>
-      ${data.discount > 0 ? `<div class="row"><span>Discount</span><span>-${symbol}${formatMoney(data.discount)}</span></div>` : ''}
-      <div class="row"><span>Svc Charge</span><span>${symbol}${formatMoney(data.serviceCharge)}</span></div>
-      <div class="row" style="font-size: 11px; opacity: 0.8;"><span>Incl. VAT (7.5%)</span><span>${symbol}${formatMoney(data.tax)}</span></div>
-      
-      <div class="row bold" style="font-size: 16px; margin-top: 5px;">
-        <div class="col-left">TOTAL</div>
-        <div class="col-right">${symbol}${formatMoney(totalDue)}</div>
-      </div>
-
-      ${paymentsHtml}
-
-      <div class="separator"></div>
-
-      <div class="row"><span>Total Paid</span><span>${symbol}${formatMoney(data.amountPaid)}</span></div>
-      <div class="row bold">
-        <span>${data.balance < 0 ? 'DUE' : 'BALANCE'}</span>
-        <span>${symbol}${formatMoney(Math.abs(data.balance))}</span>
-      </div>
-
-      ${bankDetailsHtml}
-
-      <div class="sig-block">
-        <div class="sig-line">Guest Signature</div>
-        <div class="sig-line">Cashier Signature</div>
-      </div>
-      
-      <div class="text-center footer">
-        Thank you for your patronage.<br>
-        Boldness Meets Elegance.
-      </div>
-      
-      <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }</script>
-    </body>
-    </html>
-  `;
-  printWindow.document.write(html);
-  printWindow.document.close();
-};
-
-const generateCSV = (transactions: RecordedTransaction[]): string => {
-    const headers = ['ID', 'Type', 'Date', 'Guest Name', 'Amount Due', 'Balance', 'Status', 'Currency'];
-    const rows = transactions.map(t => {
-        let status = 'N/A';
-        let amountDue = t.amount;
-        if (t.type === 'Hotel Stay') {
-            const d = t.data as InvoiceData; status = d.status; amountDue = d.totalAmountDue;
-        } else { status = t.balance < 0 ? 'Owing' : 'Paid'; }
-        return [t.id, t.type, t.date, `"${t.guestName}"`, amountDue.toFixed(2), t.balance.toFixed(2), status, t.currency].join(',');
-    });
-    return [headers.join(','), ...rows].join('\n');
-};
-
-const downloadCSV = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-};
-
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// COMPONENTS
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-const USERS = [
-  { username: 'Faith', password: 'F@i7h#92X!', role: 'Front Desk' },
-  { username: 'Goodness', password: 'G00d*N3ss$4', role: 'Front Desk' },
-  { username: 'Benjamin', password: 'B3nJ&9m_84', role: 'Front Desk' },
-  { username: 'Sandra', password: 'S@ndR4!51%', role: 'Front Desk' },
-  { username: 'David', password: 'D@v1D#73Q', role: 'Front Desk' },
-  { username: 'Ifeanyi', password: '1F3@yN!88*', role: 'Front Desk' },
-  { username: 'Margret', password: 'M@rG7eT_42', role: 'Front Desk' },
-  { username: 'Miriam', password: 'M1r!@m#97W', role: 'Front Desk' },
-  { username: 'Francis', password: 'Fr@nC1$62!', role: 'Admin' },
-];
-
-const WelcomeScreen = ({ onComplete }: { onComplete: () => void }) => {
-  useEffect(() => { const timer = setTimeout(onComplete, 1500); return () => clearTimeout(timer); }, [onComplete]);
-  return (
-    <div className="fixed inset-0 bg-[#2c3e50] flex flex-col items-center justify-center z-50 animate-fade-in-up">
-      <div className="text-center px-4">
-        <h1 className="text-4xl md:text-6xl font-bold text-[#c4a66a] mb-6 tracking-wider">Tidè Hotels and Resorts</h1>
-        <div className="h-1 w-32 bg-[#c4a66a] mx-auto mb-6 rounded"></div>
-        <p className="text-white text-lg md:text-xl tracking-[0.3em] uppercase font-light animate-pulse-slow">Where Boldness Meets Elegance</p>
-      </div>
-    </div>
-  );
-};
-
-const LoginScreen = ({ onLogin }: { onLogin: (user: any) => void }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const foundUser = USERS.find(u => u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password.trim());
-    if (foundUser) onLogin({ name: foundUser.username, role: foundUser.role });
-    else setError('Invalid credentials');
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <div className="bg-[#2c3e50] p-10 rounded-lg shadow-2xl w-96 border-t-4 border-[#c4a66a] animate-fade-in-up">
-        <div className="text-center mb-8">
-             <h2 className="text-lg font-medium text-gray-300 mb-1">Welcome to</h2>
-             <h1 className="text-2xl font-bold text-[#c4a66a]">Invoice Generator</h1>
-             <p className="text-xs text-[#c4a66a] italic mt-1">Tidè Hotels and Resorts</p>
-        </div>
-        <form onSubmit={handleLogin} className="space-y-5">
-          <input type="text" className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-[#c4a66a]" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
-          <div className="relative">
-            <input type={showPassword ? "text" : "password"} className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-[#c4a66a]" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
-              {showPassword ? "Hide" : "Show"}
-            </button>
+  if (isReservation) {
+    p.document.write(`
+      <html>
+        <head>
+          <title>Invoice - ${tx.guestName}</title>
+          <style>
+            @page { size: A4; margin: 10mm; }
+            body { font-family: 'Inter', sans-serif; padding: 0; margin: 0; color: #1e293b; line-height: 1.2; font-size: 11pt; }
+            .content-wrapper { display: flex; flex-direction: column; min-height: 270mm; justify-content: space-between; }
+            .header { border-bottom: 2px solid #c4a66a; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .logo h1 { margin: 0; font-weight: 900; font-size: 24pt; color: #0f172a; }
+            .logo span { color: #c4a66a; font-weight: bold; font-size: 8pt; text-transform: uppercase; letter-spacing: 2px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px; }
+            .info-col h4 { border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; margin-bottom: 5px; font-size: 9pt; text-transform: uppercase; color: #64748b; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; table-layout: fixed; }
+            th { text-align: left; background: #f8fafc; padding: 10px; font-size: 9pt; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+            td { padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 10pt; word-wrap: break-word; }
+            .totals { width: 300px; margin-left: auto; }
+            .total-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+            .grand-total { font-weight: 900; font-size: 14pt; border-top: 2px solid #0f172a; margin-top: 5px; padding-top: 5px; }
+            .footer { margin-top: auto; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px; padding-bottom: 10px; }
+            .tagline { color: #c4a66a; font-weight: 900; font-size: 10pt; letter-spacing: 2px; text-transform: uppercase; }
+            .bank-box { background:#fefce8; padding:15px; border-radius:8px; border:1px solid #fef08a; margin-top:15px; }
+          </style>
+        </head>
+        <body>
+          <div class="content-wrapper">
+            <div>
+              <div class="header">
+                <div class="logo"><h1>TIDÈ HOTELS</h1><span>${HOTEL_ADDRESS}</span></div>
+                <div style="text-align: right;"><h2>INVOICE FOLIO</h2><p>#${tx.id}</p></div>
+              </div>
+              <div class="grid">
+                <div class="info-col">
+                  <h4>GUEST INFORMATION</h4>
+                  <p><strong>${tx.guestName}</strong></p>
+                  <p>${tx.guestEmail || '---'}</p>
+                  <p>${tx.guestPhone || '---'}</p>
+                  <p>${displayIDType}: ${tx.guestIDNumber || '---'}</p>
+                </div>
+                <div class="info-col" style="text-align: right;">
+                  <h4>STAY DETAILS</h4>
+                  <p>Folio Ref: ${tx.roomNumber}</p>
+                  <p>Issued: ${issueDateStr}</p>
+                  <p>Cashier: ${tx.cashier}</p>
+                </div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 35%;">Description</th>
+                    <th style="width: 15%;">Qty</th>
+                    <th style="width: 20%;">Rate (Inc.)</th>
+                    <th style="width: 10%;">Nights</th>
+                    <th style="width: 20%; text-align: right;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>${tx.rooms?.map(r => `<tr><td>${r.roomType}<br/><small style="color: #64748b;">${r.checkIn} to ${r.checkOut}</small></td><td>${r.quantity}</td><td>${formatNaira(r.ratePerNight)}</td><td>${r.nights}</td><td style="text-align: right;">${formatNaira(r.ratePerNight * r.nights * r.quantity)}</td></tr>`).join('')}</tbody>
+              </table>
+              <div class="totals">
+                <div class="total-row"><span>Subtotal (Net + SC)</span><span>${formatNaira(tx.subtotal + tx.serviceCharge)}</span></div>
+                <div class="total-row"><span>VAT (7.5%)</span><span>${formatNaira(tx.vat)}</span></div>
+                <div class="total-row"><span>Discount</span><span>${displayDiscount}</span></div>
+                <div class="total-row grand-total"><span>Total Due</span><span>${formatNaira(tx.totalDue)}</span></div>
+                <div class="total-row"><span>Total Paid</span><span>${formatNaira(tx.totalPaid)}</span></div>
+                <div class="total-row" style="color:${isOwing ? 'red' : 'green'}; font-weight: bold;">
+                  <span>${isOwing ? 'Balance Due' : 'Balance'}</span><span>${formatNaira(absBalance)}</span>
+                </div>
+              </div>
+              ${isOwing ? `
+                <div class="bank-box">
+                  <h4 style="margin:0 0 8px 0; font-size:10pt; color:#a16207;">OFFICIAL SETTLEMENT INFO</h4>
+                  ${BANK_DETAILS.map(b => `<p style="font-size:9pt; margin:3px 0;"><strong>${b.bank}</strong> | ${b.account} | ${b.name}</p>`).join('')}
+                </div>
+              ` : ''}
+            </div>
+            <div class="footer">
+              <p>Thank you for choosing Tidè Hotels. We look forward to welcoming you again soon.</p>
+              <div class="tagline">Where Boldness Meets Elegance</div>
+            </div>
           </div>
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-          <button type="submit" className="w-full bg-[#c4a66a] text-white py-3 rounded font-bold hover:bg-[#b39556] transition-colors shadow-lg">Login</button>
-        </form>
-      </div>
-    </div>
-  );
+          <script>window.onload = () => { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+  } else {
+    p.document.write(`
+      <html>
+        <head>
+          <style>
+            @page { margin: 0; }
+            body { font-family: 'monospace'; width: 72mm; margin: 0 auto; padding: 10px; font-size: 11px; line-height: 1.2; text-align: center; }
+            .row { display: flex; justify-content: space-between; text-align: left; margin: 2px 0; }
+            .sep { border-bottom: 1px dashed #000; margin: 8px 0; }
+            .bold { font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="bold" style="font-size: 14px;">TIDÈ HOTELS</div>
+          <div style="font-size: 9px;">${HOTEL_ADDRESS}</div>
+          <div class="sep"></div>
+          <div class="bold">WALK-IN DOCKET</div>
+          <div class="row"><span>ID:</span><span>#${tx.id}</span></div>
+          <div class="row"><span>Guest:</span><span>${tx.guestName}</span></div>
+          <div class="row"><span>Date:</span><span>${issueDateStr}</span></div>
+          <div class="sep"></div>
+          ${tx.items?.map(i => `<div class="row"><span>${i.description}</span><span>${formatNaira(i.amount)}</span></div>`).join('')}
+          <div class="sep"></div>
+          <div class="row"><span>VAT (7.5%):</span><span>${formatNaira(tx.vat)}</span></div>
+          <div class="row bold"><span>TOTAL:</span><span>${formatNaira(tx.totalDue)}</span></div>
+          <div class="row"><span>PAID:</span><span>${formatNaira(tx.totalPaid)}</span></div>
+          <div class="row bold"><span>${isOwing ? 'OWING' : 'BAL'}:</span><span>${formatNaira(absBalance)}</span></div>
+          ${isOwing ? `<div class="sep"></div><div class="bold" style="margin-bottom:4px;">TRANSFER TO:</div>${BANK_DETAILS.map(b => `<div style="font-size:9px; text-align:left;">${b.bank}: ${b.account}</div>`).join('')}` : ''}
+          <div class="sep"></div>
+          <div style="font-style:italic; font-size:9px;">Boldness Meets Elegance</div>
+          <script>window.onload = () => { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+  }
+  p.document.close();
 };
 
-const Dashboard = ({ user, onLogout, onCreateInvoice, transactions, onDeleteTransaction, onEditTransaction, onCreateWalkIn }: any) => {
-  const today = new Date().toISOString().split('T')[0];
-  const todaysTransactions = transactions.filter((t: RecordedTransaction) => t.date === today);
-  const revenueTodayNGN = todaysTransactions.filter((t: RecordedTransaction) => t.currency === 'NGN').reduce((sum: number, t: RecordedTransaction) => sum + (t.type === 'Hotel Stay' ? (t.data as InvoiceData).amountReceived : (t.data as WalkInTransaction).amountPaid), 0);
-  const totalOwingNGN = transactions.filter((t: RecordedTransaction) => t.currency === 'NGN').reduce((sum: number, t: RecordedTransaction) => sum + (t.balance > 0 ? t.balance : 0), 0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('All Types');
-  const filteredTransactions = useMemo(() => {
-      return transactions.filter((t: RecordedTransaction) => {
-          const matchesSearch = t.guestName.toLowerCase().includes(searchTerm.toLowerCase()) || t.id.toLowerCase().includes(searchTerm.toLowerCase());
-          const matchesType = filterType === 'All Types' || t.type === filterType;
-          return matchesSearch && matchesType;
-      }).sort((a: RecordedTransaction, b: RecordedTransaction) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, searchTerm, filterType]);
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// UI WRAPPERS
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  const handleExportCSV = () => {
-    const csvContent = generateCSV(filteredTransactions);
-    downloadCSV(csvContent, `tide_transactions_${new Date().toISOString().split('T')[0]}.csv`);
+const GlassCard = ({ children, className = "" }: { children?: ReactNode, className?: string }) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5, ease: "circOut" }}
+    className={`bg-[#1e293b]/80 backdrop-blur-3xl border border-white/10 rounded-3xl shadow-2xl p-6 ${className}`}
+  >
+    {children}
+  </motion.div>
+);
+
+const InputField = ({ label, ...props }: any) => (
+  <div className="space-y-1 w-full overflow-hidden">
+    <label className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest pl-1 block truncate">
+      {label} {props.required && <span className="text-red-500">*</span>}
+    </label>
+    <input 
+      {...props} 
+      className="w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm placeholder:text-white/20" 
+    />
+  </div>
+);
+
+const SelectField = ({ label, options, ...props }: any) => (
+  <div className="space-y-1 w-full overflow-hidden">
+    <label className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest pl-1 block truncate">{label}</label>
+    <select {...props} className="w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm appearance-none cursor-pointer">
+      {options.map((o: any) => <option key={o.value || o} value={o.value || o} className="bg-[#1a252f] text-white">{o.label || o}</option>)}
+    </select>
+  </div>
+);
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// RESERVATION MODAL
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
+  // Try to load draft if not editing existing
+  const draftKey = 'tide_res_draft';
+  const getInitial = (key: string, def: any) => {
+    if (initial) return initial[key];
+    const saved = localStorage.getItem(draftKey);
+    if (saved) {
+      try { return JSON.parse(saved)[key]; } catch { return def; }
+    }
+    return def;
   };
 
-  return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow p-4 flex justify-between items-center">
-        <div><h1 className="text-xl font-bold text-[#c4a66a]">Tidè Hotels and Resorts</h1></div>
-        <div className="flex items-center gap-4">
-            <span className="text-sm">Welcome, {user.name}</span>
-            <button onClick={onLogout} className="bg-[#2c3e50] text-white px-4 py-2 rounded text-sm">Logout</button>
-        </div>
-      </nav>
-      <div className="p-8 max-w-7xl mx-auto">
-        <div className="mb-8 flex justify-between items-center">
-            <h2 className="text-xl font-bold">Dashboard</h2>
-            <div className="flex gap-3">
-                 <button onClick={onCreateWalkIn} className="bg-[#2c3e50] text-white px-4 py-2 rounded shadow hover:bg-[#34495e]">New Walk-In</button>
-                 <button onClick={onCreateInvoice} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded shadow-sm">+ New Reservation</button>
-            </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-             <div className="bg-[#2c3e50] text-white p-6 rounded-lg"><h3>Today</h3><p className="text-3xl font-bold">{todaysTransactions.length}</p></div>
-             <div className="bg-[#2c3e50] text-white p-6 rounded-lg"><h3>Revenue NGN</h3><p className="text-3xl font-bold">₦{revenueTodayNGN.toLocaleString()}</p></div>
-              <div className="bg-red-700 text-white p-6 rounded-lg"><h3>Outstanding</h3><p className="text-3xl font-bold">₦{totalOwingNGN.toLocaleString()}</p></div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex justify-between mb-4">
-                <h2 className="text-lg font-bold">Transactions</h2>
-                <button onClick={handleExportCSV} className="text-[#c4a66a] border border-[#c4a66a] px-3 py-1 rounded text-sm">Export CSV</button>
-            </div>
-            <div className="flex gap-4 mb-4">
-                <input type="text" placeholder="Search..." className="flex-1 border rounded p-2 text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-[#2c3e50] text-white"><tr><th className="p-3">ID</th><th className="p-3">Type</th><th className="p-3">Guest</th><th className="p-3">Amount</th><th className="p-3">Status</th><th className="p-3 text-right">Actions</th></tr></thead>
-                    <tbody>
-                        {filteredTransactions.map((t: RecordedTransaction) => (
-                            <tr key={t.id} className="border-b hover:bg-gray-50">
-                                <td className="p-3">{t.id}</td>
-                                <td className="p-3">{t.type}</td>
-                                <td className="p-3 font-bold">{t.guestName}</td>
-                                <td className="p-3">{formatCurrencyWithCode(t.amount, t.currency)}</td>
-                                <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-bold ${t.balance === 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{t.balance === 0 ? 'Paid' : 'Pending'}</span></td>
-                                <td className="p-3 text-right">
-                                    <button onClick={() => onEditTransaction(t)} className="text-blue-600 mr-2">View</button>
-                                    <button onClick={() => { if(confirm('Delete?')) onDeleteTransaction(t.id); }} className="text-red-600">Delete</button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+  const [guest, setGuest] = useState(() => getInitial('guestName', ''));
+  const [email, setEmail] = useState(() => getInitial('guestEmail', ''));
+  const [phone, setPhone] = useState(() => getInitial('guestPhone', ''));
+  const [idType, setIdType] = useState<IDType>(() => getInitial('guestIDType', IDType.NIN));
+  const [idOther, setIdOther] = useState(() => getInitial('guestIDOtherSpec', ''));
+  const [idNum, setIdNum] = useState(() => getInitial('guestIDNumber', ''));
+  const [roomNo, setRoomNo] = useState(() => getInitial('roomNumber', ''));
+  const [rooms, setRooms] = useState<BookingRoom[]>(() => getInitial('rooms', [{ 
+    id: uuid(), 
+    roomType: RoomType.SOJOURN_ROOM, 
+    checkIn: new Date().toISOString().split('T')[0], 
+    checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0], 
+    nights: 1, 
+    ratePerNight: ROOM_RATES[RoomType.SOJOURN_ROOM],
+    quantity: 1
+  }]));
+  const [payments, setPayments] = useState<PaymentEntry[]>(() => getInitial('payments', [{ id: uuid(), amount: 0, method: PaymentMethod.POS }]));
+  const [discount, setDiscount] = useState(() => getInitial('discount', 0));
+  const [manualSvc, setManualSvc] = useState<number | null>(() => getInitial('serviceCharge', null));
+  const [manualVat, setManualVat] = useState<number | null>(() => getInitial('vat', null));
 
-const InvoiceForm = ({ initialData, onSave, onCancel, user }: any) => {
-  const DRAFT_KEY = 'tide_invoice_draft';
-  const [isAutoServiceCharge, setIsAutoServiceCharge] = useState(true);
-  const [data, setData] = useState<InvoiceData>(() => {
-      if (initialData) return { ...initialData };
-      try {
-          const saved = localStorage.getItem(DRAFT_KEY);
-          if (saved) return JSON.parse(saved);
-      } catch (e) {}
-      return {
-        id: uuid(), receiptNo: `RCPT-${Date.now()}`, date: new Date().toISOString().split('T')[0], lastUpdatedAt: new Date().toISOString(),
-        guestName: '', guestEmail: '', phoneContact: '', roomNumber: '', documentType: 'reservation', status: InvoiceStatus.PENDING,
-        bookings: [], additionalChargeItems: [], subtotal: 0, discount: 0, holidaySpecialDiscountName: 'Holiday Offer',
-        holidaySpecialDiscount: 0, serviceCharge: 0, taxPercentage: 7.5, taxAmount: 0, totalAmountDue: 0,
-        payments: [], amountReceived: 0, balance: 0, amountInWords: '', paymentPurpose: '', receivedBy: user.name, designation: 'Staff', currency: 'NGN',
-      };
-  });
-
-  const totals = useMemo(() => {
-      let sub = 0;
-      data.bookings.forEach(b => sub += b.subtotal);
-      data.additionalChargeItems.forEach(c => sub += c.amount);
-      const taxable = sub - data.discount - data.holidaySpecialDiscount;
-      const svc = isAutoServiceCharge ? Math.round(taxable * 0.05) : data.serviceCharge;
-      const tax = Math.max(0, taxable - (taxable / 1.075));
-      const total = Math.max(0, taxable + svc);
-      let received = 0;
-      data.payments.forEach(p => received += p.amount);
-      return { subtotal: sub, serviceCharge: svc, taxAmount: tax, totalAmountDue: total, amountReceived: received, balance: total - received, amountInWords: convertAmountToWords(received, data.currency) };
-  }, [data.bookings, data.additionalChargeItems, data.payments, data.discount, data.holidaySpecialDiscount, data.currency, data.serviceCharge, isAutoServiceCharge]);
-
+  // Auto-save logic
   useEffect(() => {
-      const timer = setTimeout(() => {
-          const fullData = { ...data, ...totals };
-          if (!initialData) localStorage.setItem(DRAFT_KEY, JSON.stringify(fullData));
-      }, 2000); 
-      return () => clearTimeout(timer);
-  }, [data, totals, initialData]);
+    if (!initial) {
+      const draft = { guestName: guest, guestEmail: email, guestPhone: phone, guestIDType: idType, guestIDOtherSpec: idOther, guestIDNumber: idNum, roomNumber: roomNo, rooms, payments, discount, serviceCharge: manualSvc, vat: manualVat };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+    }
+  }, [guest, email, phone, idType, idOther, idNum, roomNo, rooms, payments, discount, manualSvc, manualVat]);
 
-  const addBooking = () => {
-      const rates = data.currency === 'USD' ? ROOM_RATES_USD : ROOM_RATES_NGN;
-      const nb: BookingItem = { id: uuid(), roomType: RoomType.SOJOURN_ROOM, quantity: 1, checkIn: data.date, checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0], nights: 1, ratePerNight: rates[RoomType.SOJOURN_ROOM], subtotal: rates[RoomType.SOJOURN_ROOM] };
-      setData(prev => ({ ...prev, bookings: [...prev.bookings, nb] }));
+  const grossSubtotal = useMemo(() => rooms.reduce((s, r) => s + (r.ratePerNight * r.nights * (r.quantity || 1)), 0), [rooms]);
+  const { net, svc, vat } = useMemo(() => calculateInclusiveFinancials(grossSubtotal), [grossSubtotal]);
+  
+  const finalSvc = manualSvc ?? svc;
+  const finalVat = manualVat ?? vat;
+  const totalDue = grossSubtotal - discount; 
+  
+  const totalPaid = useMemo(() => payments.reduce((s, p) => s + p.amount, 0), [payments]);
+  const currentBalance = totalPaid - totalDue;
+
+  const updateNights = (rid: string, cin: string, cout: string) => {
+    const start = new Date(cin);
+    const end = new Date(cout);
+    const diff = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
+    setRooms(rooms.map(r => r.id === rid ? { ...r, checkIn: cin, checkOut: cout, nights: diff } : r));
   };
 
-  const addCharge = () => setData(prev => ({ ...prev, additionalChargeItems: [...prev.additionalChargeItems, { id: uuid(), description: '', quantity: 1, unitPrice: 0, amount: 0 }] }));
-  const addPayment = () => setData(prev => ({ ...prev, payments: [...prev.payments, { id: uuid(), date: new Date().toISOString().split('T')[0], amount: 0, paymentMethod: PaymentMethod.CASH, recordedBy: user.name }] }));
+  const handleSave = () => {
+    if (!guest.trim()) return alert("VALIDATION ERROR: Guest Name is required.");
+    if (!email.trim()) return alert("VALIDATION ERROR: Email is required for reservations.");
+    
+    // Clear draft on successful auth
+    if (!initial) localStorage.removeItem(draftKey);
 
-  const updateBooking = (id: string, f: string, v: any) => {
-    const rates = data.currency === 'USD' ? ROOM_RATES_USD : ROOM_RATES_NGN;
-    setData(prev => ({
-        ...prev,
-        bookings: prev.bookings.map(b => {
-            if (b.id !== id) return b;
-            const updated = { ...b, [f]: v };
-            if (f === 'roomType') updated.ratePerNight = rates[v as RoomType];
-            if (f === 'checkIn' || f === 'checkOut') updated.nights = calculateNights(updated.checkIn, updated.checkOut);
-            updated.subtotal = updated.nights * updated.quantity * updated.ratePerNight;
-            return updated;
-        })
-    }));
+    onSave({
+      id: initial?.id || `RES-${uuid()}`, type: 'RESERVATION', date: new Date().toISOString(),
+      guestName: guest, guestEmail: email, guestPhone: phone, guestIDType: idType, guestIDOtherSpec: idOther, guestIDNumber: idNum,
+      roomNumber: roomNo, rooms, subtotal: net, serviceCharge: finalSvc, vat: finalVat, discount, totalDue,
+      payments, totalPaid, balance: currentBalance, cashier: cashierName
+    });
   };
-
-  const updateCharge = (id: string, f: string, v: any) => {
-    setData(prev => ({
-        ...prev,
-        additionalChargeItems: prev.additionalChargeItems.map(c => {
-            if (c.id !== id) return c;
-            const updated = { ...c, [f]: v };
-            if (f === 'description' && v) {
-                const drink = DRINK_LIST.find(d => d.name.toLowerCase() === v.toLowerCase());
-                if (drink) { updated.description = drink.name; updated.unitPrice = drink.price; }
-            }
-            updated.amount = (updated.quantity || 1) * (updated.unitPrice || 0);
-            return updated;
-        })
-    }));
-  };
-
-  const handleSave = () => { onSave({ ...data, ...totals }); localStorage.removeItem(DRAFT_KEY); };
 
   return (
-    <div className="bg-white min-h-screen p-8 text-gray-900">
-       <div className="flex justify-between items-center mb-8">
-           <h1 className="text-3xl font-bold text-[#c4a66a]">{initialData ? 'Edit Record' : 'New Reservation'}</h1>
-           <div className="flex gap-2">
-               <button onClick={handleSave} className="bg-[#c4a66a] text-white px-6 py-2 rounded font-bold">Save & Close</button>
-               <button onClick={onCancel} className="text-gray-500">Cancel</button>
-           </div>
-       </div>
-       <div className="max-w-4xl mx-auto space-y-6">
-           <div className="bg-gray-50 p-6 rounded-lg border">
-               <div className="grid grid-cols-2 gap-4">
-                    <input type="text" placeholder="Guest Name" className="p-2 border rounded" value={data.guestName} onChange={e => setData({...data, guestName: e.target.value})} />
-                    <input type="text" placeholder="Room Number" className="p-2 border rounded" value={data.roomNumber} onChange={e => setData({...data, roomNumber: e.target.value})} />
-               </div>
-           </div>
-           <div>
-               <div className="flex justify-between mb-2"><h3 className="font-bold">Bookings</h3><button onClick={addBooking} className="text-xs text-[#c4a66a] font-bold">+ Add</button></div>
-               <div className="bg-white border rounded">
-                   {data.bookings.map(b => (
-                       <div key={b.id} className="p-3 border-b flex gap-3 items-center">
-                           <select className="flex-1 p-1" value={b.roomType} onChange={e => updateBooking(b.id, 'roomType', e.target.value)}>{Object.values(RoomType).map(rt => <option key={rt} value={rt}>{rt}</option>)}</select>
-                           <input type="number" className="w-16 border p-1" value={b.quantity} onChange={e => updateBooking(b.id, 'quantity', parseInt(e.target.value))} />
-                           <input type="date" className="w-32 border p-1" value={b.checkIn} onChange={e => updateBooking(b.id, 'checkIn', e.target.value)} />
-                           <div className="font-bold">₦{b.subtotal.toLocaleString()}</div>
-                       </div>
-                   ))}
-               </div>
-           </div>
-           <div>
-               <div className="flex justify-between mb-2"><h3 className="font-bold">Payments</h3><button onClick={addPayment} className="text-xs text-green-600 font-bold">+ Add</button></div>
-               {data.payments.map(p => (
-                   <div key={p.id} className="p-3 border rounded mb-2 flex gap-3 items-center">
-                        <select className="p-1" value={p.paymentMethod} onChange={e => setData({...data, payments: data.payments.map(px => px.id === p.id ? {...px, paymentMethod: e.target.value as any} : px)})}>{Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}</select>
-                        <input type="number" className="flex-1 border p-1" placeholder="Amount" value={p.amount} onChange={e => setData({...data, payments: data.payments.map(px => px.id === p.id ? {...px, amount: parseFloat(e.target.value) || 0} : px)})} />
-                   </div>
-               ))}
-           </div>
-           <div className="bg-[#2c3e50] text-white p-6 rounded-lg text-right">
-               <div className="text-lg opacity-80">Total Due</div>
-               <div className="text-3xl font-bold text-[#c4a66a]">{formatCurrencyWithCode(totals.totalAmountDue, data.currency)}</div>
-           </div>
-       </div>
-    </div>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} className="max-w-7xl w-full max-h-[92vh] flex flex-col">
+        <GlassCard className="!p-0 border-[#c4a66a]/20 h-full flex flex-col overflow-hidden">
+          <div className="p-6 bg-[#1a252f] flex justify-between items-center border-b border-white/5 shrink-0">
+            <h2 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+              <span className="w-1.5 h-6 bg-[#c4a66a] rounded-full"></span>
+              Reservation Folio
+            </h2>
+            <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-white/5 flex items-center justify-center text-white/40 hover:text-white transition-all">&times;</button>
+          </div>
+          
+          <div className="p-8 overflow-y-auto custom-scrollbar space-y-8 flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              <div className="md:col-span-2"><InputField label="Guest Full Name" value={guest} onChange={(e:any)=>setGuest(e.target.value)} required /></div>
+              <InputField label="Primary Phone" value={phone} onChange={(e:any)=>setPhone(e.target.value)} />
+              <InputField label="Folio Reference" value={roomNo} placeholder="e.g. Room 301 / Corporate" onChange={(e:any)=>setRoomNo(e.target.value)} />
+              
+              <SelectField label="ID Protocol" value={idType} options={Object.values(IDType)} onChange={(e:any)=>setIdType(e.target.value)} />
+              {idType === IDType.OTHER && <InputField label="Specify ID Type" value={idOther} onChange={(e:any)=>setIdOther(e.target.value)} />}
+              <div className={`${idType === IDType.OTHER ? 'md:col-span-1' : 'md:col-span-2'}`}><InputField label="ID Serial Number" value={idNum} onChange={(e:any)=>setIdNum(e.target.value)} /></div>
+              <InputField label="Electronic Mail" type="email" value={email} onChange={(e:any)=>setEmail(e.target.value)} required />
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Stay Configuration</h3>
+                <button onClick={()=>setRooms([...rooms, { id: uuid(), roomType: RoomType.SOJOURN_ROOM, checkIn: '', checkOut: '', nights: 1, ratePerNight: ROOM_RATES[RoomType.SOJOURN_ROOM], quantity: 1 }])} className="text-[#c4a66a] text-[10px] font-black uppercase hover:opacity-70 transition-opacity bg-[#c4a66a]/10 px-4 py-2 rounded-lg">+ Add Stay Unit</button>
+              </div>
+              <div className="space-y-4">
+                {rooms.map((r, i) => (
+                  <motion.div initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} key={r.id} className="grid grid-cols-1 md:grid-cols-8 lg:grid-cols-12 gap-4 bg-[#0f172a] p-5 rounded-2xl border border-white/5 items-end">
+                    <div className="md:col-span-2 lg:col-span-3"><SelectField label="Room Category" value={r.roomType} options={Object.values(RoomType)} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, roomType: e.target.value, ratePerNight: ROOM_RATES[e.target.value as RoomType]}:rx))} /></div>
+                    <div className="md:col-span-1 lg:col-span-1"><InputField label="Qty" type="number" value={r.quantity} min="1" onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, quantity: Math.max(1, parseInt(e.target.value)||1)}:rx))} /></div>
+                    <div className="md:col-span-1 lg:col-span-2"><InputField label="Rate" type="number" value={r.ratePerNight} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, ratePerNight: Math.max(0, parseFloat(e.target.value)||0)}:rx))} /></div>
+                    <div className="md:col-span-2 lg:col-span-2"><InputField label="Check-In" type="date" value={r.checkIn} onChange={(e:any)=>updateNights(r.id, e.target.value, r.checkOut)} /></div>
+                    <div className="md:col-span-2 lg:col-span-2"><InputField label="Check-Out" type="date" value={r.checkOut} onChange={(e:any)=>updateNights(r.id, r.checkIn, e.target.value)} /></div>
+                    <div className="flex flex-col items-center justify-center bg-[#1a252f] p-3.5 rounded-xl border border-white/5 text-center min-w-[60px] lg:col-span-1">
+                      <span className="text-[9px] text-white/30 uppercase font-bold">Nights</span>
+                      <span className="font-black text-[#c4a66a]">{r.nights}</span>
+                    </div>
+                    <button onClick={()=>setRooms(rooms.filter(rx=>rx.id!==r.id))} className="text-red-500/20 hover:text-red-500 p-4 transition-colors flex items-center justify-center lg:col-span-1">&times;</button>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 border-t border-white/5 pt-8">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center"><h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Settlement</h3><button onClick={()=>setPayments([...payments, {id: uuid(), amount: 0, method: PaymentMethod.POS}])} className="text-[#c4a66a] text-[10px] font-black uppercase bg-[#c4a66a]/10 px-4 py-2 rounded-lg">+ Add Split</button></div>
+                <div className="space-y-3">
+                  {payments.map(p => (
+                    <div key={p.id} className="flex gap-3 bg-[#0f172a] p-3.5 rounded-2xl border border-white/5 group">
+                      <select className="bg-transparent text-xs text-white outline-none flex-1 font-bold cursor-pointer" value={p.method} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, method: e.target.value as any}:px))}>
+                        {Object.values(PaymentMethod).map(m=><option key={m} value={m} className="bg-[#1e293b]">{m}</option>)}
+                      </select>
+                      <input type="number" className="bg-transparent text-right font-black w-32 outline-none border-b border-white/10 group-focus-within:border-[#c4a66a] transition-all" placeholder="Amount" value={p.amount || ''} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, amount: Math.max(0, parseFloat(e.target.value)||0)}:px))} />
+                      <button onClick={() => setPayments(payments.filter(px => px.id !== p.id))} className="text-red-500/30 hover:text-red-500 transition-colors px-2">&times;</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5 space-y-5">
+                <div className="flex justify-between text-xs font-bold text-white/40 uppercase tracking-widest"><span>Gross Subtotal</span><span>{formatNaira(grossSubtotal)}</span></div>
+                <div className="grid grid-cols-2 gap-6 opacity-60">
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-black text-[#c4a66a]">SC (10% Inc.)</span><span className="text-sm font-bold">{formatNaira(finalSvc)}</span></div>
+                  <div className="flex flex-col"><span className="text-[10px] uppercase font-black text-[#c4a66a]">VAT (7.5% Inc.)</span><span className="text-sm font-bold">{formatNaira(finalVat)}</span></div>
+                </div>
+                <InputField label="Corporate Discount" type="number" value={discount || ''} onChange={(e:any)=>setDiscount(Math.max(0, parseFloat(e.target.value)||0))} />
+                <div className="pt-6 border-t border-white/10 flex justify-between items-end">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Total Valuation</span>
+                    <span className="text-4xl font-black text-[#c4a66a] tracking-tighter">{formatNaira(totalDue)}</span>
+                  </div>
+                  <div className="text-right flex flex-col">
+                    <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">{currentBalance < -0.1 ? 'Balance Due' : 'Balance'}</span>
+                    <span className={`text-2xl font-black tracking-tighter ${currentBalance < -0.1 ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {formatNaira(Math.abs(currentBalance))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="p-8 bg-[#1a252f] border-t border-white/5 shrink-0">
+            <button onClick={handleSave} className="w-full bg-gradient-to-r from-[#c4a66a] to-[#a38954] text-[#1a252f] py-6 rounded-3xl font-black uppercase tracking-[0.2em] shadow-2xl hover:brightness-110 active:scale-[0.99] transition-all">Authorize & Print Master Folio</button>
+          </div>
+        </GlassCard>
+      </motion.div>
+    </motion.div>
   );
 };
 
-const WalkInGuestModal = ({ onClose, onSave, user, initialData, initialGuestName }: any) => {
-    const [guestName, setGuestName] = useState(initialGuestName || 'Walk-In Guest');
-    const [currency, setCurrency] = useState<'NGN'|'USD'>(initialData?.currency || 'NGN');
-    const [items, setItems] = useState<WalkInChargeItem[]>(initialData?.charges || [{ id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, amount: 0, quantity: 1, unitPrice: 0, paymentMethod: PaymentMethod.POS }]);
-    const [payments, setPayments] = useState<WalkInPayment[]>(initialData?.payments || []);
-    const [discount, setDiscount] = useState(initialData?.discount || 0);
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// WALK-IN MODAL
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    const subtotal = items.reduce((sum, i) => sum + (i.amount || 0), 0);
-    const serviceCharge = Math.round((subtotal - discount) * 0.05);
-    const tax = Math.max(0, (subtotal - discount) - ((subtotal - discount) / 1.075));
-    const totalDue = Math.max(0, (subtotal - discount) + serviceCharge);
-    const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const balance = totalPaid - totalDue;
+const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
+  const draftKey = 'tide_walkin_draft';
+  const getInitial = (key: string, def: any) => {
+    if (initial) return initial[key];
+    const saved = localStorage.getItem(draftKey);
+    if (saved) {
+      try { return JSON.parse(saved)[key]; } catch { return def; }
+    }
+    return def;
+  };
 
-    const addItem = () => setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.RESTAURANT, quantity: 1, unitPrice: 0, amount: 0, paymentMethod: PaymentMethod.POS }]);
-    const addDrink = (name: string) => {
-        const d = DRINK_LIST.find(dx => dx.name === name);
-        if (d) setItems([...items, { id: uuid(), date: new Date().toISOString().split('T')[0], service: WalkInService.BAR, otherServiceDescription: d.name, quantity: 1, unitPrice: d.price, amount: d.price, paymentMethod: PaymentMethod.POS }]);
-    };
-    const addPayment = () => setPayments([...payments, { id: uuid(), amount: 0, method: PaymentMethod.POS, reference: '' }]);
-    const handleSave = () => { if (!guestName) return; onSave({ id: initialData?.id || `WIG-${Date.now().toString().slice(-6)}`, transactionDate: initialData?.transactionDate || new Date().toISOString(), charges: items, currency, subtotal, discount, serviceCharge, tax, amountPaid: totalPaid, balance: balance < 0 ? balance : 0, cashier: user.name, paymentMethod: PaymentMethod.POS, payments }, guestName); };
+  const [guest, setGuest] = useState(() => getInitial('guestName', 'Walk-In Guest'));
+  const [items, setItems] = useState(() => getInitial('items', [{ description: 'Bar/Restaurant', amount: 0 }]));
+  const [payments, setPayments] = useState<PaymentEntry[]>(() => getInitial('payments', [{ id: uuid(), amount: 0, method: PaymentMethod.POS }]));
 
-    return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="p-6 border-b flex justify-between items-center">
-                    <h2 className="text-xl font-bold">New Walk-In Docket</h2>
-                    <button onClick={onClose} className="text-2xl">&times;</button>
-                </div>
-                <div className="p-6 space-y-4 overflow-y-auto">
-                    <input type="text" className="w-full border p-3 rounded font-bold" placeholder="Guest Name" value={guestName} onChange={e => setGuestName(e.target.value)} />
-                    <div className="flex justify-between items-center"><span className="font-bold">Charges</span> <button onClick={addItem} className="text-xs bg-[#c4a66a] text-white px-2 py-1 rounded">+ Add Item</button></div>
-                    <select className="w-full text-xs p-1 border" onChange={e => { addDrink(e.target.value); e.target.value = ''; }}><option value="">+ Quick Add Drink</option>{DRINK_LIST.map(d => <option key={d.name} value={d.name}>{d.name} (₦{d.price})</option>)}</select>
-                    {items.map(item => (
-                        <div key={item.id} className="p-3 border rounded bg-gray-50 flex gap-2 items-center">
-                            <input type="text" className="flex-1 text-sm border-none bg-transparent" placeholder="Description" value={item.otherServiceDescription || ''} onChange={e => setItems(items.map(ix => ix.id === item.id ? {...ix, otherServiceDescription: e.target.value} : ix))} />
-                            <input type="number" className="w-20 text-right font-bold text-[#c4a66a]" value={item.amount} onChange={e => setItems(items.map(ix => ix.id === item.id ? {...ix, amount: parseFloat(e.target.value) || 0} : ix))} />
-                        </div>
-                    ))}
-                    <div className="bg-[#2c3e50] text-white p-4 rounded-lg">
-                        <div className="flex justify-between text-lg font-bold"><span>Total Due</span> <span>₦{totalDue.toLocaleString()}</span></div>
-                    </div>
-                    <div className="flex justify-between items-center"><span className="font-bold">Payments</span> <button onClick={addPayment} className="text-xs text-green-600 font-bold">+ Split</button></div>
-                    {payments.map(p => (
-                        <div key={p.id} className="flex gap-2 p-2 border rounded">
-                             <select className="text-xs" value={p.method} onChange={e => setPayments(payments.map(px => px.id === p.id ? {...px, method: e.target.value as any} : px))}>{Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}</select>
-                             <input type="number" className="flex-1 text-right font-bold" placeholder="Paid" value={p.amount} onChange={e => setPayments(payments.map(px => px.id === p.id ? {...px, amount: parseFloat(e.target.value) || 0} : px))} />
-                        </div>
-                    ))}
-                </div>
-                <div className="p-6 bg-gray-50 border-t flex gap-3">
-                    <button onClick={onClose} className="flex-1 py-3 border rounded font-bold">Cancel</button>
-                    <button onClick={handleSave} className="flex-1 py-3 bg-[#c4a66a] text-white rounded font-bold">Print & Save</button>
-                </div>
+  // Auto-save logic
+  useEffect(() => {
+    if (!initial) {
+      const draft = { guestName: guest, items, payments };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+    }
+  }, [guest, items, payments]);
+
+  const grossSubtotal = useMemo(() => items.reduce((s:any, i:any) => s + i.amount, 0), [items]);
+  const { net, svc, vat } = useMemo(() => calculateInclusiveFinancials(grossSubtotal), [grossSubtotal]);
+  const totalDue = grossSubtotal;
+  
+  const totalPaid = useMemo(() => payments.reduce((s, p) => s + p.amount, 0), [payments]);
+  const currentBalance = totalPaid - totalDue;
+
+  const handleSave = () => {
+    if (!guest.trim()) return alert("VALIDATION ERROR: Guest/Customer Label is required.");
+    
+    // Clear draft on successful auth
+    if (!initial) localStorage.removeItem(draftKey);
+
+    onSave({
+      id: initial?.id || `W-${uuid()}`, type: 'WALK-IN', date: new Date().toISOString(),
+      guestName: guest, items, subtotal: net, serviceCharge: svc, vat, discount: 0,
+      totalDue, payments, totalPaid, balance: currentBalance, cashier: user
+    });
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4">
+      <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="max-w-xl w-full">
+        <GlassCard className="space-y-6">
+          <div className="flex justify-between items-center border-b border-white/5 pb-4">
+            <h2 className="text-2xl font-black text-white uppercase tracking-tighter">POS Direct Sale</h2>
+            <button onClick={onClose} className="text-white/20 text-3xl hover:text-white transition-all">&times;</button>
+          </div>
+          
+          <InputField label="Customer / Tab Label" value={guest} onChange={(e:any)=>setGuest(e.target.value)} required />
+          
+          <div className="space-y-2">
+            <div className="flex justify-between text-[10px] font-black uppercase text-[#c4a66a] tracking-widest">
+              <span>Order Items</span>
+              <button onClick={()=>setItems([...items, {description: '', amount: 0}])} className="bg-[#c4a66a]/10 p-1 px-3 rounded-md hover:bg-[#c4a66a]/20 transition-all">+</button>
             </div>
-        </div>
-    );
+            <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-2">
+              {items.map((it, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <input className="flex-1 bg-black/40 p-3.5 rounded-xl text-sm outline-none text-white border border-white/5 focus:border-[#c4a66a]/50" value={it.description} placeholder="Description" onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, description: e.target.value}:x))} />
+                  <input type="number" className="w-28 bg-black/40 p-3.5 rounded-xl text-right font-black text-[#c4a66a] outline-none border border-white/5 focus:border-[#c4a66a]/50" value={it.amount || ''} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, amount: Math.max(0, parseFloat(e.target.value)||0)}:x))} />
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="p-6 bg-black/50 rounded-3xl border border-white/5 space-y-3">
+            <div className="flex justify-between text-[10px] font-bold text-white/30 uppercase tracking-widest">
+              <span>Net Subtotal</span>
+              <span>{formatNaira(net)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black text-[#c4a66a] uppercase">Service Charge (Inc.)</span>
+                <span className="text-xs font-bold text-white/60">{formatNaira(svc)}</span>
+              </div>
+              <div className="flex flex-col text-right">
+                <span className="text-[9px] font-black text-[#c4a66a] uppercase">VAT (Inc.)</span>
+                <span className="text-xs font-bold text-white/60">{formatNaira(vat)}</span>
+              </div>
+            </div>
+            <div className="flex justify-between text-2xl font-black pt-3 border-t border-white/10 tracking-tighter">
+              <span>Grand Total</span>
+              <span className="text-[#c4a66a]">{formatNaira(totalDue)}</span>
+            </div>
+            <div className="flex justify-between text-sm font-bold pt-1 border-t border-white/5 text-white/40">
+              <span>{currentBalance < -0.1 ? 'Balance Due:' : 'Balance:'}</span>
+              <span className={currentBalance < -0.1 ? 'text-red-400' : 'text-emerald-400'}>
+                {formatNaira(Math.abs(currentBalance))}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-[10px] font-black uppercase text-[#c4a66a] tracking-widest">
+              <span>Settlement (Amount Paid)</span>
+              <button onClick={() => setPayments([...payments, {id: uuid(), amount: 0, method: PaymentMethod.POS}])} className="text-[9px] bg-[#c4a66a]/20 px-2 py-1 rounded hover:bg-[#c4a66a]/30 transition-all">+</button>
+            </div>
+            <div className="max-h-[140px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
+              {payments.map(p => (
+                <div key={p.id} className="flex gap-2 bg-white/5 p-2 rounded-2xl items-center">
+                  <select className="flex-1 bg-transparent p-2 text-xs text-white outline-none cursor-pointer font-bold" value={p.method} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, method: e.target.value as any}:px))}>
+                    {Object.values(PaymentMethod).map(m=><option key={m} value={m} className="bg-[#1e293b]">{m}</option>)}
+                  </select>
+                  <input type="number" className="w-32 bg-transparent p-2 text-right font-black text-white outline-none border-b border-white/10 focus:border-[#c4a66a] transition-all" placeholder="0.00" value={p.amount || ''} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, amount: Math.max(0, parseFloat(e.target.value)||0)}:px))} />
+                  <button onClick={() => setPayments(payments.filter(px => px.id !== p.id))} className="text-red-500/30 hover:text-red-500 transition-colors px-2">&times;</button>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex gap-4 pt-6">
+             <button onClick={onClose} className="flex-1 text-[10px] font-black uppercase text-white/20 tracking-widest hover:text-white transition-all">Cancel</button>
+             <button onClick={handleSave} className="flex-[2] bg-[#c4a66a] text-[#1a252f] py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-2xl hover:brightness-110 active:scale-95 transition-all">Authorize & Print</button>
+          </div>
+        </GlassCard>
+      </motion.div>
+    </motion.div>
+  );
 };
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// MAIN APPLICATION
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 const App = () => {
-    const [showWelcome, setShowWelcome] = useState(true);
-    const [user, setUser] = useState<any>(null);
-    const [view, setView] = useState<'login' | 'dashboard' | 'invoice'>('login');
-    const [transactions, setTransactions] = useState<RecordedTransaction[]>([]);
-    const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(null);
-    const [showWalkInModal, setShowWalkInModal] = useState(false);
-    const [editingWalkIn, setEditingWalkIn] = useState<{data: WalkInTransaction, guestName: string} | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [modalType, setModalType] = useState<'RES' | 'WALK' | null>(null);
+  const [editTarget, setEditTarget] = useState<Transaction | null>(null);
 
-    useEffect(() => {
-        const stored = localStorage.getItem('tide_transactions');
-        if (stored) { try { setTransactions(JSON.parse(stored)); } catch(e) {} }
-        const storedUser = localStorage.getItem('tide_user');
-        if (storedUser) setUser(JSON.parse(storedUser));
-    }, []);
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 2800);
+    const saved = localStorage.getItem('tide_v25_ultra');
+    if (saved) setTransactions(JSON.parse(saved));
+    return () => clearTimeout(timer);
+  }, []);
 
-    useEffect(() => { localStorage.setItem('tide_transactions', JSON.stringify(transactions)); }, [transactions]);
+  useEffect(() => { localStorage.setItem('tide_v25_ultra', JSON.stringify(transactions)); }, [transactions]);
 
-    const handleLogin = (u: any) => { setUser(u); localStorage.setItem('tide_user', JSON.stringify(u)); setView('dashboard'); };
-    const handleLogout = () => { setUser(null); localStorage.removeItem('tide_user'); setView('login'); };
-    const handleSaveInvoice = (id: InvoiceData) => {
-        const existing = transactions.findIndex(t => (t.data as any).id === id.id);
-        const record: RecordedTransaction = { id: id.receiptNo, type: 'Hotel Stay', date: id.date, guestName: id.guestName, amount: id.totalAmountDue, balance: id.balance, currency: id.currency, data: id };
-        if (existing >= 0) { const upd = [...transactions]; upd[existing] = record; setTransactions(upd); } else { setTransactions([record, ...transactions]); }
-        setView('dashboard'); setEditingInvoice(null);
-    };
+  const stats = useMemo(() => ({
+    revenue: transactions.reduce((s,t)=>s+t.totalPaid, 0),
+    receivables: transactions.reduce((s,t)=>s+(t.balance < -0.1 ? Math.abs(t.balance) : 0), 0),
+    total: transactions.length
+  }), [transactions]);
 
-    const handleSaveWalkIn = (data: WalkInTransaction, guestName: string) => {
-        const existing = transactions.findIndex(t => t.id === data.id);
-        const record: RecordedTransaction = { id: data.id, type: 'Walk-In', date: data.transactionDate.split('T')[0], guestName, amount: data.amountPaid, balance: data.balance, currency: data.currency, data };
-        if (existing >= 0) { const upd = [...transactions]; upd[existing] = record; setTransactions(upd); } else { setTransactions([record, ...transactions]); }
-        setShowWalkInModal(false); printWalkInReceipt(data, guestName);
-    };
+  const handleDelete = (id: string) => {
+    if (window.confirm("CRITICAL ACTION: Are you sure you want to permanently delete this record?")) {
+      setTransactions(transactions.filter(t => t.id !== id));
+    }
+  };
 
-    if (showWelcome) return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
-    if (!user) return <LoginScreen onLogin={handleLogin} />;
-    if (view === 'invoice') return <InvoiceForm initialData={editingInvoice} onSave={handleSaveInvoice} onCancel={() => setView('dashboard')} user={user} />;
+  if (loading) return (
+    <div className="fixed inset-0 bg-[#0f172a] flex flex-col items-center justify-center overflow-hidden">
+      <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 1.2, ease: "circOut" }}>
+        <h1 className="text-9xl md:text-[14rem] font-black text-transparent bg-clip-text bg-gradient-to-b from-[#c4a66a] to-[#7c633a] tracking-tighter leading-none select-none">TIDÈ</h1>
+        <div className="h-1 bg-gradient-to-r from-transparent via-[#c4a66a]/40 to-transparent mt-2 relative">
+          <motion.div initial={{ left: '-100%' }} animate={{ left: '100%' }} transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }} className="absolute h-full w-1/2 bg-[#c4a66a] blur-sm" />
+        </div>
+      </motion.div>
+      <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 0.3, y: 0 }} transition={{ delay: 0.5 }} className="mt-12 text-white uppercase tracking-[1.8em] font-black text-[10px] pl-[1.8em]">Sovereign Management Suite</motion.p>
+    </div>
+  );
 
-    return (
-        <>
-            <Dashboard user={user} onLogout={handleLogout} onCreateInvoice={() => { setEditingInvoice(null); setView('invoice'); }} transactions={transactions} onDeleteTransaction={(id: string) => setTransactions(transactions.filter(t => t.id !== id))} onEditTransaction={(t: RecordedTransaction) => { if (t.type === 'Hotel Stay') { setEditingInvoice(t.data as InvoiceData); setView('invoice'); } else { setEditingWalkIn({ data: t.data as WalkInTransaction, guestName: t.guestName }); setShowWalkInModal(true); } }} onCreateWalkIn={() => { setEditingWalkIn(null); setShowWalkInModal(true); }} />
-            {showWalkInModal && <WalkInGuestModal onClose={() => setShowWalkInModal(false)} onSave={handleSaveWalkIn} user={user} initialData={editingWalkIn?.data} initialGuestName={editingWalkIn?.guestName} />}
-        </>
-    );
+  if (!user) return (
+    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-6 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#1e293b] via-[#0f172a] to-[#0f172a]">
+      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="w-full max-w-md">
+        <GlassCard className="border-[#c4a66a]/10 backdrop-blur-3xl p-10">
+          <div className="text-center mb-12"><h2 className="text-5xl font-black text-white uppercase tracking-tighter">Terminal</h2><p className="text-[#c4a66a] text-[10px] font-black uppercase mt-3 tracking-widest opacity-60">Authentication Authority</p></div>
+          <form onSubmit={(e:any) => { e.preventDefault(); setUser(e.target.u.value || 'Admin'); }} className="space-y-6">
+            <InputField label="Staff Alias" name="u" placeholder="Your Official Name" required />
+            <InputField label="Secure Key" type="password" placeholder="••••" required />
+            <button type="submit" className="w-full bg-[#c4a66a] text-[#1a252f] py-6 rounded-3xl font-black uppercase tracking-[0.2em] shadow-2xl shadow-amber-950/20 active:scale-95 transition-all mt-4">Initiate Session</button>
+          </form>
+        </GlassCard>
+      </motion.div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#0f172a] text-white selection:bg-[#c4a66a]/40">
+      <nav className="px-8 py-7 border-b border-white/5 flex justify-between items-center sticky top-0 bg-[#0f172a]/95 backdrop-blur-3xl z-40">
+        <div className="flex items-center gap-6">
+          <motion.div whileHover={{ scale: 1.05 }} className="w-16 h-16 bg-gradient-to-br from-[#c4a66a] to-[#7c633a] rounded-[1.25rem] flex items-center justify-center font-black text-[#1a252f] text-4xl shadow-xl shadow-amber-950/20">T</motion.div>
+          <div className="hidden sm:block">
+            <h1 className="text-2xl font-black uppercase tracking-tighter leading-none">Tidè Hotels</h1>
+            <p className="text-[#c4a66a] text-[10px] font-black uppercase tracking-widest mt-1.5 opacity-60">Central Audit Ledger</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-10">
+          <div className="text-right hidden md:block"><p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Active Operator</p><p className="font-black text-base text-white/90 tracking-tight">{user}</p></div>
+          <button onClick={()=>setUser(null)} className="p-4 px-8 rounded-2xl bg-white/5 hover:bg-red-500/10 border border-white/5 text-[9px] font-black uppercase tracking-widest transition-all hover:text-red-400">Terminate</button>
+        </div>
+      </nav>
+
+      <main className="p-8 md:p-14 max-w-7xl mx-auto space-y-16">
+        <div className="flex flex-col lg:flex-row justify-between items-end gap-10 border-b border-white/5 pb-14">
+          <div className="w-full lg:w-auto">
+            <motion.h2 initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="text-7xl font-black uppercase tracking-tighter leading-[0.85]">Ledger Control</motion.h2>
+            <p className="text-[#c4a66a] font-black text-sm uppercase tracking-[0.4em] opacity-40 mt-4">Financial Authority Hub</p>
+          </div>
+          <div className="flex gap-4 w-full lg:w-auto">
+            <button onClick={()=>{setEditTarget(null); setModalType('WALK');}} className="flex-1 lg:flex-none bg-[#1e293b] px-12 py-6 rounded-[2rem] font-black text-[10px] uppercase border border-white/10 hover:border-[#c4a66a]/40 transition-all shadow-xl tracking-widest">POS ENTRY</button>
+            <button onClick={()=>{setEditTarget(null); setModalType('RES');}} className="flex-1 lg:flex-none bg-[#c4a66a] text-[#1a252f] px-12 py-6 rounded-[2rem] font-black text-[10px] uppercase shadow-2xl hover:brightness-110 active:scale-95 transition-all tracking-widest">RESERVATION</button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+           <GlassCard className="border-l-8 border-emerald-500/40 hover:scale-[1.02] transition-transform cursor-default">
+             <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Gross Liquidity</p>
+             <p className="text-5xl font-black mt-4 tracking-tighter">{formatNaira(stats.revenue)}</p>
+           </GlassCard>
+           <GlassCard className="border-l-8 border-red-500/40 hover:scale-[1.02] transition-transform cursor-default">
+             <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Outstanding Receivables</p>
+             <p className="text-5xl font-black mt-4 text-red-400 tracking-tighter">{formatNaira(stats.receivables)}</p>
+           </GlassCard>
+           <GlassCard className="border-l-8 border-[#c4a66a]/40 hover:scale-[1.02] transition-transform cursor-default">
+             <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Total Folios</p>
+             <p className="text-5xl font-black mt-4 tracking-tighter">{stats.total}</p>
+           </GlassCard>
+        </div>
+
+        <GlassCard className="!p-0 border-white/5 bg-[#1e293b]/40 backdrop-blur-2xl">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-black/30 text-[10px] font-black uppercase text-white/20 border-b border-white/5">
+                  <th className="p-8">Registry ID</th>
+                  <th className="p-8">Entity Details</th>
+                  <th className="p-8">Net Valuation</th>
+                  <th className="p-8">Audit Status</th>
+                  <th className="p-8 text-right">Control</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                <AnimatePresence>
+                  {transactions.sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime()).map(t=>(
+                    <motion.tr layout key={t.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-white/[0.03] group transition-all">
+                      <td className="p-8 align-top">
+                        <span className={`text-[9px] px-4 py-1.5 rounded-full border font-black tracking-widest ${t.type === 'RESERVATION' ? 'text-blue-400 border-blue-400/20 bg-blue-400/5' : 'text-purple-400 border-purple-400/20 bg-purple-400/5'}`}>{t.type}</span>
+                        <p className="font-mono text-[10px] mt-5 text-white/20 tracking-tighter font-bold">#{t.id}</p>
+                      </td>
+                      <td className="p-8 align-top">
+                        <p className="font-black group-hover:text-[#c4a66a] transition-colors text-xl tracking-tight leading-none truncate max-w-[280px]">{t.guestName}</p>
+                        <p className="text-[10px] text-white/20 uppercase font-black mt-3 tracking-widest">{t.roomNumber || 'Quick POS Service'}</p>
+                      </td>
+                      <td className="p-8 align-top font-black text-[#c4a66a] text-xl tracking-tight">{formatNaira(t.totalDue)}</td>
+                      <td className="p-8 align-top">
+                        <div className={`text-[10px] font-black uppercase font-bold flex items-center gap-4 tracking-widest ${t.balance >= -0.1 ? 'text-emerald-500' : 'text-red-500'}`}>
+                          <div className={`w-2.5 h-2.5 rounded-full ${t.balance >= -0.1 ? 'bg-emerald-500 shadow-[0_0_12px_#10b981]' : 'bg-red-500 shadow-[0_0_12px_#ef4444]'}`}></div>
+                          {t.balance >= -0.1 ? 'Settled' : 'Owing'}
+                        </div>
+                      </td>
+                      <td className="p-8 text-right space-x-2 align-top">
+                        <div className="flex flex-wrap gap-2 justify-end">
+                           <button onClick={()=>{setEditTarget(t); setModalType(t.type==='RESERVATION'?'RES':'WALK')}} className="p-3 px-5 rounded-xl bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase border border-white/5 transition-all tracking-widest">Edit</button>
+                           <button onClick={()=>printReceipt(t)} className="p-3 px-5 rounded-xl bg-[#c4a66a]/10 text-[#c4a66a] hover:bg-[#c4a66a] hover:text-[#1a252f] text-[9px] font-black uppercase border border-[#c4a66a]/20 transition-all tracking-widest">Docket</button>
+                           <button onClick={()=>handleDelete(t.id)} className="p-3 px-5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-600 hover:text-white text-[9px] font-black uppercase border border-red-500/20 transition-all tracking-widest">Delete</button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
+                {transactions.length === 0 && <tr><td colSpan={5} className="p-40 text-center text-white/5 font-black uppercase tracking-[3em] italic">No Records Identified</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
+      </main>
+
+      <AnimatePresence>
+        {modalType === 'RES' && <ReservationModal initial={editTarget} cashierName={user} onSave={(tx:any)=>{setTransactions([tx,...transactions.filter(o=>o.id!==tx.id)]); setModalType(null); printReceipt(tx);}} onClose={()=>setModalType(null)} />}
+        {modalType === 'WALK' && <WalkInModal initial={editTarget} user={user} onSave={(tx:any)=>{setTransactions([tx,...transactions.filter(o=>o.id!==tx.id)]); setModalType(null); printReceipt(tx);}} onClose={()=>setModalType(null)} />}
+      </AnimatePresence>
+      <footer className="p-20 text-center opacity-10 hover:opacity-50 transition-opacity cursor-default"><p className="text-[10px] font-black uppercase tracking-[1em]">Tidè Hotels & Resorts &bull; Sovereign Management Interface &bull; Est 2025</p></footer>
+    </div>
+  );
 };
 
 const root = createRoot(document.getElementById('root')!);
