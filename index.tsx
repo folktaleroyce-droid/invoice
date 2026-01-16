@@ -29,7 +29,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fix line 32: Accessing children through this.props
+    // Fixed: Accessed children via this.props
     return this.props.children;
   }
 }
@@ -126,9 +126,6 @@ const calculateInclusiveFinancials = (grossAmount: number) => {
   return { net, svc, vat };
 };
 
-/**
- * Implementation of printReceipt to handle printing of folios and receipts.
- */
 const printReceipt = (transaction: Transaction) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
@@ -224,11 +221,11 @@ const InputField = ({ label, ...props }: any) => {
       <div className="relative group">
         <input 
           {...props} 
-          className={`w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] focus:ring-2 focus:ring-[#c4a66a]/20 transition-all font-medium text-sm placeholder:text-white/20 ${isDate ? 'pr-14 cursor-pointer relative z-10' : ''}`} 
+          className={`w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] focus:ring-2 focus:ring-[#c4a66a]/20 transition-all font-medium text-sm placeholder:text-white/20 ${isDate ? 'pr-16 cursor-pointer relative z-10' : ''}`} 
         />
         {isDate && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#c4a66a] opacity-100 z-20 flex items-center justify-center bg-[#0f172a] pl-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#c4a66a] z-20 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
           </div>
         )}
       </div>
