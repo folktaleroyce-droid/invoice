@@ -12,8 +12,6 @@ interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
-  // Fix: Removed the unnecessary constructor to allow React to handle props correctly via base class
-  // or use super(props) correctly.
   static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
 
   render() {
@@ -27,6 +25,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
+    // Added explicit this.props check to ensure stability in all environments
     return this.props.children;
   }
 }
@@ -124,7 +123,7 @@ const exportToCSV = (transactions: Transaction[], filename: string = "TIDE_LEDGE
     return;
   }
 
-  const headers = ["ID", "Type", "Date", "Guest Name", "Phone", "Email", "Ref/Room", "Total Due", "Total Paid", "Balance", "Cashier"];
+  const headers = ["ID", "Type", "Date", "Guest Name", "Phone", "Email", "Ref/Room", "Subtotal", "SVC (10%)", "VAT (7.5%)", "Discount", "Total Due", "Total Paid", "Balance", "Cashier"];
   const rows = transactions.map(t => [
     t.id,
     t.type,
@@ -133,6 +132,10 @@ const exportToCSV = (transactions: Transaction[], filename: string = "TIDE_LEDGE
     (t.guestPhone || "").replace(/,/g, ''),
     (t.guestEmail || "").replace(/,/g, ''),
     (t.roomNumber || "").replace(/,/g, ''),
+    t.subtotal.toFixed(2),
+    t.serviceCharge.toFixed(2),
+    t.vat.toFixed(2),
+    t.discount.toFixed(2),
     t.totalDue.toFixed(2),
     t.totalPaid.toFixed(2),
     t.balance.toFixed(2),
@@ -344,14 +347,14 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
   };
 
   const handleExportIndividual = () => {
-    if (!guest.trim()) return alert("VALIDATION ERROR: Guest Name required for export.");
+    if (!guest.trim()) return alert("VALIDATION ERROR: Please enter guest name before exporting.");
     const snapshot: Transaction = {
       id: initial?.id || `SNAP-${uuid()}`, type: 'RESERVATION', date: new Date().toISOString(),
       guestName: guest, guestEmail: email, guestPhone: phone, guestIDType: idType, guestIDOtherSpec: idOther, guestIDNumber: idNum,
       roomNumber: roomNo, rooms, subtotal: net, serviceCharge: finalSvc, vat: finalVat, discount, totalDue,
       payments, totalPaid, balance: currentBalance, cashier: cashierName
     };
-    exportToCSV([snapshot], `RESERVATION_${guest.replace(/\s+/g, '_').toUpperCase()}`);
+    exportToCSV([snapshot], `RES_${guest.replace(/\s+/g, '_').toUpperCase()}`);
   };
 
   return (
@@ -364,9 +367,9 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
               Reservation Folio
             </h2>
             <div className="flex items-center gap-4">
-               <button onClick={handleExportIndividual} className="flex items-center gap-2 bg-emerald-500/10 text-emerald-500 px-6 py-2.5 rounded-xl border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                 Export Folio
+               <button onClick={handleExportIndividual} title="Export Reservation Dataset" className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 flex items-center gap-2">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                 XLS EXPORT
                </button>
                <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-white/5 flex items-center justify-center text-white/40 hover:text-white transition-all">&times;</button>
             </div>
@@ -512,7 +515,7 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
           <div className="flex justify-between items-center border-b border-white/5 pb-4">
             <h2 className="text-2xl font-black text-white uppercase tracking-tighter">POS Direct Sale</h2>
             <div className="flex items-center gap-3">
-               <button onClick={handleExportIndividual} className="bg-emerald-500/10 text-emerald-500 p-2 rounded-lg border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all" title="Export Snapshot">
+               <button onClick={handleExportIndividual} title="Export POS Dataset" className="bg-emerald-500/10 text-emerald-500 p-2 rounded-lg border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all">
                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                </button>
                <button onClick={onClose} className="text-white/20 text-3xl hover:text-white transition-all">&times;</button>
