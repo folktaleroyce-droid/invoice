@@ -9,14 +9,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
+// Fixed class definition to include type parameters for props and state
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false, error: null };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   // Explicitly set the state when an error is caught
   static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
 
   render() {
-    // Correctly accessing this.state and this.props for the ErrorBoundary component
+    // Correctly accessing this.state and this.props with proper typing
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
