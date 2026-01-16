@@ -10,6 +10,7 @@ interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
 // Fixed class definition to include type parameters for props and state
+// This ensures 'this.state' and 'this.props' are correctly typed and available.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
