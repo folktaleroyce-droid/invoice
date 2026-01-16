@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
+// Fixed: Explicitly typed the Component with Props and State to resolve 'props' access errors
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
@@ -29,7 +30,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fixed: Accessed children via this.props
+    // Fixed: this.props is now correctly recognized due to generic types in class declaration
     return this.props.children;
   }
 }
@@ -107,11 +108,6 @@ const ROOM_RATES: Record<RoomType, number> = {
   [RoomType.TIDE_SIGNATURE_SUITE]: 265050,
 };
 
-const BANK_DETAILS = [
-  { bank: 'Zenith Bank', account: '1311027935', name: 'Tidé Hotels and Resorts' },
-  { bank: 'Moniepoint', account: '5169200615', name: 'Tidé Hotels and Resorts' }
-];
-
 const uuid = () => Math.random().toString(36).substring(2, 11).toUpperCase();
 
 const formatNaira = (amt: number) => {
@@ -124,6 +120,36 @@ const calculateInclusiveFinancials = (grossAmount: number) => {
   const svc = net * 0.10;
   const vat = net * 0.075;
   return { net, svc, vat };
+};
+
+const exportToCSV = (transactions: Transaction[]) => {
+  if (transactions.length === 0) {
+    alert("No records found to export.");
+    return;
+  }
+
+  const headers = ["ID", "Type", "Date", "Guest Name", "Ref/Room", "Total Due", "Total Paid", "Balance", "Cashier"];
+  const rows = transactions.map(t => [
+    t.id,
+    t.type,
+    new Date(t.date).toLocaleString(),
+    t.guestName.replace(/,/g, ''),
+    (t.roomNumber || "").replace(/,/g, ''),
+    t.totalDue.toFixed(2),
+    t.totalPaid.toFixed(2),
+    t.balance.toFixed(2),
+    t.cashier
+  ]);
+
+  const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `TIDE_LEDGER_${new Date().toISOString().split('T')[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 const printReceipt = (transaction: Transaction) => {
@@ -224,8 +250,8 @@ const InputField = ({ label, ...props }: any) => {
           className={`w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] focus:ring-2 focus:ring-[#c4a66a]/20 transition-all font-medium text-sm placeholder:text-white/20 ${isDate ? 'pr-16 cursor-pointer relative z-10' : ''}`} 
         />
         {isDate && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#c4a66a] z-20 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#c4a66a] z-20 flex items-center justify-center bg-[#0f172a] pl-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_8px_rgba(196,166,106,0.4)]"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
           </div>
         )}
       </div>
@@ -617,7 +643,11 @@ const App = () => {
             <motion.h2 initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="text-7xl font-black uppercase tracking-tighter leading-[0.85]">Ledger Control</motion.h2>
             <p className="text-[#c4a66a] font-black text-sm uppercase tracking-[0.4em] opacity-40 mt-4">Financial Authority Hub</p>
           </div>
-          <div className="flex gap-4 w-full lg:w-auto">
+          <div className="flex flex-wrap gap-4 w-full lg:w-auto">
+            <button onClick={() => exportToCSV(transactions)} className="flex-1 lg:flex-none bg-emerald-500/10 text-emerald-500 px-10 py-6 rounded-[2rem] font-black text-[10px] uppercase border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all tracking-widest flex items-center gap-2 justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              EXPORT LEDGER
+            </button>
             <button onClick={()=>{setEditTarget(null); setModalType('WALK');}} className="flex-1 lg:flex-none bg-[#1e293b] px-12 py-6 rounded-[2rem] font-black text-[10px] uppercase border border-white/10 hover:border-[#c4a66a]/40 transition-all shadow-xl tracking-widest">POS ENTRY</button>
             <button onClick={()=>{setEditTarget(null); setModalType('RES');}} className="flex-1 lg:flex-none bg-[#c4a66a] text-[#1a252f] px-12 py-6 rounded-[2rem] font-black text-[10px] uppercase shadow-2xl hover:brightness-110 active:scale-95 transition-all tracking-widest">RESERVATION</button>
           </div>
