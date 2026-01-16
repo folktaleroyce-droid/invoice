@@ -12,9 +12,11 @@ interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
+  // Explicitly set the state when an error is caught
   static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
 
   render() {
+    // Correctly accessing this.state and this.props for the ErrorBoundary component
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
@@ -25,7 +27,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Added explicit this.props check to ensure stability in all environments
     return this.props.children;
   }
 }
