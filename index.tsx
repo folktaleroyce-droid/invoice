@@ -29,7 +29,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Added fix for line 32: ensuring this.props is accessible by proper class definition
+    // Fix line 32: Accessing children through this.props
     return this.props.children;
   }
 }
@@ -126,141 +126,77 @@ const calculateInclusiveFinancials = (grossAmount: number) => {
   return { net, svc, vat };
 };
 
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// PRINT ENGINE
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-const printReceipt = (tx: Transaction) => {
-  const p = window.open('', '_blank');
-  if (!p) return;
+/**
+ * Implementation of printReceipt to handle printing of folios and receipts.
+ */
+const printReceipt = (transaction: Transaction) => {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
 
-  const isReservation = tx.type === 'RESERVATION';
-  const isOwing = tx.balance < -0.1;
-  const absBalance = Math.abs(tx.balance);
-  const displayIDType = tx.guestIDType === IDType.OTHER ? (tx.guestIDOtherSpec || 'Other') : tx.guestIDType;
-  const issueDateStr = new Date(tx.date).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' });
-  const displayDiscount = tx.discount > 0 ? `- ${formatNaira(tx.discount)}` : formatNaira(0);
-  
-  if (isReservation) {
-    p.document.write(`
-      <html>
-        <head>
-          <title>Invoice - ${tx.guestName}</title>
-          <style>
-            @page { size: A4; margin: 10mm; }
-            body { font-family: 'Inter', sans-serif; padding: 0; margin: 0; color: #1e293b; line-height: 1.2; font-size: 11pt; }
-            .content-wrapper { display: flex; flex-direction: column; min-height: 270mm; justify-content: space-between; }
-            .header { border-bottom: 2px solid #c4a66a; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
-            .logo h1 { margin: 0; font-weight: 900; font-size: 24pt; color: #0f172a; }
-            .logo span { color: #c4a66a; font-weight: bold; font-size: 8pt; text-transform: uppercase; letter-spacing: 2px; }
-            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px; }
-            .info-col h4 { border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; margin-bottom: 5px; font-size: 9pt; text-transform: uppercase; color: #64748b; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; table-layout: fixed; }
-            th { text-align: left; background: #f8fafc; padding: 10px; font-size: 9pt; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
-            td { padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 10pt; word-wrap: break-word; }
-            .totals { width: 300px; margin-left: auto; }
-            .total-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
-            .grand-total { font-weight: 900; font-size: 14pt; border-top: 2px solid #0f172a; margin-top: 5px; padding-top: 5px; }
-            .footer { margin-top: auto; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px; padding-bottom: 10px; }
-            .tagline { color: #c4a66a; font-weight: 900; font-size: 10pt; letter-spacing: 2px; text-transform: uppercase; }
-            .bank-box { background:#fefce8; padding:15px; border-radius:8px; border:1px solid #fef08a; margin-top:15px; }
-          </style>
-        </head>
-        <body>
-          <div class="content-wrapper">
-            <div>
-              <div class="header">
-                <div class="logo"><h1>TIDÈ HOTELS</h1><span>${HOTEL_ADDRESS}</span></div>
-                <div style="text-align: right;"><h2>INVOICE FOLIO</h2><p>#${tx.id}</p></div>
-              </div>
-              <div class="grid">
-                <div class="info-col">
-                  <h4>GUEST INFORMATION</h4>
-                  <p><strong>${tx.guestName}</strong></p>
-                  <p>${tx.guestEmail || '---'}</p>
-                  <p>${tx.guestPhone || '---'}</p>
-                  <p>${displayIDType}: ${tx.guestIDNumber || '---'}</p>
-                </div>
-                <div class="info-col" style="text-align: right;">
-                  <h4>STAY DETAILS</h4>
-                  <p>Folio Ref: ${tx.roomNumber}</p>
-                  <p>Issued: ${issueDateStr}</p>
-                  <p>Cashier: ${tx.cashier}</p>
-                </div>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th style="width: 35%;">Description</th>
-                    <th style="width: 15%;">Qty</th>
-                    <th style="width: 20%;">Rate (Inc.)</th>
-                    <th style="width: 10%;">Nights</th>
-                    <th style="width: 20%; text-align: right;">Total</th>
-                  </tr>
-                </thead>
-                <tbody>${tx.rooms?.map(r => `<tr><td>${r.roomType}<br/><small style="color: #64748b;">${r.checkIn} to ${r.checkOut}</small></td><td>${r.quantity}</td><td>${formatNaira(r.ratePerNight)}</td><td>${r.nights}</td><td style="text-align: right;">${formatNaira(r.ratePerNight * r.nights * r.quantity)}</td></tr>`).join('')}</tbody>
-              </table>
-              <div class="totals">
-                <div class="total-row"><span>Subtotal (Net + SC)</span><span>${formatNaira(tx.subtotal + tx.serviceCharge)}</span></div>
-                <div class="total-row"><span>VAT (7.5%)</span><span>${formatNaira(tx.vat)}</span></div>
-                <div class="total-row"><span>Discount</span><span>${displayDiscount}</span></div>
-                <div class="total-row grand-total"><span>Total Due</span><span>${formatNaira(tx.totalDue)}</span></div>
-                <div class="total-row"><span>Total Paid</span><span>${formatNaira(tx.totalPaid)}</span></div>
-                <div class="total-row" style="color:${isOwing ? 'red' : 'green'}; font-weight: bold;">
-                  <span>${isOwing ? 'Balance Due' : 'Balance'}</span><span>${formatNaira(absBalance)}</span>
-                </div>
-              </div>
-              ${isOwing ? `
-                <div class="bank-box">
-                  <h4 style="margin:0 0 8px 0; font-size:10pt; color:#a16207;">OFFICIAL SETTLEMENT INFO</h4>
-                  ${BANK_DETAILS.map(b => `<p style="font-size:9pt; margin:3px 0;"><strong>${b.bank}</strong> | ${b.account} | ${b.name}</p>`).join('')}
-                </div>
-              ` : ''}
-            </div>
-            <div class="footer">
-              <p>Thank you for choosing Tidè Hotels. We look forward to welcoming you again soon.</p>
-              <div class="tagline">Where Boldness Meets Elegance</div>
-            </div>
-          </div>
-          <script>window.onload = () => { window.print(); window.close(); }</script>
-        </body>
-      </html>
-    `);
-  } else {
-    p.document.write(`
-      <html>
-        <head>
-          <style>
-            @page { margin: 0; }
-            body { font-family: 'monospace'; width: 72mm; margin: 0 auto; padding: 10px; font-size: 11px; line-height: 1.2; text-align: center; }
-            .row { display: flex; justify-content: space-between; text-align: left; margin: 2px 0; }
-            .sep { border-bottom: 1px dashed #000; margin: 8px 0; }
-            .bold { font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <div class="bold" style="font-size: 14px;">TIDÈ HOTELS</div>
-          <div style="font-size: 9px;">${HOTEL_ADDRESS}</div>
-          <div class="sep"></div>
-          <div class="bold">WALK-IN DOCKET</div>
-          <div class="row"><span>ID:</span><span>#${tx.id}</span></div>
-          <div class="row"><span>Guest:</span><span>${tx.guestName}</span></div>
-          <div class="row"><span>Date:</span><span>${issueDateStr}</span></div>
-          <div class="sep"></div>
-          ${tx.items?.map(i => `<div class="row"><span>${i.description}</span><span>${formatNaira(i.amount)}</span></div>`).join('')}
-          <div class="sep"></div>
-          <div class="row"><span>VAT (7.5%):</span><span>${formatNaira(tx.vat)}</span></div>
-          <div class="row bold"><span>TOTAL:</span><span>${formatNaira(tx.totalDue)}</span></div>
-          <div class="row"><span>PAID:</span><span>${formatNaira(tx.totalPaid)}</span></div>
-          <div class="row bold"><span>${isOwing ? 'OWING' : 'BAL'}:</span><span>${formatNaira(absBalance)}</span></div>
-          ${isOwing ? `<div class="sep"></div><div class="bold" style="margin-bottom:4px;">TRANSFER TO:</div>${BANK_DETAILS.map(b => `<div style="font-size:9px; text-align:left;">${b.bank}: ${b.account}</div>`).join('')}` : ''}
-          <div class="sep"></div>
-          <div style="font-style:italic; font-size:9px;">Boldness Meets Elegance</div>
-          <script>window.onload = () => { window.print(); window.close(); }</script>
-        </body>
-      </html>
-    `);
-  }
-  p.document.close();
+  const html = `
+    <html>
+      <head>
+        <title>Tidé Hotels - Folio #${transaction.id}</title>
+        <style>
+          body { font-family: 'Courier New', Courier, monospace; padding: 20px; color: #000; }
+          .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+          .section { margin-bottom: 10px; font-size: 14px; }
+          .row { display: flex; justify-content: space-between; }
+          .bold { font-weight: bold; }
+          .footer { margin-top: 20px; text-align: center; font-size: 12px; border-top: 1px dashed #000; padding-top: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2 style="margin:0">TIDÈ HOTELS</h2>
+          <p style="margin:0; font-size:12px">${HOTEL_ADDRESS}</p>
+        </div>
+        <div class="section">
+          <div class="row"><span>Folio ID:</span><span class="bold">#${transaction.id}</span></div>
+          <div class="row"><span>Date:</span><span>${new Date(transaction.date).toLocaleString()}</span></div>
+          <div class="row"><span>Cashier:</span><span>${transaction.cashier}</span></div>
+        </div>
+        <div class="section">
+          <p class="bold">GUEST DETAILS</p>
+          <div class="row"><span>Name:</span><span>${transaction.guestName}</span></div>
+          ${transaction.guestPhone ? `<div class="row"><span>Phone:</span><span>${transaction.guestPhone}</span></div>` : ''}
+          ${transaction.roomNumber ? `<div class="row"><span>Ref:</span><span>${transaction.roomNumber}</span></div>` : ''}
+        </div>
+        <div class="section" style="border-top:1px solid #000; padding-top:5px">
+          ${transaction.rooms ? transaction.rooms.map(r => `
+            <div class="row"><span>${r.roomType} x${r.quantity}</span><span>${formatNaira(r.ratePerNight * r.nights * r.quantity)}</span></div>
+            <div style="font-size:10px; margin-bottom:5px">(${r.checkIn} to ${r.checkOut})</div>
+          `).join('') : ''}
+          ${transaction.items ? transaction.items.map(i => `
+            <div class="row"><span>${i.description}</span><span>${formatNaira(i.amount)}</span></div>
+          `).join('') : ''}
+        </div>
+        <div class="section" style="border-top:2px solid #000; padding-top:5px">
+          <div class="row"><span>Subtotal (Net)</span><span>${formatNaira(transaction.subtotal)}</span></div>
+          <div class="row"><span>Service Charge (10%)</span><span>${formatNaira(transaction.serviceCharge)}</span></div>
+          <div class="row"><span>VAT (7.5%)</span><span>${formatNaira(transaction.vat)}</span></div>
+          ${transaction.discount > 0 ? `<div class="row"><span>Discount</span><span>-${formatNaira(transaction.discount)}</span></div>` : ''}
+          <div class="row bold" style="font-size:18px; margin-top:5px"><span>TOTAL DUE</span><span>${formatNaira(transaction.totalDue)}</span></div>
+        </div>
+        <div class="section" style="border-top:1px dashed #000; padding-top:5px">
+          <p class="bold">PAYMENT LOG</p>
+          ${transaction.payments.map(p => `
+            <div class="row"><span>${p.method}</span><span>${formatNaira(p.amount)}</span></div>
+          `).join('')}
+          <div class="row bold"><span>TOTAL PAID</span><span>${formatNaira(transaction.totalPaid)}</span></div>
+          <div class="row bold"><span>BALANCE</span><span>${formatNaira(transaction.balance)}</span></div>
+        </div>
+        <div class="footer">
+          <p>Thank you for choosing Tidè Hotels.</p>
+          <p>Est 2025 - Central Audit Ledger</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.print();
 };
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -288,11 +224,11 @@ const InputField = ({ label, ...props }: any) => {
       <div className="relative group">
         <input 
           {...props} 
-          className={`w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] focus:ring-1 focus:ring-[#c4a66a]/20 transition-all font-medium text-sm placeholder:text-white/20 ${isDate ? 'pr-12' : ''}`} 
+          className={`w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] focus:ring-2 focus:ring-[#c4a66a]/20 transition-all font-medium text-sm placeholder:text-white/20 ${isDate ? 'pr-14 cursor-pointer relative z-10' : ''}`} 
         />
         {isDate && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#c4a66a] opacity-80 group-hover:opacity-100 transition-opacity">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#c4a66a] opacity-100 z-20 flex items-center justify-center bg-[#0f172a] pl-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
           </div>
         )}
       </div>
@@ -319,7 +255,6 @@ const SelectField = ({ label, options, ...props }: any) => (
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
-  // Try to load draft if not editing existing
   const draftKey = 'tide_res_draft';
   const getInitial = (key: string, def: any) => {
     if (initial) return initial[key];
@@ -351,7 +286,6 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
   const [manualSvc, setManualSvc] = useState<number | null>(() => getInitial('serviceCharge', null));
   const [manualVat, setManualVat] = useState<number | null>(() => getInitial('vat', null));
 
-  // Auto-save logic
   useEffect(() => {
     if (!initial) {
       const draft = { guestName: guest, guestEmail: email, guestPhone: phone, guestIDType: idType, guestIDOtherSpec: idOther, guestIDNumber: idNum, roomNumber: roomNo, rooms, payments, discount, serviceCharge: manualSvc, vat: manualVat };
@@ -379,10 +313,7 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
   const handleSave = () => {
     if (!guest.trim()) return alert("VALIDATION ERROR: Guest Name is required.");
     if (!email.trim()) return alert("VALIDATION ERROR: Email is required for reservations.");
-    
-    // Clear draft on successful auth
     if (!initial) localStorage.removeItem(draftKey);
-
     onSave({
       id: initial?.id || `RES-${uuid()}`, type: 'RESERVATION', date: new Date().toISOString(),
       guestName: guest, guestEmail: email, guestPhone: phone, guestIDType: idType, guestIDOtherSpec: idOther, guestIDNumber: idNum,
@@ -503,7 +434,6 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
   const [items, setItems] = useState(() => getInitial('items', [{ description: 'Bar/Restaurant', amount: 0 }]));
   const [payments, setPayments] = useState<PaymentEntry[]>(() => getInitial('payments', [{ id: uuid(), amount: 0, method: PaymentMethod.POS }]));
 
-  // Auto-save logic
   useEffect(() => {
     if (!initial) {
       const draft = { guestName: guest, items, payments };
@@ -520,10 +450,7 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
 
   const handleSave = () => {
     if (!guest.trim()) return alert("VALIDATION ERROR: Guest/Customer Label is required.");
-    
-    // Clear draft on successful auth
     if (!initial) localStorage.removeItem(draftKey);
-
     onSave({
       id: initial?.id || `W-${uuid()}`, type: 'WALK-IN', date: new Date().toISOString(),
       guestName: guest, items, subtotal: net, serviceCharge: svc, vat, discount: 0,
