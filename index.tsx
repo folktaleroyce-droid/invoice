@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Use explicit type parameters for Component to ensure this.props and this.state are correctly typed.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
@@ -30,8 +29,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fix: line 32 error was likely caused by a mismatch in class component typing during compilation.
-    // Explicitly using this.props.children.
+    // Added fix for line 32: ensuring this.props is accessible by proper class definition
     return this.props.children;
   }
 }
@@ -280,24 +278,39 @@ const GlassCard = ({ children, className = "" }: { children?: ReactNode, classNa
   </motion.div>
 );
 
-const InputField = ({ label, ...props }: any) => (
-  <div className="space-y-1 w-full overflow-hidden">
-    <label className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest pl-1 block truncate">
-      {label} {props.required && <span className="text-red-500">*</span>}
-    </label>
-    <input 
-      {...props} 
-      className="w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm placeholder:text-white/20" 
-    />
-  </div>
-);
+const InputField = ({ label, ...props }: any) => {
+  const isDate = props.type === 'date';
+  return (
+    <div className="space-y-1 w-full overflow-hidden">
+      <label className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest pl-1 block truncate">
+        {label} {props.required && <span className="text-red-500">*</span>}
+      </label>
+      <div className="relative group">
+        <input 
+          {...props} 
+          className={`w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] focus:ring-1 focus:ring-[#c4a66a]/20 transition-all font-medium text-sm placeholder:text-white/20 ${isDate ? 'pr-12' : ''}`} 
+        />
+        {isDate && (
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#c4a66a] opacity-80 group-hover:opacity-100 transition-opacity">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const SelectField = ({ label, options, ...props }: any) => (
   <div className="space-y-1 w-full overflow-hidden">
     <label className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest pl-1 block truncate">{label}</label>
-    <select {...props} className="w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm appearance-none cursor-pointer">
-      {options.map((o: any) => <option key={o.value || o} value={o.value || o} className="bg-[#1a252f] text-white">{o.label || o}</option>)}
-    </select>
+    <div className="relative">
+      <select {...props} className="w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm appearance-none cursor-pointer">
+        {options.map((o: any) => <option key={o.value || o} value={o.value || o} className="bg-[#1a252f] text-white">{o.label || o}</option>)}
+      </select>
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#c4a66a] opacity-50">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+    </div>
   </div>
 );
 
