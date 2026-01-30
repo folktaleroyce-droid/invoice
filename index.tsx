@@ -9,8 +9,8 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Use React.Component to ensure the TypeScript compiler correctly identifies inherited properties like 'this.props'
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Use Component directly to ensure the TypeScript compiler correctly identifies inherited properties like 'this.props'
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -561,6 +561,10 @@ const App = () => {
   const [modalType, setModalType] = useState<'RES' | 'WALK' | null>(null);
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
 
+  // Date Filtering State
+  const [filterStart, setFilterStart] = useState<string>('');
+  const [filterEnd, setFilterEnd] = useState<string>('');
+
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 1500);
     const saved = localStorage.getItem('tide_ledger_master_v4');
@@ -575,6 +579,27 @@ const App = () => {
       localStorage.setItem('tide_ledger_master_v4', JSON.stringify(transactions));
     }
   }, [transactions, loading]);
+
+  // Derived filtered transactions based on date range
+  const filteredTransactions = useMemo(() => {
+    if (!filterStart && !filterEnd) return transactions;
+    
+    return transactions.filter(t => {
+      const tDate = new Date(t.date);
+      tDate.setHours(0,0,0,0);
+      
+      const startDate = filterStart ? new Date(filterStart) : null;
+      if (startDate) startDate.setHours(0,0,0,0);
+      
+      const endDate = filterEnd ? new Date(filterEnd) : null;
+      if (endDate) endDate.setHours(0,0,0,0);
+      
+      if (startDate && tDate < startDate) return false;
+      if (endDate && tDate > endDate) return false;
+      
+      return true;
+    });
+  }, [transactions, filterStart, filterEnd]);
 
   if (loading) return (
     <div className="fixed inset-0 bg-[#0f172a] flex flex-col items-center justify-center">
@@ -611,18 +636,49 @@ const App = () => {
         <div className="flex flex-col md:flex-row justify-between items-end gap-10 border-b border-white/5 pb-16">
           <div><h2 className="text-7xl font-black uppercase tracking-tighter leading-none">Ledger</h2><p className="text-[#c4a66a] text-sm font-black uppercase tracking-[0.3em] opacity-40 mt-4">Revenue Authority Terminal</p></div>
           <div className="flex flex-wrap gap-4">
-            <button onClick={() => exportToExcel(transactions)} className="bg-emerald-500/10 text-emerald-400 px-8 py-5 rounded-2xl font-black text-[10px] uppercase border border-emerald-500/20 transition-all hover:bg-emerald-500/20">Download Report</button>
+            <button onClick={() => exportToExcel(filteredTransactions)} className="bg-emerald-500/10 text-emerald-400 px-8 py-5 rounded-2xl font-black text-[10px] uppercase border border-emerald-500/20 transition-all hover:bg-emerald-500/20">Download Report</button>
             <button onClick={()=>{setEditTarget(null); setModalType('WALK');}} className="bg-[#1e293b] px-10 py-5 rounded-2xl font-black text-[10px] uppercase border border-white/10 transition-all hover:bg-white/5">Walk-In POS</button>
             <button onClick={()=>{setEditTarget(null); setModalType('RES');}} className="bg-[#c4a66a] text-black px-10 py-5 rounded-2xl font-black text-[10px] uppercase shadow-2xl transition-all hover:brightness-110">Reservation Entry</button>
           </div>
         </div>
+
+        {/* Date Filter Bar */}
+        <GlassCard className="!p-8 border-white/5 shadow-xl flex flex-col md:flex-row items-end gap-6 bg-[#1a252f]/40">
+          <div className="w-full md:w-48">
+            <InputField 
+              label="Start Date" 
+              type="date" 
+              value={filterStart} 
+              onChange={(e: any) => setFilterStart(e.target.value)} 
+            />
+          </div>
+          <div className="w-full md:w-48">
+            <InputField 
+              label="End Date" 
+              type="date" 
+              value={filterEnd} 
+              onChange={(e: any) => setFilterEnd(e.target.value)} 
+            />
+          </div>
+          <button 
+            onClick={() => { setFilterStart(''); setFilterEnd(''); }}
+            className="text-[10px] font-black uppercase text-white/40 hover:text-[#c4a66a] transition-all pb-4 tracking-[0.2em]"
+          >
+            Clear Filters
+          </button>
+          <div className="flex-1 text-right pb-4">
+            <p className="text-[10px] font-black uppercase text-[#c4a66a] tracking-[0.2em]">
+              Showing {filteredTransactions.length} {filteredTransactions.length === 1 ? 'Transaction' : 'Transactions'}
+            </p>
+          </div>
+        </GlassCard>
 
         <GlassCard className="!p-0 border-white/5 overflow-hidden shadow-2xl">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left">
               <thead className="bg-white/5 text-[10px] font-black uppercase text-white/30"><tr className="border-b border-white/5"><th className="p-8">Reference</th><th className="p-8">Guest/Entity</th><th className="p-8">Valuation</th><th className="p-8">Audit</th><th className="p-8 text-right">Actions</th></tr></thead>
               <tbody className="divide-y divide-white/5">
-                {transactions.map(t=>(
+                {filteredTransactions.map(t=>(
                   <tr key={t.id} className="hover:bg-white/[0.03] transition-all group">
                     <td className="p-8"><p className="font-black text-white/20 group-hover:text-[#c4a66a] transition-all tracking-widest">#{t.id}</p><p className="text-[10px] mt-1 opacity-50">{new Date(t.date).toLocaleDateString()}</p></td>
                     <td className="p-8"><p className="font-black text-xl leading-none">{t.guestName}</p><p className="text-[10px] text-[#c4a66a] mt-1.5 font-black uppercase tracking-widest">{t.account}</p></td>
@@ -631,8 +687,8 @@ const App = () => {
                     <td className="p-8 text-right space-x-3"><button onClick={()=>{setEditTarget(t); setModalType(t.type==='RESERVATION'?'RES':'WALK')}} className="p-3 px-6 rounded-2xl bg-white/5 text-[10px] font-black uppercase hover:bg-white/10 transition-all">Edit</button><button onClick={()=>printReceipt(t)} className="p-3 px-6 rounded-2xl bg-[#c4a66a] text-black text-[10px] font-black uppercase shadow-lg hover:brightness-110 transition-all">Print</button></td>
                   </tr>
                 ))}
-                {transactions.length === 0 && (
-                  <tr><td colSpan={5} className="p-20 text-center text-white/20 uppercase font-black tracking-[1em]">Empty Ledger</td></tr>
+                {filteredTransactions.length === 0 && (
+                  <tr><td colSpan={5} className="p-20 text-center text-white/20 uppercase font-black tracking-[1em]">No records in this range</td></tr>
                 )}
               </tbody>
             </table>
