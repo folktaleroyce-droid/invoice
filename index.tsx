@@ -9,15 +9,19 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Use Component directly to ensure the TypeScript compiler correctly identifies inherited properties like 'this.props'
+// Fixed: Inheriting from the imported 'Component' and ensuring state and props are correctly resolved by the TypeScript compiler
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false, error: null };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
   render() {
+    // Fixed: State property access resolved by inheriting from Component<P, S>
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
@@ -34,7 +38,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Accessing children from the component's props property
+    // Fixed: Props property access resolved by inheriting from Component<P, S>
     return this.props.children;
   }
 }
@@ -58,11 +62,17 @@ const MONIEPOINT_ACCOUNT = {
   accountName: "Tidé Hotels and Resorts"
 };
 
-// Bank Account for Walk-in Dockets
-const DOCKET_ACCOUNT_DETAILS = {
+// Bank Accounts for Walk-in Dockets
+const DOCKET_ACCOUNT_DETAILS_1 = {
   bank: "Suntrust Bank",
   accountNumber: "0025840833",
   accountName: "Tide’ Hotels Resorts"
+};
+
+const DOCKET_ACCOUNT_DETAILS_2 = {
+  bank: "Suntrust Bank", // Updated from Moniepoint as per user request
+  accountNumber: "9990000647",
+  accountName: "Tidé Hotels and Resorts"
 };
 
 export enum RoomType {
@@ -252,7 +262,8 @@ const printReceipt = (transaction: Transaction) => {
           .bold { font-weight: bold; }
           .divider { border-bottom: 1px dashed #000; margin: 8px 0; }
           .row { display: flex; justify-content: space-between; margin: 2px 0; }
-          .bank-area { background: #f0f0f0; padding: 5px; border: 1px solid #000; margin: 10px 0; font-size: 10px; }
+          .bank-area { background: #f0f0f0; padding: 8px; border: 1px solid #000; margin: 10px 0; font-size: 10px; border-radius: 4px; }
+          .bank-title { text-align:center; font-weight:bold; text-decoration:underline; margin-bottom: 4px; }
         </style>
       </head>
       <body>
@@ -277,10 +288,13 @@ const printReceipt = (transaction: Transaction) => {
             <div class="row bold"><span>BALANCE</span><span>${formatNaira(transaction.balance)}</span></div>
           </div>
           <div class="bank-area">
-            <div style="text-align:center; font-weight:bold; text-decoration:underline;">SETTLEMENT ACCOUNT</div>
-            <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS.bank}</span></div>
-            <div class="row"><span>Acc:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS.accountNumber}</span></div>
-            <div class="row"><span>Name:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS.accountName}</span></div>
+            <div class="bank-title">SETTLEMENT ACCOUNTS</div>
+            <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_1.bank}</span></div>
+            <div class="row"><span>Acc:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_1.accountNumber}</span></div>
+            <div style="border-top: 0.5px dotted #000; margin: 4px 0;"></div>
+            <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.bank}</span></div>
+            <div class="row"><span>Acc:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.accountNumber}</span></div>
+            <div class="row"><span>Name:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.accountName}</span></div>
           </div>
         </div>
       </body>
@@ -519,7 +533,7 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
              <div className="flex flex-col"><span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Folio Balance</span><span className={`text-2xl font-black ${balance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{formatNaira(balance)}</span></div>
              <button onClick={handleSave} className="bg-[#c4a66a] text-black px-12 py-5 rounded-2xl font-black uppercase tracking-widest shadow-2xl transition-all hover:brightness-110 active:scale-95">Complete & Print Docket</button>
           </div>
-          <p className="text-[9px] text-center text-white/20 uppercase tracking-[0.5em]">Payment directed to Suntrust Account only</p>
+          <p className="text-[9px] text-center text-white/20 uppercase tracking-[0.5em]">Payment directed to settlement accounts only</p>
         </div>
       </GlassCard>
     </motion.div>
