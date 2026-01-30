@@ -1,4 +1,3 @@
-
 import React, { Component, useState, useEffect, ReactNode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,24 +9,21 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Use Component from named imports to ensure proper type resolution for state and props
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+// Use React.Component to ensure the TypeScript compiler correctly identifies inherited properties like 'this.props'
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
   render() {
-    // Accessing this.state which is now correctly recognized due to Component inheritance
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
           <div className="bg-[#1e293b] p-10 rounded-3xl shadow-2xl max-w-lg w-full border-2 border-red-500/30 text-center">
             <h1 className="text-3xl font-black text-red-500 mb-4 uppercase">System Error</h1>
+            <p className="text-white/60 mb-6">{this.state.error?.message}</p>
             <button 
               onClick={() => { localStorage.clear(); window.location.reload(); }} 
               className="w-full bg-[#c4a66a] text-white py-4 rounded-2xl font-black uppercase tracking-widest"
@@ -38,7 +34,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Accessing this.props which is now correctly recognized
+    // Accessing children from the component's props property
     return this.props.children;
   }
 }
@@ -49,8 +45,22 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 const HOTEL_ADDRESS = "38 S.O. Williams Street, Utako, Abuja.";
 const TAGLINE = "where boldness meets elegance";
 
+// Bank Accounts for Reservation Receipts (A4)
+const ZENITH_ACCOUNT = {
+  bank: "Zenith Bank",
+  accountNumber: "1311027935",
+  accountName: "Tidé Hotels and Resort"
+};
+
+const MONIEPOINT_ACCOUNT = {
+  bank: "Moniepoint",
+  accountNumber: "5169200615",
+  accountName: "Tidé Hotels and Resorts"
+};
+
+// Bank Account for Walk-in Dockets
 const DOCKET_ACCOUNT_DETAILS = {
-  bank: "Suntrust",
+  bank: "Suntrust Bank",
   accountNumber: "0025840833",
   accountName: "Tide’ Hotels Resorts"
 };
@@ -69,11 +79,10 @@ export enum PaymentMethod { CASH = 'Cash', POS = 'POS', TRANSFER = 'Bank Transfe
 
 export enum IDType {
   NIN = 'NIN',
-  NATIONAL_ID = 'National ID',
-  PASSPORT = 'Passport Card',
+  PASSPORT = 'International Passport',
   DRIVERS = 'Drivers License',
-  VOTERS = 'Voter’s Card',
-  STUDENT_ID = 'Student ID',
+  VOTERS = 'Voters Card',
+  STUDENT = 'Student ID',
   OTHER = 'Other'
 }
 
@@ -87,8 +96,13 @@ export interface BookingRoom {
   quantity: number;
 }
 
-export interface PaymentEntry { id: string; amount: number; method: PaymentMethod; reference?: string; }
+export interface ExtraCharge {
+  id: string;
+  description: string;
+  amount: number;
+}
 
+export interface PaymentEntry { id: string; amount: number; method: PaymentMethod; reference?: string; }
 export interface POSItem { description: string; amount: number; quantity: number; }
 
 export interface Transaction {
@@ -104,6 +118,7 @@ export interface Transaction {
   roomNumber?: string;
   rooms?: BookingRoom[];
   items?: POSItem[];
+  extraCharges?: ExtraCharge[];
   subtotal: number;
   serviceCharge: number;
   vat: number;
@@ -113,6 +128,8 @@ export interface Transaction {
   totalPaid: number;
   balance: number;
   cashier: string;
+  scPerc?: number;
+  vatPerc?: number;
 }
 
 const ROOM_RATES: Record<RoomType, number> = {
@@ -141,199 +158,160 @@ const formatNaira = (amt: number) => {
   return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(cleanAmt);
 };
 
-const calculateInclusiveFinancials = (grossAmount: number) => {
-  const net = grossAmount / 1.175;
-  const svc = net * 0.10;
-  const vat = net * 0.075;
-  return { net, svc, vat };
-};
-
-const exportToExcel = (transactions: Transaction[], filename: string = "TIDE_LEDGER") => {
-  if (transactions.length === 0) {
-    alert("No records found in the selected range to export.");
-    return;
-  }
-
-  const data = transactions.map(t => ({
-    "Date": new Date(t.date).toLocaleDateString(),
-    "Docket Ref": t.id,
-    "Type": t.type,
-    "Internal Ledger": t.account || "N/A",
-    "Settlement Bank": DOCKET_ACCOUNT_DETAILS.bank,
-    "Settlement Account": DOCKET_ACCOUNT_DETAILS.accountNumber,
-    "Guest/Customer": t.guestName,
-    "Room/Ref": t.roomNumber || "",
-    "Items Count": (t.rooms?.length || 0) + (t.items?.length || 0),
-    "Total Quantity": (t.rooms?.reduce((acc, r) => acc + r.quantity, 0) || 0) + (t.items?.reduce((acc, i) => acc + i.quantity, 0) || 0),
-    "Nights Sum": t.rooms?.reduce((acc, r) => acc + r.nights, 0) || 0,
-    "Total Due": t.totalDue,
-    "Total Paid": t.totalPaid,
-    "Balance": t.balance,
-    "Cashier": t.cashier
-  }));
-
-  const worksheet = XLSX.utils.json_to_sheet(data);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Master Ledger");
-  XLSX.writeFile(workbook, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
-};
-
 const printReceipt = (transaction: Transaction) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
-  const html = `
+  const isReservation = transaction.type === 'RESERVATION';
+
+  const a4Template = `
     <html>
       <head>
-        <title>Tidé - #${transaction.id}</title>
+        <title>Invoice - ${transaction.id}</title>
+        <style>
+          @page { size: A4; margin: 15mm; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; line-height: 1.6; padding: 20px; }
+          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #c4a66a; padding-bottom: 15px; margin-bottom: 30px; }
+          .logo { font-size: 32px; font-weight: 900; color: #0f172a; letter-spacing: -1.5px; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 30px; }
+          .section-title { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 5px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th { text-align: left; font-size: 11px; font-weight: 900; text-transform: uppercase; color: #64748b; padding: 12px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+          td { padding: 12px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
+          .grand-total { font-size: 18px; font-weight: 900; color: #0f172a; border-top: 2px solid #c4a66a !important; padding-top: 15px !important; }
+          .bank-info { background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 40px; }
+          .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; }
+          .bold { font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div><div class="logo">TIDÈ HOTELS</div><div style="font-size:12px;">${HOTEL_ADDRESS}</div></div>
+          <div style="text-align: right;"><div style="font-size:20px; font-weight:bold; color:#c4a66a;">GUEST FOLIO</div><div style="font-size:14px;">#${transaction.id}</div></div>
+        </div>
+        <div class="info-grid">
+          <div>
+            <div class="section-title">Guest Details</div>
+            <b>${transaction.guestName}</b><br/>
+            ${transaction.guestEmail ? `Email: ${transaction.guestEmail}<br/>` : ''}
+            ${transaction.guestPhone ? `Phone: ${transaction.guestPhone}<br/>` : ''}
+            ${transaction.guestIDType ? `${transaction.guestIDType}: ${transaction.guestIDNumber || 'N/A'}` : ''}
+          </div>
+          <div style="text-align: right;">
+            <div class="section-title">Folio Information</div>
+            Date: ${new Date(transaction.date).toLocaleDateString()}<br/>
+            Room Ref: ${transaction.roomNumber || 'N/A'}<br/>
+            Cashier: ${transaction.cashier}
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Description</th><th>Qty</th><th>Nts</th><th>Rate</th><th>Total</th></tr></thead>
+          <tbody>
+            ${transaction.rooms?.map(r => `<tr><td>${r.roomType}<br/><small>${r.checkIn} to ${r.checkOut}</small></td><td>${r.quantity}</td><td>${r.nights}</td><td>${formatNaira(r.ratePerNight)}</td><td>${formatNaira(r.ratePerNight * r.nights * r.quantity)}</td></tr>`).join('')}
+            ${transaction.extraCharges?.map(e => `<tr><td colspan="4">${e.description}</td><td>${formatNaira(e.amount)}</td></tr>`).join('')}
+          </tbody>
+        </table>
+        <div style="display: flex; justify-content: flex-end;">
+          <table style="width: 320px;">
+            <tr><td>Folio Subtotal</td><td style="text-align:right;">${formatNaira(transaction.totalDue + (transaction.discount || 0))}</td></tr>
+            ${transaction.discount ? `<tr><td>Rebate / Discount</td><td style="text-align:right; color:red;">-${formatNaira(transaction.discount)}</td></tr>` : ''}
+            <tr><td class="bold">Total Amount Payable</td><td class="bold" style="text-align:right;">${formatNaira(transaction.totalDue)}</td></tr>
+            <tr><td colspan="2"><div style="border-top: 1px dashed #cbd5e1; margin: 10px 0;"></div></td></tr>
+            ${transaction.payments.filter(p => p.amount > 0).map(p => `<tr><td style="font-size: 12px; color: #64748b;">Payment (${p.method})</td><td style="text-align:right; font-size: 12px; color: #64748b;">${formatNaira(p.amount)}</td></tr>`).join('')}
+            <tr><td class="bold" style="padding-top: 8px;">Total Paid To Date</td><td class="bold" style="text-align:right; padding-top: 8px;">${formatNaira(transaction.totalPaid)}</td></tr>
+            <tr><td class="grand-total">${transaction.balance < 0 ? 'Balance Outstanding' : 'Account Balance'}</td><td class="grand-total" style="text-align:right;">${formatNaira(Math.abs(transaction.balance))}</td></tr>
+            <tr><td colspan="2" style="font-size:10px; color:#94a3b8; text-align:right; padding-top:10px;">*Rates are Inclusive of SC (${transaction.scPerc || 0}%) and VAT (${transaction.vatPerc || 0}%)</td></tr>
+          </table>
+        </div>
+        <div class="bank-info">
+          <div class="section-title">Settlement Bank Accounts</div>
+          <div style="margin-bottom: 15px;">
+            <b>${ZENITH_ACCOUNT.bank}</b><br/>
+            Account Number: <b>${ZENITH_ACCOUNT.accountNumber}</b><br/>
+            Account Name: <b>${ZENITH_ACCOUNT.accountName}</b>
+          </div>
+          <div>
+            <b>${MONIEPOINT_ACCOUNT.bank}</b><br/>
+            Account Number: <b>${MONIEPOINT_ACCOUNT.accountNumber}</b><br/>
+            Account Name: <b>${MONIEPOINT_ACCOUNT.accountName}</b>
+          </div>
+        </div>
+        <div class="footer"><p>${TAGLINE}</p></div>
+      </body>
+    </html>
+  `;
+
+  const docketTemplate = `
+    <html>
+      <head>
+        <title>Docket - #${transaction.id}</title>
         <style>
           @page { size: 80mm auto; margin: 0; }
-          body { 
-            margin: 0; 
-            padding: 0; 
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            background-color: #fff;
-          }
-          .receipt-wrapper {
-            width: 72mm;
-            font-family: 'Courier New', Courier, monospace; 
-            color: #000; 
-            line-height: 1.2; 
-            font-size: 11px;
-            padding: 10px 0;
-          }
-          .center { text-align: center; }
+          body { margin: 0; padding: 0; width: 100%; display: flex; justify-content: center; background-color: #fff; font-family: 'Courier New', Courier, monospace; }
+          .receipt-wrapper { width: 72mm; color: #000; line-height: 1.2; font-size: 11px; padding: 10px 0; }
           .bold { font-weight: bold; }
-          .header { border-bottom: 1px dashed #000; padding-bottom: 5px; margin-bottom: 10px; }
           .divider { border-bottom: 1px dashed #000; margin: 8px 0; }
           .row { display: flex; justify-content: space-between; margin: 2px 0; }
-          .account-info { 
-            background: #f0f0f0; 
-            padding: 5px; 
-            border: 1px solid #000; 
-            margin: 10px 0;
-            font-size: 10px;
-          }
-          .item-row { margin-bottom: 5px; }
-          .total-box { margin-top: 10px; font-size: 13px; border-top: 1px solid #000; padding-top: 5px; }
-          .footer { margin-top: 25px; font-size: 10px; text-align: center; font-style: italic; font-weight: bold; }
+          .bank-area { background: #f0f0f0; padding: 5px; border: 1px solid #000; margin: 10px 0; font-size: 10px; }
         </style>
       </head>
       <body>
         <div class="receipt-wrapper">
-          <div class="header center">
+          <div style="text-align:center;">
             <h2 style="margin:0; font-size: 18px;">TIDÈ HOTELS</h2>
             <p style="margin:2px 0;">${HOTEL_ADDRESS}</p>
           </div>
-
-          <div class="account-info">
-            <p class="bold center" style="margin:0 0 3px 0;">SETTLEMENT ACCOUNT</p>
-            <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS.bank}</span></div>
-            <div class="row"><span>Account:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS.accountNumber}</span></div>
-            <div class="row"><span>Name:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS.accountName}</span></div>
-          </div>
-
-          <div class="section">
-            <div class="row"><span>DOCKET:</span><span class="bold">#${transaction.id}</span></div>
-            <div class="row"><span>DATE:</span><span>${new Date(transaction.date).toLocaleDateString()}</span></div>
-            <div class="row"><span>CASHIER:</span><span>${transaction.cashier}</span></div>
-          </div>
-
           <div class="divider"></div>
-
-          <div class="section">
-            <p class="bold" style="margin: 0 0 5px 0;">GUEST: ${transaction.guestName}</p>
-            ${transaction.roomNumber ? `<p style="margin: 0;">Ref: ${transaction.roomNumber}</p>` : ''}
-          </div>
-
+          <div class="row"><span>Docket:</span><span class="bold">#${transaction.id}</span></div>
+          <div class="row"><span>Date:</span><span>${new Date(transaction.date).toLocaleDateString()}</span></div>
+          <p class="bold">Guest: ${transaction.guestName}</p>
           <div class="divider"></div>
-
-          <div class="items">
-            ${transaction.rooms ? transaction.rooms.map(r => `
-              <div class="item-row">
-                <div class="row"><span class="bold">${r.roomType}</span></div>
-                <div class="row"><span>Qty: ${r.quantity} x ${r.nights} Nts</span><span>${formatNaira(r.ratePerNight * r.nights * r.quantity)}</span></div>
-              </div>
-            `).join('') : ''}
-            ${transaction.items ? transaction.items.map(i => `
-              <div class="item-row">
-                <div class="row"><span>${i.description} x${i.quantity}</span><span>${formatNaira(i.amount * i.quantity)}</span></div>
-              </div>
-            `).join('') : ''}
-          </div>
-
+          ${transaction.items?.map(i => `<div class="row"><span>${i.description} (x${i.quantity})</span><span>${formatNaira(i.amount * i.quantity)}</span></div>`).join('')}
           <div class="divider"></div>
-
-          <div class="totals">
-            <div class="row"><span>SUBTOTAL</span><span>${formatNaira(transaction.subtotal)}</span></div>
-            <div class="row"><span>SC (10%)</span><span>${formatNaira(transaction.serviceCharge)}</span></div>
-            <div class="row"><span>VAT (7.5%)</span><span>${formatNaira(transaction.vat)}</span></div>
-            ${transaction.discount > 0 ? `<div class="row"><span>DISCOUNT</span><span>-${formatNaira(transaction.discount)}</span></div>` : ''}
-            <div class="row bold total-box"><span>TOTAL DUE</span><span>${formatNaira(transaction.totalDue)}</span></div>
-          </div>
-
-          <div class="divider" style="border-style: solid;"></div>
-
+          <div class="row bold" style="font-size:13px;"><span>TOTAL DUE</span><span>${formatNaira(transaction.totalDue)}</span></div>
+          <div style="font-size:8px; text-align:right; opacity:0.6;">(Rates inclusive of SC/VAT)</div>
+          <div class="divider"></div>
           <div class="payments">
-            <p class="bold" style="margin-bottom: 5px;">PAYMENTS:</p>
-            ${transaction.payments.map(p => `
-              <div class="row"><span>${p.method}</span><span>${formatNaira(p.amount)}</span></div>
-            `).join('')}
-            <div class="divider"></div>
+            ${transaction.payments.map(p => `<div class="row"><span>${p.method}</span><span>${formatNaira(p.amount)}</span></div>`).join('')}
             <div class="row bold"><span>PAID</span><span>${formatNaira(transaction.totalPaid)}</span></div>
-            <div class="row bold"><span>BAL.</span><span style="${transaction.balance < -0.1 ? 'color: red;' : ''}">${formatNaira(transaction.balance)}</span></div>
+            <div class="row bold"><span>BALANCE</span><span>${formatNaira(transaction.balance)}</span></div>
           </div>
-
-          <div class="footer">
-            <p>${TAGLINE}</p>
+          <div class="bank-area">
+            <div style="text-align:center; font-weight:bold; text-decoration:underline;">SETTLEMENT ACCOUNT</div>
+            <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS.bank}</span></div>
+            <div class="row"><span>Acc:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS.accountNumber}</span></div>
+            <div class="row"><span>Name:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS.accountName}</span></div>
           </div>
         </div>
       </body>
     </html>
   `;
 
-  printWindow.document.write(html);
+  printWindow.document.write(isReservation ? a4Template : docketTemplate);
   printWindow.document.close();
   printWindow.focus();
-  setTimeout(() => {
-    printWindow.print();
-  }, 500);
+  setTimeout(() => printWindow.print(), 500);
 };
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // UI COMPONENTS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-const GlassCard = ({ children, className = "", delay = 0 }: { children?: ReactNode, className?: string, delay?: number }) => (
-  <motion.div 
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.6, delay, ease: "easeOut" }}
-    className={`bg-[#1e293b]/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-6 ${className}`}
-  >
-    {children}
-  </motion.div>
+const GlassCard = ({ children, className = "" }: { children?: ReactNode, className?: string }) => (
+  <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className={`bg-[#1e293b]/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-6 ${className}`}>{children}</motion.div>
 );
 
-const InputField = ({ label, ...props }: any) => {
-  const isDate = props.type === 'date';
+const InputField = ({ label, type = 'text', ...props }: any) => {
+  const isDate = type === 'date';
   return (
     <div className="space-y-1 w-full overflow-hidden">
-      <label className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest pl-1 block truncate">
-        {label} {props.required && <span className="text-red-500">*</span>}
-      </label>
-      <div className="relative group">
+      <label className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest pl-1 block truncate">{label}</label>
+      <div className="relative">
         <input 
           {...props} 
-          className={`w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] focus:ring-2 focus:ring-[#c4a66a]/20 transition-all font-medium text-sm placeholder:text-white/20 ${isDate ? 'relative z-10 cursor-pointer' : ''}`} 
+          type={type}
+          className={`w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm placeholder:text-white/10 ${props.readOnly ? 'opacity-50 cursor-not-allowed bg-white/5' : ''} ${isDate ? 'date-input-fix' : ''}`} 
         />
-        {isDate && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#c4a66a] z-20 flex items-center justify-center bg-[#0f172a] pl-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -342,14 +320,9 @@ const InputField = ({ label, ...props }: any) => {
 const SelectField = ({ label, options, ...props }: any) => (
   <div className="space-y-1 w-full overflow-hidden">
     <label className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest pl-1 block truncate">{label}</label>
-    <div className="relative">
-      <select {...props} className="w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm appearance-none cursor-pointer">
-        {options.map((o: any) => <option key={o.value || o} value={o.value || o} className="bg-[#1a252f] text-white">{o.label || o}</option>)}
-      </select>
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#c4a66a] opacity-50">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
-    </div>
+    <select {...props} className="w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm appearance-none cursor-pointer">
+      {options.map((o: any) => <option key={o.value || o} value={o.value || o} className="bg-[#1a252f] text-white">{o.label || o}</option>)}
+    </select>
   </div>
 );
 
@@ -359,9 +332,11 @@ const SelectField = ({ label, options, ...props }: any) => (
 
 const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
   const [guest, setGuest] = useState(initial?.guestName || '');
-  const [account, setAccount] = useState(initial?.account || DEFAULT_ACCOUNTS[0]);
   const [email, setEmail] = useState(initial?.guestEmail || '');
   const [phone, setPhone] = useState(initial?.guestPhone || '');
+  const [idType, setIdType] = useState<IDType>(initial?.guestIDType || IDType.NIN);
+  const [idNumber, setIdNumber] = useState(initial?.guestIDNumber || '');
+  const [account, setAccount] = useState(initial?.account || DEFAULT_ACCOUNTS[0]);
   const [roomNo, setRoomNo] = useState(initial?.roomNumber || '');
   const [rooms, setRooms] = useState<BookingRoom[]>(initial?.rooms || [{ 
     id: uuid(), 
@@ -372,16 +347,18 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
     ratePerNight: ROOM_RATES[RoomType.SOJOURN_ROOM],
     quantity: 1
   }]);
+  const [extraCharges] = useState<ExtraCharge[]>(initial?.extraCharges || []);
   const [payments, setPayments] = useState<PaymentEntry[]>(initial?.payments || [{ id: uuid(), amount: 0, method: PaymentMethod.POS }]);
   const [discount, setDiscount] = useState(initial?.discount || 0);
 
-  const grossSubtotal = useMemo(() => rooms.reduce((s, r) => s + (r.ratePerNight * r.nights * (r.quantity || 1)), 0), [rooms]);
-  const { net, svc, vat } = useMemo(() => calculateInclusiveFinancials(grossSubtotal), [grossSubtotal]);
-  const totalDue = grossSubtotal - discount; 
+  const roomSubtotal = useMemo(() => rooms.reduce((s, r) => s + (r.ratePerNight * r.nights * (r.quantity || 1)), 0), [rooms]);
+  const combinedSubtotal = roomSubtotal; // Simplified subtotal for the demo logic
+  const totalDue = Math.max(0, combinedSubtotal - discount);
   const totalPaid = useMemo(() => payments.reduce((s, p) => s + p.amount, 0), [payments]);
-  const currentBalance = totalPaid - totalDue;
+  const balance = totalPaid - totalDue;
 
   const updateDates = (rid: string, cin: string, cout: string) => {
+    if (!cin || !cout) return;
     const start = new Date(cin);
     const end = new Date(cout);
     const diff = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
@@ -392,324 +369,271 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
     if (!guest.trim()) return alert("Guest Name is required.");
     onSave({
       id: initial?.id || `RES-${uuid()}`, type: 'RESERVATION', date: initial?.date || new Date().toISOString(),
-      account, guestName: guest, guestEmail: email, guestPhone: phone,
-      roomNumber: roomNo, rooms, subtotal: net, serviceCharge: svc, vat, discount, totalDue,
-      payments, totalPaid, balance: currentBalance, cashier: cashierName
+      account, guestName: guest, guestEmail: email, guestPhone: phone, guestIDType: idType, guestIDNumber: idNumber,
+      roomNumber: roomNo, rooms, extraCharges, 
+      subtotal: combinedSubtotal, serviceCharge: 0, vat: 0, discount, totalDue,
+      payments, totalPaid, balance, cashier: cashierName, scPerc: 10, vatPerc: 7.5
     });
   };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <motion.div layout initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="max-w-6xl w-full max-h-[92vh] flex flex-col">
-        <GlassCard className="!p-0 h-full flex flex-col overflow-hidden">
-          <div className="p-6 bg-[#1a252f] flex justify-between items-center border-b border-white/5 shrink-0">
-            <h2 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
-              <span className="w-1.5 h-6 bg-[#c4a66a] rounded-full"></span>
-              Folio Management
-            </h2>
-            <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-white/5 flex items-center justify-center text-white/40 hover:text-white transition-all text-2xl">&times;</button>
+      <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="max-w-6xl w-full max-h-[95vh] flex flex-col overflow-hidden bg-[#1e293b] rounded-[2.5rem] border border-white/10 shadow-2xl">
+        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#1a252f] shrink-0">
+          <h2 className="text-xl font-black uppercase text-[#c4a66a] tracking-widest text-center w-full">Folio Control Hub</h2>
+          <button onClick={onClose} className="text-white/40 hover:text-white text-3xl transition-all">&times;</button>
+        </div>
+        
+        <div className="p-8 overflow-y-auto custom-scrollbar flex-1 space-y-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <InputField label="Guest Name" value={guest} onChange={(e:any)=>setGuest(e.target.value)} />
+            <InputField label="Email Address" value={email} onChange={(e:any)=>setEmail(e.target.value)} />
+            <InputField label="Contact Phone" value={phone} onChange={(e:any)=>setPhone(e.target.value)} />
+            <InputField label="Room/Reference" value={roomNo} onChange={(e:any)=>setRoomNo(e.target.value)} />
           </div>
-          <div className="p-8 overflow-y-auto custom-scrollbar space-y-8 flex-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="md:col-span-2"><InputField label="Guest Full Name" value={guest} onChange={(e:any)=>setGuest(e.target.value)} required /></div>
-              <SelectField label="Internal Ledger" value={account} options={DEFAULT_ACCOUNTS} onChange={(e:any)=>setAccount(e.target.value)} />
-              <InputField label="Contact Phone" value={phone} onChange={(e:any)=>setPhone(e.target.value)} />
-              <InputField label="Room/Reference" value={roomNo} onChange={(e:any)=>setRoomNo(e.target.value)} />
-              <InputField label="Guest Email" type="email" value={email} onChange={(e:any)=>setEmail(e.target.value)} />
-            </div>
 
-            <div className="space-y-4">
-              <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                <h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Stays (Quantity Enabled)</h3>
-                <button onClick={()=>setRooms([...rooms, { id: uuid(), roomType: RoomType.SOJOURN_ROOM, checkIn: '', checkOut: '', nights: 1, ratePerNight: ROOM_RATES[RoomType.SOJOURN_ROOM], quantity: 1 }])} className="text-[#c4a66a] text-[10px] font-black uppercase bg-[#c4a66a]/10 px-4 py-2 rounded-lg hover:bg-[#c4a66a]/20 transition-all">+ Add Unit</button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-white/5 rounded-3xl border border-white/5">
+             <SelectField label="Identity Type" value={idType} options={Object.values(IDType)} onChange={(e:any)=>setIdType(e.target.value)} />
+             <InputField label="ID Card Number" value={idNumber} onChange={(e:any)=>setIdNumber(e.target.value)} />
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex justify-between items-center"><h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Stay Logistics</h3><button onClick={()=>setRooms([...rooms, { id: uuid(), roomType: RoomType.SOJOURN_ROOM, checkIn: '', checkOut: '', nights: 1, ratePerNight: ROOM_RATES[RoomType.SOJOURN_ROOM], quantity: 1 }])} className="text-[10px] bg-[#c4a66a]/10 text-[#c4a66a] px-5 py-2.5 rounded-xl font-bold border border-[#c4a66a]/20">Add Room Unit</button></div>
+            {rooms.map(r=>(
+              <div key={r.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-[#0f172a] p-5 rounded-2xl border border-white/5 items-end">
+                <div className="md:col-span-3"><SelectField label="Category" value={r.roomType} options={Object.values(RoomType)} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, roomType: e.target.value as any, ratePerNight: ROOM_RATES[e.target.value as RoomType]}:rx))} /></div>
+                <div className="md:col-span-2"><InputField label="Rate (Incl SC/VAT)" type="number" value={r.ratePerNight} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, ratePerNight: parseFloat(e.target.value)||0}:rx))} /></div>
+                <div className="md:col-span-1"><InputField label="Qty" type="number" value={r.quantity} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, quantity: parseInt(e.target.value)||1}:rx))} /></div>
+                <div className="md:col-span-2"><InputField label="Check-In" type="date" value={r.checkIn} onChange={(e:any)=>updateDates(r.id, e.target.value, r.checkOut)} /></div>
+                <div className="md:col-span-2"><InputField label="Check-Out" type="date" value={r.checkOut} onChange={(e:any)=>updateDates(r.id, r.checkIn, e.target.value)} /></div>
+                <div className="md:col-span-1"><InputField label="Nts" type="number" value={r.nights} readOnly /></div>
+                <button onClick={()=>setRooms(rooms.filter(rx=>rx.id!==r.id))} className="md:col-span-1 text-red-500 mb-4 font-black text-2xl">×</button>
               </div>
-              {rooms.map((r) => (
-                <div key={r.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-[#0f172a] p-5 rounded-2xl border border-white/5 items-end">
-                  <div className="md:col-span-4"><SelectField label="Category" value={r.roomType} options={Object.values(RoomType)} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, roomType: e.target.value, ratePerNight: ROOM_RATES[e.target.value as RoomType]}:rx))} /></div>
-                  <div className="md:col-span-2"><InputField label="Qty" type="number" value={r.quantity} min="1" onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, quantity: Math.max(1, parseInt(e.target.value)||1)}:rx))} /></div>
-                  <div className="md:col-span-2"><InputField label="Check-In" type="date" value={r.checkIn} onChange={(e:any)=>updateDates(r.id, e.target.value, r.checkOut)} /></div>
-                  <div className="md:col-span-2"><InputField label="Check-Out" type="date" value={r.checkOut} onChange={(e:any)=>updateDates(r.id, r.checkIn, e.target.value)} /></div>
-                  <div className="md:col-span-1 text-center bg-[#1a252f] p-3 rounded-xl"><span className="text-[9px] text-white/30 uppercase font-bold block">Nts</span><span className="font-black text-[#c4a66a]">{r.nights}</span></div>
-                  <button onClick={()=>setRooms(rooms.filter(rx=>rx.id!==r.id))} className="md:col-span-1 text-red-500/20 hover:text-red-500 p-4 transition-colors">&times;</button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 border-t border-white/5 pt-10">
+            <div className="space-y-4">
+              <h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Folio Settlement</h3>
+              {payments.map(p=>(
+                <div key={p.id} className="flex gap-3 bg-[#0f172a] p-4 rounded-2xl border border-white/5 items-center shadow-lg">
+                  <select className="bg-transparent flex-1 text-sm text-white font-bold outline-none cursor-pointer" value={p.method} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, method: e.target.value as any}:px))}>{Object.values(PaymentMethod).map(m=><option key={m} value={m} className="bg-[#1e293b]">{m}</option>)}</select>
+                  <input type="number" className="bg-transparent w-36 text-right text-white font-black outline-none border-b border-white/10 focus:border-[#c4a66a] transition-all" placeholder="Amount" value={p.amount || ''} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, amount: parseFloat(e.target.value)||0}:px))} />
                 </div>
               ))}
+              <button onClick={()=>setPayments([...payments, {id: uuid(), amount: 0, method: PaymentMethod.POS}])} className="w-full py-3 border-2 border-dashed border-white/10 rounded-2xl text-[10px] font-black uppercase text-white/30 hover:border-[#c4a66a]/30 hover:text-[#c4a66a] transition-all">Split Settlement</button>
             </div>
+            <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5 space-y-6 shadow-xl">
+              <SelectField label="Internal Ledger" value={account} options={DEFAULT_ACCOUNTS} onChange={(e:any)=>setAccount(e.target.value)} />
+              <InputField label="Folio Rebate" type="number" value={discount || ''} onChange={(e:any)=>setDiscount(parseFloat(e.target.value)||0)} />
+              <div className="pt-6 border-t border-white/10 flex justify-between items-end">
+                <div className="flex flex-col"><span className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest">Net Valuation</span><span className="text-4xl font-black text-white tracking-tighter">{formatNaira(totalDue)}</span></div>
+                <div className="text-right flex flex-col"><span className="text-[10px] font-black uppercase text-white/30 tracking-widest">Balance</span><span className={`text-2xl font-black tracking-tighter ${balance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{formatNaira(balance)}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 border-t border-white/5 pt-8">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center"><h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Payments</h3><button onClick={()=>setPayments([...payments, {id: uuid(), amount: 0, method: PaymentMethod.POS}])} className="text-[#c4a66a] text-[10px] font-black uppercase">+</button></div>
-                {payments.map(p => (
-                  <div key={p.id} className="flex gap-3 bg-[#0f172a] p-3.5 rounded-2xl border border-white/5 group">
-                    <select className="bg-transparent text-xs text-white outline-none flex-1 font-bold cursor-pointer" value={p.method} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, method: e.target.value as any}:px))}>
-                      {Object.values(PaymentMethod).map(m=><option key={m} value={m} className="bg-[#1e293b]">{m}</option>)}
-                    </select>
-                    <input type="number" className="bg-transparent text-right font-black w-32 outline-none border-b border-white/10 group-focus-within:border-[#c4a66a] transition-all" placeholder="Amount" value={p.amount || ''} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, amount: Math.max(0, parseFloat(e.target.value)||0)}:px))} />
-                  </div>
-                ))}
-              </div>
-              <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5 space-y-4">
-                <div className="flex justify-between text-xs font-bold text-white/40 uppercase tracking-widest"><span>Subtotal (Incl.)</span><span>{formatNaira(grossSubtotal)}</span></div>
-                <InputField label="Rebate / Discount" type="number" value={discount || ''} onChange={(e:any)=>setDiscount(Math.max(0, parseFloat(e.target.value)||0))} />
-                <div className="pt-6 border-t border-white/10 flex justify-between items-end">
-                  <div className="flex flex-col"><span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Master Valuation</span><span className="text-4xl font-black text-[#c4a66a] tracking-tighter">{formatNaira(totalDue)}</span></div>
-                  <div className="text-right flex flex-col">
-                    <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">{currentBalance < -0.1 ? 'Due' : 'Bal.'}</span>
-                    <span className={`text-2xl font-black tracking-tighter ${currentBalance < -0.1 ? 'text-red-400' : 'text-emerald-400'}`}>{formatNaira(Math.abs(currentBalance))}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="p-8 bg-[#1a252f] border-t border-white/5 shrink-0">
-            <button onClick={handleSave} className="w-full bg-[#c4a66a] text-[#1a252f] py-6 rounded-3xl font-black uppercase tracking-[0.2em] shadow-2xl hover:brightness-110 active:scale-95 transition-all">Authorize & Print 80mm Docket</button>
-          </div>
-        </GlassCard>
+        <div className="p-8 border-t border-white/5 bg-[#1a252f] shrink-0">
+          <button onClick={handleSave} className="w-full bg-[#c4a66a] text-black py-6 rounded-3xl font-black uppercase tracking-[0.2em] shadow-2xl hover:brightness-110 active:scale-95 transition-all">Authorize & Print Folio (A4)</button>
+        </div>
       </motion.div>
     </motion.div>
   );
 };
 
 const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
-  const [guest, setGuest] = useState(initial?.guestName || 'POS Guest');
-  const [account, setAccount] = useState(initial?.account || DEFAULT_ACCOUNTS[1]);
-  const [items, setItems] = useState<POSItem[]>(initial?.items || [{ description: 'POS General Service', amount: 0, quantity: 1 }]);
+  const [guest, setGuest] = useState(initial?.guestName || 'Walk-In Customer');
+  const [items, setItems] = useState<POSItem[]>(initial?.items || [{ description: 'F&B/General Service', amount: 0, quantity: 1 }]);
   const [payments, setPayments] = useState<PaymentEntry[]>(initial?.payments || [{ id: uuid(), amount: 0, method: PaymentMethod.POS }]);
+  const [scPerc, setScPerc] = useState(initial?.scPerc || 10);
+  const [vatPerc, setVatPerc] = useState(initial?.vatPerc || 7.5);
 
-  const grossSubtotal = useMemo(() => items.reduce((s, i) => s + (i.amount * i.quantity), 0), [items]);
-  const { net, svc, vat } = useMemo(() => calculateInclusiveFinancials(grossSubtotal), [grossSubtotal]);
-  const totalDue = grossSubtotal;
+  const subtotal = useMemo(() => items.reduce((s, i) => s + (i.amount * i.quantity), 0), [items]);
   const totalPaid = useMemo(() => payments.reduce((s, p) => s + p.amount, 0), [payments]);
-  const currentBalance = totalPaid - totalDue;
-
+  const balance = totalPaid - subtotal;
+  
   const handleSave = () => {
-    if (!guest.trim()) return alert("Customer name is required.");
-    onSave({
-      id: initial?.id || `W-${uuid()}`, type: 'WALK-IN', date: initial?.date || new Date().toISOString(),
-      account, guestName: guest, items, subtotal: net, serviceCharge: svc, vat, discount: 0,
-      totalDue, payments, totalPaid, balance: currentBalance, cashier: user
+    if (!guest.trim()) return alert("Customer Name is required.");
+    onSave({ 
+      id: initial?.id || `POS-${uuid()}`, type: 'WALK-IN', date: initial?.date || new Date().toISOString(), account: "F&B Operations", guestName: guest, items, subtotal, serviceCharge: 0, vat: 0, discount: 0, totalDue: subtotal, payments, totalPaid, balance, cashier: user, scPerc, vatPerc
     });
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4">
-      <motion.div layout initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="max-w-xl w-full">
-        <GlassCard className="space-y-6">
-          <div className="flex justify-between items-center border-b border-white/5 pb-4">
-            <h2 className="text-2xl font-black text-white uppercase tracking-tighter">POS Transaction</h2>
-            <button onClick={onClose} className="text-white/20 text-3xl hover:text-white transition-all">&times;</button>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <InputField label="Guest / Customer" value={guest} onChange={(e:any)=>setGuest(e.target.value)} required />
-            <SelectField label="Internal Ledger" value={account} options={DEFAULT_ACCOUNTS} onChange={(e:any)=>setAccount(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-[10px] font-black uppercase text-[#c4a66a] tracking-widest"><span>Order Entries</span><button onClick={()=>setItems([...items, {description: '', amount: 0, quantity: 1}])} className="bg-[#c4a66a]/10 px-2 rounded">+</button></div>
-            <div className="max-h-[250px] overflow-y-auto custom-scrollbar space-y-2 pr-2">
-              {items.map((it, idx) => (
-                <div key={idx} className="flex gap-2">
-                  <input className="flex-1 bg-black/40 p-3.5 rounded-xl text-sm outline-none text-white border border-white/5" value={it.description} placeholder="Item" onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, description: e.target.value}:x))} />
-                  <input type="number" className="w-16 bg-black/40 p-3.5 rounded-xl text-center font-black text-white border border-white/5" value={it.quantity} min="1" onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, quantity: Math.max(1, parseInt(e.target.value)||1)}:x))} />
-                  <input type="number" className="w-24 bg-black/40 p-3.5 rounded-xl text-right font-black text-[#c4a66a] border border-white/5" value={it.amount || ''} placeholder="0" onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, amount: Math.max(0, parseFloat(e.target.value)||0)}:x))} />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-50">
+      <GlassCard className="max-w-2xl w-full flex flex-col max-h-[95vh] overflow-hidden !p-0 shadow-2xl rounded-[3rem]">
+        <div className="p-6 bg-[#1a252f] flex justify-between items-center border-b border-white/5 shrink-0">
+           <h2 className="text-xl font-black uppercase text-[#c4a66a] tracking-widest text-center w-full">Walk-In Point of Sale</h2>
+           <button onClick={onClose} className="text-white/20 hover:text-white text-3xl transition-all">&times;</button>
+        </div>
+        
+        <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar flex-1">
+          <InputField label="Customer Identity" value={guest} onChange={(e:any)=>setGuest(e.target.value)} />
+          
+          <div className="space-y-4">
+             <div className="flex justify-between items-center"><h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Billable Items</h3><button onClick={()=>setItems([...items, {description: '', amount: 0, quantity: 1}])} className="text-[#c4a66a] text-2xl font-black">+</button></div>
+             {items.map((it, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-3 bg-white/5 p-4 rounded-3xl border border-white/5 items-end shadow-inner">
+                   <div className="col-span-6"><InputField label="Item Description" value={it.description} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, description: e.target.value}:x))} /></div>
+                   <div className="col-span-3"><InputField label="Price (Gross)" type="number" value={it.amount || ''} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, amount: parseFloat(e.target.value)||0}:x))} /></div>
+                   <div className="col-span-2"><InputField label="Qty" type="number" value={it.quantity} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, quantity: parseInt(e.target.value)||1}:x))} /></div>
+                   <button onClick={()=>setItems(items.filter((_,i)=>i!==idx))} className="col-span-1 text-red-500 font-bold text-xl pb-3 transition-colors hover:text-red-300">&times;</button>
                 </div>
-              ))}
-            </div>
+             ))}
           </div>
-          <div className="p-6 bg-black/50 rounded-3xl border border-white/5 flex justify-between items-center">
-            <span className="font-black text-white/40 uppercase tracking-widest text-[10px]">Grand Total</span>
-            <span className="text-3xl font-black text-[#c4a66a]">{formatNaira(totalDue)}</span>
-          </div>
-          <div className="space-y-3">
-             <h3 className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest">Settlement</h3>
-             {payments.map(p => (
-                <div key={p.id} className="flex gap-2 bg-white/5 p-2 rounded-2xl items-center">
-                  <select className="flex-1 bg-transparent p-2 text-xs text-white outline-none cursor-pointer font-bold" value={p.method} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, method: e.target.value as any}:px))}>
-                    {Object.values(PaymentMethod).map(m=><option key={m} value={m} className="bg-[#1e293b]">{m}</option>)}
-                  </select>
-                  <input type="number" className="w-32 bg-transparent p-2 text-right font-black text-white outline-none" placeholder="0.00" value={p.amount || ''} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, amount: Math.max(0, parseFloat(e.target.value)||0)}:px))} />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-white/5 rounded-3xl border border-white/5 shadow-lg">
+             <div className="space-y-4">
+                <h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Inclusive Tax Config</h3>
+                <div className="grid grid-cols-2 gap-4">
+                   <InputField label="SC % (Incl)" type="number" value={scPerc} onChange={(e:any)=>setScPerc(parseFloat(e.target.value)||0)} />
+                   <InputField label="VAT % (Incl)" type="number" value={vatPerc} onChange={(e:any)=>setVatPerc(parseFloat(e.target.value)||0)} />
                 </div>
-              ))}
+             </div>
+             <div className="flex flex-col justify-end">
+                <div className="p-5 bg-black/40 rounded-2xl border border-[#c4a66a]/30 flex justify-between items-center">
+                   <span className="text-[10px] font-black uppercase text-[#c4a66a]">Valuation</span>
+                   <span className="text-2xl font-black text-white tracking-tighter">{formatNaira(subtotal)}</span>
+                </div>
+             </div>
           </div>
-          <div className="flex gap-4 pt-4">
-             <button onClick={onClose} className="flex-1 text-[10px] font-black uppercase text-white/20">Cancel</button>
-             <button onClick={handleSave} className="flex-[2] bg-[#c4a66a] text-[#1a252f] py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-2xl hover:brightness-110 active:scale-95 transition-all">Authorize & Print 80mm</button>
+
+          <div className="space-y-4">
+            <div className="flex justify-between items-center"><h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Settlement Log</h3><button onClick={()=>setPayments([...payments, {id: uuid(), amount: 0, method: PaymentMethod.POS}])} className="text-[#c4a66a] text-xl font-black">+</button></div>
+            {payments.map(p=>(
+               <div key={p.id} className="flex gap-4 bg-[#0f172a] p-4 rounded-3xl border border-white/5 items-center shadow-lg">
+                  <select className="flex-1 bg-transparent text-xs text-white font-bold outline-none cursor-pointer" value={p.method} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, method: e.target.value as any}:px))}>{Object.values(PaymentMethod).map(m=><option key={m} value={m} className="bg-[#1e293b]">{m}</option>)}</select>
+                  <div className="flex flex-col items-end">
+                     <span className="text-[8px] font-black uppercase text-white/20 mb-1">Amount Paid</span>
+                     <input type="number" className="bg-transparent w-40 text-right font-black text-white outline-none border-b border-white/5 focus:border-[#c4a66a] transition-all" value={p.amount || ''} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, amount: parseFloat(e.target.value)||0}:px))} />
+                  </div>
+                  <button onClick={()=>setPayments(payments.filter(px=>px.id!==p.id))} className="text-red-500 font-bold transition-all hover:scale-125 px-2">&times;</button>
+               </div>
+            ))}
           </div>
-        </GlassCard>
-      </motion.div>
+        </div>
+
+        <div className="p-8 border-t border-white/5 bg-[#1a252f] shrink-0">
+          <div className="flex justify-between items-center mb-6">
+             <div className="flex flex-col"><span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Folio Balance</span><span className={`text-2xl font-black ${balance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{formatNaira(balance)}</span></div>
+             <button onClick={handleSave} className="bg-[#c4a66a] text-black px-12 py-5 rounded-2xl font-black uppercase tracking-widest shadow-2xl transition-all hover:brightness-110 active:scale-95">Complete & Print Docket</button>
+          </div>
+          <p className="text-[9px] text-center text-white/20 uppercase tracking-[0.5em]">Payment directed to Suntrust Account only</p>
+        </div>
+      </GlassCard>
     </motion.div>
   );
 };
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// HELPER FUNCTIONS
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+const exportToExcel = (data: Transaction[]) => {
+  if (data.length === 0) return alert("No data to export.");
+  const flatData = data.map(t => ({
+    Reference: t.id,
+    Type: t.type,
+    Date: new Date(t.date).toLocaleDateString(),
+    Account: t.account,
+    Guest: t.guestName,
+    Email: t.guestEmail || '',
+    Phone: t.guestPhone || '',
+    TotalDue: t.totalDue,
+    TotalPaid: t.totalPaid,
+    Balance: t.balance,
+    Cashier: t.cashier
+  }));
+  const worksheet = XLSX.utils.json_to_sheet(flatData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Revenue_Ledger");
+  XLSX.writeFile(workbook, `Tide_Hotels_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`);
+};
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// MAIN APP
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 const App = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [modalType, setModalType] = useState<'RES' | 'WALK' | null>(null);
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
-  
-  // DATE FILTER STATE
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 3500); // Cinematic loading delay
-    const saved = localStorage.getItem('tide_ledger_v25');
-    if (saved) setTransactions(JSON.parse(saved));
+    const timer = setTimeout(() => setLoading(false), 1500);
+    const saved = localStorage.getItem('tide_ledger_master_v4');
+    if (saved) {
+      try { setTransactions(JSON.parse(saved)); } catch(e) { console.error(e); }
+    }
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => { localStorage.setItem('tide_ledger_v25', JSON.stringify(transactions)); }, [transactions]);
-
-  // DERIVED FILTERED TRANSACTIONS
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => {
-      const txDate = new Date(t.date).getTime();
-      const start = startDate ? new Date(startDate).setHours(0,0,0,0) : null;
-      const end = endDate ? new Date(endDate).setHours(23,59,59,999) : null;
-      
-      if (start && txDate < start) return false;
-      if (end && txDate > end) return false;
-      return true;
-    }).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, startDate, endDate]);
-
-  const stats = useMemo(() => ({
-    revenue: filteredTransactions.reduce((s,t)=>s+t.totalPaid, 0),
-    receivables: filteredTransactions.reduce((s,t)=>s+(t.balance < -0.1 ? Math.abs(t.balance) : 0), 0),
-    total: filteredTransactions.length
-  }), [filteredTransactions]);
+  useEffect(() => {
+    if (!loading) {
+      localStorage.setItem('tide_ledger_master_v4', JSON.stringify(transactions));
+    }
+  }, [transactions, loading]);
 
   if (loading) return (
-    <div className="fixed inset-0 bg-[#0f172a] flex flex-col items-center justify-center overflow-hidden">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.9, letterSpacing: "1em" }} 
-        animate={{ opacity: 1, scale: 1, letterSpacing: "-0.05em" }} 
-        transition={{ duration: 1.5, ease: "easeOut" }}
-        className="z-10 text-center"
-      >
-        <h1 className="text-[12rem] font-black text-transparent bg-clip-text bg-gradient-to-b from-[#c4a66a] to-[#7c633a] tracking-tighter leading-none select-none">TIDÈ</h1>
-        <motion.p 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1, duration: 1 }}
-          className="text-[#c4a66a] font-black text-xs uppercase tracking-[0.8em] mt-6 opacity-60"
-        >
-          {TAGLINE}
-        </motion.p>
-      </motion.div>
-      <motion.div 
-        initial={{ width: 0 }} 
-        animate={{ width: "240px" }} 
-        transition={{ delay: 2.2, duration: 1, ease: "easeInOut" }}
-        className="h-[1px] bg-gradient-to-r from-transparent via-[#c4a66a]/50 to-transparent mt-12"
-      />
+    <div className="fixed inset-0 bg-[#0f172a] flex flex-col items-center justify-center">
+      <h1 className="text-9xl font-black text-[#c4a66a] tracking-tighter animate-pulse">TIDÈ</h1>
+      <p className="text-[#c4a66a] text-[10px] uppercase tracking-[1em] mt-4 opacity-40">Financial Terminal Initializing...</p>
     </div>
   );
 
   if (!user) return (
-    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-6">
-      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="w-full max-w-md">
-        <GlassCard className="p-10 border-[#c4a66a]/10">
-          <div className="text-center mb-10"><h2 className="text-4xl font-black text-white uppercase tracking-tighter">Terminal</h2><p className="text-[#c4a66a] text-[10px] font-black uppercase tracking-widest mt-2 opacity-50">Sovereign Management Access</p></div>
-          <form onSubmit={(e:any) => { e.preventDefault(); setUser(e.target.u.value || 'Admin'); }} className="space-y-6">
-            <InputField label="Operator ID" name="u" placeholder="Full Name" required />
-            <InputField label="Secure Key" type="password" placeholder="••••" required />
-            <button type="submit" className="w-full bg-[#c4a66a] text-[#1a252f] py-6 rounded-3xl font-black uppercase tracking-widest shadow-2xl active:scale-95 transition-all">Authenticate</button>
-          </form>
-        </GlassCard>
-      </motion.div>
+    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-6 overflow-hidden relative">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#1e293b] via-[#0f172a] to-[#0f172a] opacity-50"></div>
+      <GlassCard className="max-w-md w-full p-12 relative z-10 border-[#c4a66a]/20">
+        <h2 className="text-center text-4xl font-black uppercase mb-10 tracking-tighter text-[#c4a66a]">Terminal Login</h2>
+        <form onSubmit={(e:any) => { e.preventDefault(); setUser(e.target.u.value || 'Administrator'); }} className="space-y-6">
+          <InputField label="Operator Identifier" name="u" placeholder="Your Full Name" required />
+          <InputField label="Access Key" type="password" placeholder="••••••••" required />
+          <button type="submit" className="w-full bg-[#c4a66a] text-black py-5 rounded-3xl font-black uppercase tracking-widest shadow-2xl hover:brightness-110 active:scale-95 transition-all">Authenticate</button>
+        </form>
+      </GlassCard>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white">
-      <nav className="px-8 py-7 border-b border-white/5 flex justify-between items-center sticky top-0 bg-[#0f172a]/95 backdrop-blur-3xl z-40">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-[#c4a66a] rounded-xl flex items-center justify-center font-black text-[#1a252f] text-2xl">T</div>
-          <h1 className="text-xl font-black uppercase tracking-tighter">Tidè Hotels</h1>
+    <div className="min-h-screen bg-[#0f172a] text-white selection:bg-[#c4a66a]/30">
+      <nav className="p-8 border-b border-white/5 flex justify-between items-center sticky top-0 bg-[#0f172a]/95 backdrop-blur-3xl z-40">
+        <div className="flex items-center gap-5">
+          <div className="w-12 h-12 bg-[#c4a66a] rounded-xl flex items-center justify-center font-black text-[#1a252f] text-2xl shadow-lg">T</div>
+          <h1 className="text-xl font-black uppercase tracking-tighter">Tidè Hotels & Resorts</h1>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right hidden sm:block"><p className="text-[9px] font-black text-white/20 uppercase">Operator</p><p className="font-black text-sm">{user}</p></div>
-          <button onClick={()=>setUser(null)} className="p-3 px-6 rounded-xl bg-white/5 hover:bg-red-500/10 text-red-400 text-[9px] font-black uppercase tracking-widest transition-all">Sign Out</button>
-        </div>
+        <button onClick={()=>setUser(null)} className="text-[10px] font-black uppercase text-red-400 bg-red-400/10 px-6 py-2.5 rounded-xl border border-red-400/20 hover:bg-red-400 hover:text-white transition-all">Sign Out</button>
       </nav>
 
-      <main className="p-8 md:p-14 max-w-7xl mx-auto space-y-12">
-        <div className="flex flex-col lg:flex-row justify-between items-end gap-10 border-b border-white/5 pb-14">
-          <div>
-            <h2 className="text-7xl font-black uppercase tracking-tighter leading-none">Ledger</h2>
-            <p className="text-[#c4a66a] font-black text-sm uppercase tracking-[0.4em] opacity-40 mt-3">Financial Authority Hub</p>
-          </div>
+      <main className="p-10 md:p-16 max-w-7xl mx-auto space-y-14">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-10 border-b border-white/5 pb-16">
+          <div><h2 className="text-7xl font-black uppercase tracking-tighter leading-none">Ledger</h2><p className="text-[#c4a66a] text-sm font-black uppercase tracking-[0.3em] opacity-40 mt-4">Revenue Authority Terminal</p></div>
           <div className="flex flex-wrap gap-4">
-            <button onClick={() => exportToExcel(filteredTransactions)} className="bg-emerald-500/10 text-emerald-500 px-8 py-5 rounded-2xl font-black text-[10px] uppercase border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all tracking-widest flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              EXCEL LEDGER
-            </button>
-            <button onClick={()=>{setEditTarget(null); setModalType('WALK');}} className="bg-[#1e293b] px-10 py-5 rounded-2xl font-black text-[10px] uppercase border border-white/10 tracking-widest hover:bg-[#2e3b4e] transition-all">POS DIRECT</button>
-            <button onClick={()=>{setEditTarget(null); setModalType('RES');}} className="bg-[#c4a66a] text-[#1a252f] px-10 py-5 rounded-2xl font-black text-[10px] uppercase shadow-2xl tracking-widest hover:brightness-110 active:scale-95 transition-all">NEW FOLIO</button>
+            <button onClick={() => exportToExcel(transactions)} className="bg-emerald-500/10 text-emerald-400 px-8 py-5 rounded-2xl font-black text-[10px] uppercase border border-emerald-500/20 transition-all hover:bg-emerald-500/20">Download Report</button>
+            <button onClick={()=>{setEditTarget(null); setModalType('WALK');}} className="bg-[#1e293b] px-10 py-5 rounded-2xl font-black text-[10px] uppercase border border-white/10 transition-all hover:bg-white/5">Walk-In POS</button>
+            <button onClick={()=>{setEditTarget(null); setModalType('RES');}} className="bg-[#c4a66a] text-black px-10 py-5 rounded-2xl font-black text-[10px] uppercase shadow-2xl transition-all hover:brightness-110">Reservation Entry</button>
           </div>
         </div>
 
-        {/* DATE FILTER CONTROLS */}
-        <GlassCard className="!p-6 border-white/5 bg-[#1a252f]/40">
-           <div className="flex flex-col md:flex-row items-end gap-6">
-              <div className="flex-1 w-full"><InputField label="Start Period" type="date" value={startDate} onChange={(e:any)=>setStartDate(e.target.value)} /></div>
-              <div className="flex-1 w-full"><InputField label="End Period" type="date" value={endDate} onChange={(e:any)=>setEndDate(e.target.value)} /></div>
-              <button onClick={()=>{setStartDate(''); setEndDate('');}} className="bg-white/5 text-white/40 px-6 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all mb-1">Reset</button>
-           </div>
-        </GlassCard>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-           <GlassCard delay={0.1} className="border-l-4 border-emerald-500/40">
-             <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">Selected Revenue</p>
-             <p className="text-5xl font-black mt-3 tracking-tighter">{formatNaira(stats.revenue)}</p>
-           </GlassCard>
-           <GlassCard delay={0.2} className="border-l-4 border-red-500/40">
-             <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">Receivables</p>
-             <p className="text-5xl font-black mt-3 text-red-400 tracking-tighter">{formatNaira(stats.receivables)}</p>
-           </GlassCard>
-           <GlassCard delay={0.3} className="border-l-4 border-[#c4a66a]/40">
-             <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">Active Entries</p>
-             <p className="text-5xl font-black mt-3 tracking-tighter">{stats.total}</p>
-           </GlassCard>
-        </div>
-
-        <GlassCard className="!p-0 border-white/5 overflow-hidden bg-[#1a252f]/40">
+        <GlassCard className="!p-0 border-white/5 overflow-hidden shadow-2xl">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left">
-              <thead>
-                <tr className="bg-black/30 text-[10px] font-black uppercase text-white/20">
-                  <th className="p-6">Docket / Ref</th>
-                  <th className="p-6">Entity / Ledger</th>
-                  <th className="p-6">Valuation</th>
-                  <th className="p-6">Audit Status</th>
-                  <th className="p-6 text-right">Actions</th>
-                </tr>
-              </thead>
+              <thead className="bg-white/5 text-[10px] font-black uppercase text-white/30"><tr className="border-b border-white/5"><th className="p-8">Reference</th><th className="p-8">Guest/Entity</th><th className="p-8">Valuation</th><th className="p-8">Audit</th><th className="p-8 text-right">Actions</th></tr></thead>
               <tbody className="divide-y divide-white/5">
-                {filteredTransactions.map(t=>(
-                  <tr key={t.id} className="hover:bg-white/[0.02] transition-colors group">
-                    <td className="p-6">
-                      <p className="font-black text-white/30 text-[9px] tracking-tighter">#{t.id}</p>
-                      <p className="text-[10px] opacity-60 mt-1">{new Date(t.date).toLocaleDateString()}</p>
-                    </td>
-                    <td className="p-6">
-                      <p className="font-black text-lg group-hover:text-[#c4a66a] transition-colors leading-none">{t.guestName}</p>
-                      <p className="text-[9px] text-[#c4a66a] font-black uppercase mt-1.5 opacity-60">{t.account}</p>
-                    </td>
-                    <td className="p-6 font-black text-[#c4a66a] text-xl tracking-tight">{formatNaira(t.totalDue)}</td>
-                    <td className="p-6">
-                      <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-full border ${t.balance >= -0.1 ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/10' : 'bg-red-500/5 text-red-500 border-red-500/10'}`}>
-                        {t.balance >= -0.1 ? 'Settled' : 'Owing'}
-                      </span>
-                    </td>
-                    <td className="p-6 text-right space-x-2">
-                       <button onClick={()=>{setEditTarget(t); setModalType(t.type==='RESERVATION'?'RES':'WALK')}} className="p-2 px-5 rounded-xl bg-white/5 text-[9px] font-black uppercase hover:bg-white/10 transition-all">Edit</button>
-                       <button onClick={()=>printReceipt(t)} className="p-2 px-5 rounded-xl bg-[#c4a66a]/10 text-[#c4a66a] text-[9px] font-black uppercase hover:bg-[#c4a66a] hover:text-[#1a252f] transition-all">Docket</button>
-                       <button onClick={()=>{ if(window.confirm("Permanently delete this entry?")) setTransactions(transactions.filter(x=>x.id!==t.id)); }} className="p-2 px-5 rounded-xl bg-red-500/10 text-red-500 text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">Del</button>
-                    </td>
+                {transactions.map(t=>(
+                  <tr key={t.id} className="hover:bg-white/[0.03] transition-all group">
+                    <td className="p-8"><p className="font-black text-white/20 group-hover:text-[#c4a66a] transition-all tracking-widest">#{t.id}</p><p className="text-[10px] mt-1 opacity-50">{new Date(t.date).toLocaleDateString()}</p></td>
+                    <td className="p-8"><p className="font-black text-xl leading-none">{t.guestName}</p><p className="text-[10px] text-[#c4a66a] mt-1.5 font-black uppercase tracking-widest">{t.account}</p></td>
+                    <td className="p-8 font-black text-2xl tracking-tighter">{formatNaira(t.totalDue)}</td>
+                    <td className="p-8"><span className={`text-[9px] font-black uppercase px-4 py-1.5 rounded-full border shadow-inner ${t.balance >= 0 ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>{t.balance >= 0 ? 'Settled' : 'Unpaid'}</span></td>
+                    <td className="p-8 text-right space-x-3"><button onClick={()=>{setEditTarget(t); setModalType(t.type==='RESERVATION'?'RES':'WALK')}} className="p-3 px-6 rounded-2xl bg-white/5 text-[10px] font-black uppercase hover:bg-white/10 transition-all">Edit</button><button onClick={()=>printReceipt(t)} className="p-3 px-6 rounded-2xl bg-[#c4a66a] text-black text-[10px] font-black uppercase shadow-lg hover:brightness-110 transition-all">Print</button></td>
                   </tr>
                 ))}
-                {filteredTransactions.length === 0 && <tr><td colSpan={5} className="p-20 text-center text-white/5 font-black uppercase tracking-[2em] italic opacity-20">No Entries Found</td></tr>}
+                {transactions.length === 0 && (
+                  <tr><td colSpan={5} className="p-20 text-center text-white/20 uppercase font-black tracking-[1em]">Empty Ledger</td></tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -724,5 +648,7 @@ const App = () => {
   );
 };
 
-const root = createRoot(document.getElementById('root')!);
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Failed to find the root element');
+const root = createRoot(rootElement);
 root.render(<ErrorBoundary><App /></ErrorBoundary>);
