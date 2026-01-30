@@ -1,3 +1,4 @@
+
 import React, { Component, useState, useEffect, ReactNode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,7 +10,8 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Use Component from named imports to ensure proper type resolution for state and props
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -20,6 +22,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
+    // Accessing this.state which is now correctly recognized due to Component inheritance
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
@@ -35,6 +38,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Accessing this.props which is now correctly recognized
     return this.props.children;
   }
 }
