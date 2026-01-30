@@ -1,3 +1,4 @@
+
 import React, { Component, useState, useEffect, ReactNode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,19 +10,16 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Fixed: Inheriting from the imported 'Component' and ensuring state and props are correctly resolved by the TypeScript compiler
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+// Use React.Component explicitly to ensure proper inheritance and property availability
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Define state as a class property to avoid constructor-related typing issues
+  state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
   render() {
-    // Fixed: State property access resolved by inheriting from Component<P, S>
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
@@ -38,7 +36,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fixed: Props property access resolved by inheriting from Component<P, S>
     return this.props.children;
   }
 }
@@ -49,7 +46,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 const HOTEL_ADDRESS = "38 S.O. Williams Street, Utako, Abuja.";
 const TAGLINE = "where boldness meets elegance";
 
-// Bank Accounts for Reservation Receipts (A4)
 const ZENITH_ACCOUNT = {
   bank: "Zenith Bank",
   accountNumber: "1311027935",
@@ -62,7 +58,6 @@ const MONIEPOINT_ACCOUNT = {
   accountName: "Tidé Hotels and Resorts"
 };
 
-// Bank Accounts for Walk-in Dockets
 const DOCKET_ACCOUNT_DETAILS_1 = {
   bank: "Suntrust Bank",
   accountNumber: "0025840833",
@@ -70,7 +65,7 @@ const DOCKET_ACCOUNT_DETAILS_1 = {
 };
 
 const DOCKET_ACCOUNT_DETAILS_2 = {
-  bank: "Suntrust Bank", // Updated from Moniepoint as per user request
+  bank: "Suntrust Bank",
   accountNumber: "9990000647",
   accountName: "Tidé Hotels and Resorts"
 };
@@ -366,7 +361,7 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
   const [discount, setDiscount] = useState(initial?.discount || 0);
 
   const roomSubtotal = useMemo(() => rooms.reduce((s, r) => s + (r.ratePerNight * r.nights * (r.quantity || 1)), 0), [rooms]);
-  const combinedSubtotal = roomSubtotal; // Simplified subtotal for the demo logic
+  const combinedSubtotal = roomSubtotal;
   const totalDue = Math.max(0, combinedSubtotal - discount);
   const totalPaid = useMemo(() => payments.reduce((s, p) => s + p.amount, 0), [payments]);
   const balance = totalPaid - totalDue;
@@ -574,17 +569,24 @@ const App = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [modalType, setModalType] = useState<'RES' | 'WALK' | null>(null);
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
 
-  // Date Filtering State
   const [filterStart, setFilterStart] = useState<string>('');
   const [filterEnd, setFilterEnd] = useState<string>('');
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1500);
-    const saved = localStorage.getItem('tide_ledger_master_v4');
-    if (saved) {
-      try { setTransactions(JSON.parse(saved)); } catch(e) { console.error(e); }
+    // Initial session check and data load
+    const savedSession = localStorage.getItem('tide_user_session');
+    if (savedSession) {
+      setUser(savedSession);
     }
+
+    const savedLedger = localStorage.getItem('tide_ledger_master_v4');
+    if (savedLedger) {
+      try { setTransactions(JSON.parse(savedLedger)); } catch(e) { console.error(e); }
+    }
+
+    const timer = setTimeout(() => setLoading(false), 1500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -594,26 +596,34 @@ const App = () => {
     }
   }, [transactions, loading]);
 
-  // Derived filtered transactions based on date range
   const filteredTransactions = useMemo(() => {
     if (!filterStart && !filterEnd) return transactions;
-    
     return transactions.filter(t => {
       const tDate = new Date(t.date);
       tDate.setHours(0,0,0,0);
-      
       const startDate = filterStart ? new Date(filterStart) : null;
       if (startDate) startDate.setHours(0,0,0,0);
-      
       const endDate = filterEnd ? new Date(filterEnd) : null;
       if (endDate) endDate.setHours(0,0,0,0);
-      
       if (startDate && tDate < startDate) return false;
       if (endDate && tDate > endDate) return false;
-      
       return true;
     });
   }, [transactions, filterStart, filterEnd]);
+
+  const handleLogin = (e: any) => {
+    e.preventDefault();
+    const username = e.target.u.value || 'Administrator';
+    setUser(username);
+    if (rememberMe) {
+      localStorage.setItem('tide_user_session', username);
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('tide_user_session');
+  };
 
   if (loading) return (
     <div className="fixed inset-0 bg-[#0f172a] flex flex-col items-center justify-center">
@@ -627,9 +637,21 @@ const App = () => {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#1e293b] via-[#0f172a] to-[#0f172a] opacity-50"></div>
       <GlassCard className="max-w-md w-full p-12 relative z-10 border-[#c4a66a]/20">
         <h2 className="text-center text-4xl font-black uppercase mb-10 tracking-tighter text-[#c4a66a]">Terminal Login</h2>
-        <form onSubmit={(e:any) => { e.preventDefault(); setUser(e.target.u.value || 'Administrator'); }} className="space-y-6">
+        <form onSubmit={handleLogin} className="space-y-6">
           <InputField label="Operator Identifier" name="u" placeholder="Your Full Name" required />
           <InputField label="Access Key" type="password" placeholder="••••••••" required />
+          
+          <div className="flex items-center gap-3 pl-1">
+            <input 
+              type="checkbox" 
+              id="remember" 
+              checked={rememberMe} 
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-4 h-4 rounded border-white/10 bg-[#0f172a] accent-[#c4a66a] cursor-pointer"
+            />
+            <label htmlFor="remember" className="text-[10px] font-black uppercase text-white/40 tracking-widest cursor-pointer select-none">Remember Terminal Password</label>
+          </div>
+
           <button type="submit" className="w-full bg-[#c4a66a] text-black py-5 rounded-3xl font-black uppercase tracking-widest shadow-2xl hover:brightness-110 active:scale-95 transition-all">Authenticate</button>
         </form>
       </GlassCard>
@@ -643,7 +665,7 @@ const App = () => {
           <div className="w-12 h-12 bg-[#c4a66a] rounded-xl flex items-center justify-center font-black text-[#1a252f] text-2xl shadow-lg">T</div>
           <h1 className="text-xl font-black uppercase tracking-tighter">Tidè Hotels & Resorts</h1>
         </div>
-        <button onClick={()=>setUser(null)} className="text-[10px] font-black uppercase text-red-400 bg-red-400/10 px-6 py-2.5 rounded-xl border border-red-400/20 hover:bg-red-400 hover:text-white transition-all">Sign Out</button>
+        <button onClick={handleLogout} className="text-[10px] font-black uppercase text-red-400 bg-red-400/10 px-6 py-2.5 rounded-xl border border-red-400/20 hover:bg-red-400 hover:text-white transition-all">Sign Out</button>
       </nav>
 
       <main className="p-10 md:p-16 max-w-7xl mx-auto space-y-14">
@@ -656,35 +678,11 @@ const App = () => {
           </div>
         </div>
 
-        {/* Date Filter Bar */}
         <GlassCard className="!p-8 border-white/5 shadow-xl flex flex-col md:flex-row items-end gap-6 bg-[#1a252f]/40">
-          <div className="w-full md:w-48">
-            <InputField 
-              label="Start Date" 
-              type="date" 
-              value={filterStart} 
-              onChange={(e: any) => setFilterStart(e.target.value)} 
-            />
-          </div>
-          <div className="w-full md:w-48">
-            <InputField 
-              label="End Date" 
-              type="date" 
-              value={filterEnd} 
-              onChange={(e: any) => setFilterEnd(e.target.value)} 
-            />
-          </div>
-          <button 
-            onClick={() => { setFilterStart(''); setFilterEnd(''); }}
-            className="text-[10px] font-black uppercase text-white/40 hover:text-[#c4a66a] transition-all pb-4 tracking-[0.2em]"
-          >
-            Clear Filters
-          </button>
-          <div className="flex-1 text-right pb-4">
-            <p className="text-[10px] font-black uppercase text-[#c4a66a] tracking-[0.2em]">
-              Showing {filteredTransactions.length} {filteredTransactions.length === 1 ? 'Transaction' : 'Transactions'}
-            </p>
-          </div>
+          <div className="w-full md:w-48"><InputField label="Start Date" type="date" value={filterStart} onChange={(e: any) => setFilterStart(e.target.value)} /></div>
+          <div className="w-full md:w-48"><InputField label="End Date" type="date" value={filterEnd} onChange={(e: any) => setFilterEnd(e.target.value)} /></div>
+          <button onClick={() => { setFilterStart(''); setFilterEnd(''); }} className="text-[10px] font-black uppercase text-white/40 hover:text-[#c4a66a] transition-all pb-4 tracking-[0.2em]">Clear Filters</button>
+          <div className="flex-1 text-right pb-4"><p className="text-[10px] font-black uppercase text-[#c4a66a] tracking-[0.2em]">Showing {filteredTransactions.length} {filteredTransactions.length === 1 ? 'Transaction' : 'Transactions'}</p></div>
         </GlassCard>
 
         <GlassCard className="!p-0 border-white/5 overflow-hidden shadow-2xl">
