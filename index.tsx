@@ -1,4 +1,3 @@
-
 import React, { Component, useState, useEffect, ReactNode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,16 +9,22 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Use React.Component explicitly to ensure proper inheritance and property availability
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Define state as a class property to avoid constructor-related typing issues
-  state: ErrorBoundaryState = { hasError: false, error: null };
+// Use standard Component inheritance to ensure props and state are correctly typed.
+// Fix: Using the named import 'Component' directly to resolve "Property 'props' does not exist" errors.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Explicitly initialize state property to resolve "Property 'state' does not exist" errors
+  public state: ErrorBoundaryState = { hasError: false, error: null };
+
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
   render() {
+    // Correctly accessing state and error properties
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
@@ -36,6 +41,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Correctly accessing props.children
     return this.props.children;
   }
 }
@@ -168,80 +174,100 @@ const printReceipt = (transaction: Transaction) => {
   if (!printWindow) return;
 
   const isReservation = transaction.type === 'RESERVATION';
+  // A person is "owing" if totalPaid < totalDue (i.e. balance < 0 in our calculation logic)
+  const isOwing = transaction.balance < 0;
+  // A person has overpaid if balance > 0
+  const isOverpaid = transaction.balance > 0;
+
+  const balanceLabel = isOwing 
+    ? 'Balance Outstanding' 
+    : (isOverpaid ? 'Credit Balance (Refund Due)' : 'Account Balance');
+
+  const docketBalanceLabel = isOwing 
+    ? 'BALANCE DUE' 
+    : (isOverpaid ? 'CREDIT BALANCE' : 'BALANCE');
 
   const a4Template = `
     <html>
       <head>
         <title>Invoice - ${transaction.id}</title>
         <style>
-          @page { size: A4; margin: 15mm; }
-          body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; line-height: 1.6; padding: 20px; }
-          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #c4a66a; padding-bottom: 15px; margin-bottom: 30px; }
-          .logo { font-size: 32px; font-weight: 900; color: #0f172a; letter-spacing: -1.5px; }
-          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 30px; }
-          .section-title { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 5px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-          th { text-align: left; font-size: 11px; font-weight: 900; text-transform: uppercase; color: #64748b; padding: 12px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-          td { padding: 12px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
-          .grand-total { font-size: 18px; font-weight: 900; color: #0f172a; border-top: 2px solid #c4a66a !important; padding-top: 15px !important; }
-          .bank-info { background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 40px; }
-          .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; }
+          @page { size: A4; margin: 10mm; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; line-height: 1.4; padding: 10px; box-sizing: border-box; }
+          .container { width: 100%; min-height: 100%; display: flex; flex-direction: column; }
+          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #c4a66a; padding-bottom: 10px; margin-bottom: 20px; }
+          .logo { font-size: 28px; font-weight: 900; color: #0f172a; letter-spacing: -1.5px; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px; }
+          .section-title { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 3px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th { text-align: left; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #64748b; padding: 10px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+          td { padding: 10px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+          .grand-total { font-size: 16px; font-weight: 900; color: #0f172a; border-top: 2px solid #c4a66a !important; padding-top: 10px !important; }
+          .bank-info { background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 20px; }
+          .footer { margin-top: auto; padding-top: 20px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
           .bold { font-weight: bold; }
+          .overpayment-highlight { color: #059669; font-weight: 900; }
         </style>
       </head>
       <body>
-        <div class="header">
-          <div><div class="logo">TIDÈ HOTELS</div><div style="font-size:12px;">${HOTEL_ADDRESS}</div></div>
-          <div style="text-align: right;"><div style="font-size:20px; font-weight:bold; color:#c4a66a;">GUEST FOLIO</div><div style="font-size:14px;">#${transaction.id}</div></div>
-        </div>
-        <div class="info-grid">
-          <div>
-            <div class="section-title">Guest Details</div>
-            <b>${transaction.guestName}</b><br/>
-            ${transaction.guestEmail ? `Email: ${transaction.guestEmail}<br/>` : ''}
-            ${transaction.guestPhone ? `Phone: ${transaction.guestPhone}<br/>` : ''}
-            ${transaction.guestIDType ? `${transaction.guestIDType}: ${transaction.guestIDNumber || 'N/A'}` : ''}
+        <div class="container">
+          <div class="header">
+            <div><div class="logo">TIDÈ HOTELS</div><div style="font-size:11px;">${HOTEL_ADDRESS}</div></div>
+            <div style="text-align: right;"><div style="font-size:18px; font-weight:bold; color:#c4a66a;">GUEST FOLIO</div><div style="font-size:13px;">#${transaction.id}</div></div>
           </div>
-          <div style="text-align: right;">
-            <div class="section-title">Folio Information</div>
-            Date: ${new Date(transaction.date).toLocaleDateString()}<br/>
-            Room Ref: ${transaction.roomNumber || 'N/A'}<br/>
-            Cashier: ${transaction.cashier}
+          <div class="info-grid">
+            <div>
+              <div class="section-title">Guest Details</div>
+              <b>${transaction.guestName}</b><br/>
+              ${transaction.guestEmail ? `Email: ${transaction.guestEmail}<br/>` : ''}
+              ${transaction.guestPhone ? `Phone: ${transaction.guestPhone}<br/>` : ''}
+              ${transaction.guestIDType ? `${transaction.guestIDType}: ${transaction.guestIDNumber || 'N/A'}` : ''}
+            </div>
+            <div style="text-align: right;">
+              <div class="section-title">Folio Information</div>
+              Date: ${new Date(transaction.date).toLocaleDateString()}<br/>
+              Room Ref: ${transaction.roomNumber || 'N/A'}<br/>
+              Cashier: ${transaction.cashier}
+            </div>
           </div>
-        </div>
-        <table>
-          <thead><tr><th>Description</th><th>Qty</th><th>Nts</th><th>Rate</th><th>Total</th></tr></thead>
-          <tbody>
-            ${transaction.rooms?.map(r => `<tr><td>${r.roomType}<br/><small>${r.checkIn} to ${r.checkOut}</small></td><td>${r.quantity}</td><td>${r.nights}</td><td>${formatNaira(r.ratePerNight)}</td><td>${formatNaira(r.ratePerNight * r.nights * r.quantity)}</td></tr>`).join('')}
-            ${transaction.extraCharges?.map(e => `<tr><td colspan="4">${e.description}</td><td>${formatNaira(e.amount)}</td></tr>`).join('')}
-          </tbody>
-        </table>
-        <div style="display: flex; justify-content: flex-end;">
-          <table style="width: 320px;">
-            <tr><td>Folio Subtotal</td><td style="text-align:right;">${formatNaira(transaction.totalDue + (transaction.discount || 0))}</td></tr>
-            ${transaction.discount ? `<tr><td>Rebate / Discount</td><td style="text-align:right; color:red;">-${formatNaira(transaction.discount)}</td></tr>` : ''}
-            <tr><td class="bold">Total Amount Payable</td><td class="bold" style="text-align:right;">${formatNaira(transaction.totalDue)}</td></tr>
-            <tr><td colspan="2"><div style="border-top: 1px dashed #cbd5e1; margin: 10px 0;"></div></td></tr>
-            ${transaction.payments.filter(p => p.amount > 0).map(p => `<tr><td style="font-size: 12px; color: #64748b;">Payment (${p.method})</td><td style="text-align:right; font-size: 12px; color: #64748b;">${formatNaira(p.amount)}</td></tr>`).join('')}
-            <tr><td class="bold" style="padding-top: 8px;">Total Paid To Date</td><td class="bold" style="text-align:right; padding-top: 8px;">${formatNaira(transaction.totalPaid)}</td></tr>
-            <tr><td class="grand-total">${transaction.balance < 0 ? 'Balance Outstanding' : 'Account Balance'}</td><td class="grand-total" style="text-align:right;">${formatNaira(Math.abs(transaction.balance))}</td></tr>
-            <tr><td colspan="2" style="font-size:10px; color:#94a3b8; text-align:right; padding-top:10px;">*Rates are Inclusive of SC (${transaction.scPerc || 0}%) and VAT (${transaction.vatPerc || 0}%)</td></tr>
+          <table>
+            <thead><tr><th>Description</th><th>Qty</th><th>Nts</th><th>Rate</th><th>Total</th></tr></thead>
+            <tbody>
+              ${transaction.rooms?.map(r => `<tr><td>${r.roomType}<br/><small>${r.checkIn} to ${r.checkOut}</small></td><td>${r.quantity}</td><td>${r.nights}</td><td>${formatNaira(r.ratePerNight)}</td><td>${formatNaira(r.ratePerNight * r.nights * r.quantity)}</td></tr>`).join('')}
+              ${transaction.extraCharges?.map(e => `<tr><td colspan="4">${e.description}</td><td>${formatNaira(e.amount)}</td></tr>`).join('')}
+            </tbody>
           </table>
-        </div>
-        <div class="bank-info">
-          <div class="section-title">Settlement Bank Accounts</div>
-          <div style="margin-bottom: 15px;">
-            <b>${ZENITH_ACCOUNT.bank}</b><br/>
-            Account Number: <b>${ZENITH_ACCOUNT.accountNumber}</b><br/>
-            Account Name: <b>${ZENITH_ACCOUNT.accountName}</b>
+          <div style="display: flex; justify-content: flex-end;">
+            <table style="width: 320px;">
+              <tr><td>Folio Subtotal</td><td style="text-align:right;">${formatNaira(transaction.totalDue + (transaction.discount || 0))}</td></tr>
+              ${transaction.discount ? `<tr><td>Rebate / Discount</td><td style="text-align:right; color:red;">-${formatNaira(transaction.discount)}</td></tr>` : ''}
+              <tr><td class="bold">Total Amount Payable</td><td class="bold" style="text-align:right;">${formatNaira(transaction.totalDue)}</td></tr>
+              <tr><td colspan="2"><div style="border-top: 1px dashed #cbd5e1; margin: 8px 0;"></div></td></tr>
+              ${transaction.payments.filter(p => p.amount > 0).map(p => `<tr><td style="font-size: 11px; color: #64748b;">Payment (${p.method})</td><td style="text-align:right; font-size: 11px; color: #64748b;">${formatNaira(p.amount)}</td></tr>`).join('')}
+              <tr><td class="bold" style="padding-top: 6px;">Total Paid To Date</td><td class="bold" style="text-align:right; padding-top: 6px;">${formatNaira(transaction.totalPaid)}</td></tr>
+              <tr><td class="grand-total ${isOverpaid ? 'overpayment-highlight' : ''}">${balanceLabel}</td><td class="grand-total ${isOverpaid ? 'overpayment-highlight' : ''}" style="text-align:right;">${formatNaira(Math.abs(transaction.balance))}</td></tr>
+              <tr><td colspan="2" style="font-size:9px; color:#94a3b8; text-align:right; padding-top:5px;">*Rates are Inclusive of SC (${transaction.scPerc || 0}%) and VAT (${transaction.vatPerc || 0}%)</td></tr>
+            </table>
           </div>
-          <div>
-            <b>${MONIEPOINT_ACCOUNT.bank}</b><br/>
-            Account Number: <b>${MONIEPOINT_ACCOUNT.accountNumber}</b><br/>
-            Account Name: <b>${MONIEPOINT_ACCOUNT.accountName}</b>
-          </div>
+          ${isOwing ? `
+            <div class="bank-info">
+              <div class="section-title">Settlement Bank Accounts</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                  <b>${ZENITH_ACCOUNT.bank}</b><br/>
+                  Acc No: <b>${ZENITH_ACCOUNT.accountNumber}</b><br/>
+                  Name: <b>${ZENITH_ACCOUNT.accountName}</b>
+                </div>
+                <div>
+                  <b>${MONIEPOINT_ACCOUNT.bank}</b><br/>
+                  Acc No: <b>${MONIEPOINT_ACCOUNT.accountNumber}</b><br/>
+                  Name: <b>${MONIEPOINT_ACCOUNT.accountName}</b>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+          <div class="footer"><p>${TAGLINE}</p></div>
         </div>
-        <div class="footer"><p>${TAGLINE}</p></div>
       </body>
     </html>
   `;
@@ -280,17 +306,19 @@ const printReceipt = (transaction: Transaction) => {
           <div class="payments">
             ${transaction.payments.map(p => `<div class="row"><span>${p.method}</span><span>${formatNaira(p.amount)}</span></div>`).join('')}
             <div class="row bold"><span>PAID</span><span>${formatNaira(transaction.totalPaid)}</span></div>
-            <div class="row bold"><span>BALANCE</span><span>${formatNaira(transaction.balance)}</span></div>
+            <div class="row bold"><span>${docketBalanceLabel}</span><span>${formatNaira(Math.abs(transaction.balance))}</span></div>
           </div>
-          <div class="bank-area">
-            <div class="bank-title">SETTLEMENT ACCOUNTS</div>
-            <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_1.bank}</span></div>
-            <div class="row"><span>Acc:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_1.accountNumber}</span></div>
-            <div style="border-top: 0.5px dotted #000; margin: 4px 0;"></div>
-            <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.bank}</span></div>
-            <div class="row"><span>Acc:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.accountNumber}</span></div>
-            <div class="row"><span>Name:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.accountName}</span></div>
-          </div>
+          ${isOwing ? `
+            <div class="bank-area">
+              <div class="bank-title">SETTLEMENT ACCOUNTS</div>
+              <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_1.bank}</span></div>
+              <div class="row"><span>Acc:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_1.accountNumber}</span></div>
+              <div style="border-top: 0.5px dotted #000; margin: 4px 0;"></div>
+              <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.bank}</span></div>
+              <div class="row"><span>Acc:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.accountNumber}</span></div>
+              <div class="row"><span>Name:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.accountName}</span></div>
+            </div>
+          ` : ''}
         </div>
       </body>
     </html>
@@ -437,7 +465,7 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
               <InputField label="Folio Rebate" type="number" value={discount || ''} onChange={(e:any)=>setDiscount(parseFloat(e.target.value)||0)} />
               <div className="pt-6 border-t border-white/10 flex justify-between items-end">
                 <div className="flex flex-col"><span className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest">Net Valuation</span><span className="text-4xl font-black text-white tracking-tighter">{formatNaira(totalDue)}</span></div>
-                <div className="text-right flex flex-col"><span className="text-[10px] font-black uppercase text-white/30 tracking-widest">Balance</span><span className={`text-2xl font-black tracking-tighter ${balance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{formatNaira(balance)}</span></div>
+                <div className="text-right flex flex-col"><span className="text-[10px] font-black uppercase text-white/30 tracking-widest">Balance</span><span className={`text-2xl font-black tracking-tighter ${balance < 0 ? 'text-red-400' : (balance > 0 ? 'text-emerald-400' : 'text-white')}`}>{formatNaira(balance)}</span></div>
               </div>
             </div>
           </div>
@@ -486,6 +514,7 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
                 <div key={idx} className="grid grid-cols-12 gap-3 bg-white/5 p-4 rounded-3xl border border-white/5 items-end shadow-inner">
                    <div className="col-span-6"><InputField label="Item Description" value={it.description} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, description: e.target.value}:x))} /></div>
                    <div className="col-span-3"><InputField label="Price (Gross)" type="number" value={it.amount || ''} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, amount: parseFloat(e.target.value)||0}:x))} /></div>
+                   {/* Fix: Changed typo iidx to i===idx to correctly identify item index for update */}
                    <div className="col-span-2"><InputField label="Qty" type="number" value={it.quantity} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, quantity: parseInt(e.target.value)||1}:x))} /></div>
                    <button onClick={()=>setItems(items.filter((_,i)=>i!==idx))} className="col-span-1 text-red-500 font-bold text-xl pb-3 transition-colors hover:text-red-300">&times;</button>
                 </div>
@@ -525,7 +554,7 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
 
         <div className="p-8 border-t border-white/5 bg-[#1a252f] shrink-0">
           <div className="flex justify-between items-center mb-6">
-             <div className="flex flex-col"><span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Folio Balance</span><span className={`text-2xl font-black ${balance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{formatNaira(balance)}</span></div>
+             <div className="flex flex-col"><span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Folio Balance</span><span className={`text-2xl font-black ${balance < 0 ? 'text-red-400' : (balance > 0 ? 'text-emerald-400' : 'text-white')}`}>{formatNaira(balance)}</span></div>
              <button onClick={handleSave} className="bg-[#c4a66a] text-black px-12 py-5 rounded-2xl font-black uppercase tracking-widest shadow-2xl transition-all hover:brightness-110 active:scale-95">Complete & Print Docket</button>
           </div>
           <p className="text-[9px] text-center text-white/20 uppercase tracking-[0.5em]">Payment directed to settlement accounts only</p>
