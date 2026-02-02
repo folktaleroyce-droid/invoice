@@ -1,4 +1,5 @@
-import React, { Component, useState, useEffect, ReactNode, useMemo } from 'react';
+
+import React, { useState, useEffect, ReactNode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
@@ -9,10 +10,9 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Use standard Component inheritance to ensure props and state are correctly typed.
-// Fix: Using the named import 'Component' directly to resolve "Property 'props' does not exist" errors.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Explicitly initialize state property to resolve "Property 'state' does not exist" errors
+// Use React.Component specifically to ensure standard React component property resolution for props and state.
+// This fixes the "Property 'props' does not exist" error by explicitly inheriting from the React namespace.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   constructor(props: ErrorBoundaryProps) {
@@ -24,7 +24,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Correctly accessing state and error properties
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
@@ -41,7 +40,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Correctly accessing props.children
     return this.props.children;
   }
 }
@@ -62,12 +60,6 @@ const MONIEPOINT_ACCOUNT = {
   bank: "Moniepoint",
   accountNumber: "5169200615",
   accountName: "Tidé Hotels and Resorts"
-};
-
-const DOCKET_ACCOUNT_DETAILS_1 = {
-  bank: "Suntrust Bank",
-  accountNumber: "0025840833",
-  accountName: "Tide’ Hotels Resorts"
 };
 
 const DOCKET_ACCOUNT_DETAILS_2 = {
@@ -311,9 +303,6 @@ const printReceipt = (transaction: Transaction) => {
           ${isOwing ? `
             <div class="bank-area">
               <div class="bank-title">SETTLEMENT ACCOUNTS</div>
-              <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_1.bank}</span></div>
-              <div class="row"><span>Acc:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_1.accountNumber}</span></div>
-              <div style="border-top: 0.5px dotted #000; margin: 4px 0;"></div>
               <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.bank}</span></div>
               <div class="row"><span>Acc:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.accountNumber}</span></div>
               <div class="row"><span>Name:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.accountName}</span></div>
@@ -514,7 +503,6 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
                 <div key={idx} className="grid grid-cols-12 gap-3 bg-white/5 p-4 rounded-3xl border border-white/5 items-end shadow-inner">
                    <div className="col-span-6"><InputField label="Item Description" value={it.description} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, description: e.target.value}:x))} /></div>
                    <div className="col-span-3"><InputField label="Price (Gross)" type="number" value={it.amount || ''} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, amount: parseFloat(e.target.value)||0}:x))} /></div>
-                   {/* Fix: Changed typo iidx to i===idx to correctly identify item index for update */}
                    <div className="col-span-2"><InputField label="Qty" type="number" value={it.quantity} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, quantity: parseInt(e.target.value)||1}:x))} /></div>
                    <button onClick={()=>setItems(items.filter((_,i)=>i!==idx))} className="col-span-1 text-red-500 font-bold text-xl pb-3 transition-colors hover:text-red-300">&times;</button>
                 </div>
