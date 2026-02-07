@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, ReactNode, useMemo, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,9 +9,8 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Fix: Directly extending Component<P, S> from the 'react' package ensures that 
-// properties like 'this.props' are correctly typed and recognized by the compiler.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fixed: Use React.Component to ensure 'props' is correctly inherited and typed
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   constructor(props: ErrorBoundaryProps) {
@@ -40,6 +38,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
+    // Fixed: return the children through this.props
     return this.props.children;
   }
 }
@@ -92,6 +91,7 @@ export enum IDType {
 export interface BookingRoom {
   id: string;
   roomType: RoomType;
+  description?: string;
   checkIn: string;
   checkOut: string;
   nights: number;
@@ -166,9 +166,7 @@ const printReceipt = (transaction: Transaction) => {
   if (!printWindow) return;
 
   const isReservation = transaction.type === 'RESERVATION';
-  // A person is "owing" if totalPaid < totalDue (i.e. balance < 0 in our calculation logic)
   const isOwing = transaction.balance < 0;
-  // A person has overpaid if balance > 0
   const isOverpaid = transaction.balance > 0;
 
   const balanceLabel = isOwing 
@@ -225,7 +223,7 @@ const printReceipt = (transaction: Transaction) => {
           <table>
             <thead><tr><th>Description</th><th>Qty</th><th>Nts</th><th>Rate</th><th>Total</th></tr></thead>
             <tbody>
-              ${transaction.rooms?.map(r => `<tr><td>${r.roomType}<br/><small>${r.checkIn} to ${r.checkOut}</small></td><td>${r.quantity}</td><td>${r.nights}</td><td>${formatNaira(r.ratePerNight)}</td><td>${formatNaira(r.ratePerNight * r.nights * r.quantity)}</td></tr>`).join('')}
+              ${transaction.rooms?.map(r => `<tr><td>${r.roomType}${r.description ? ` (${r.description})` : ''}<br/><small>${r.checkIn} to ${r.checkOut}</small></td><td>${r.quantity}</td><td>${r.nights}</td><td>${formatNaira(r.ratePerNight)}</td><td>${formatNaira(r.ratePerNight * r.nights * r.quantity)}</td></tr>`).join('')}
               ${transaction.extraCharges?.map(e => `<tr><td colspan="4">${e.description}</td><td>${formatNaira(e.amount)}</td></tr>`).join('')}
             </tbody>
           </table>
@@ -367,6 +365,7 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
   const [rooms, setRooms] = useState<BookingRoom[]>(initial?.rooms || [{ 
     id: uuid(), 
     roomType: RoomType.SOJOURN_ROOM, 
+    description: '',
     checkIn: new Date().toISOString().split('T')[0], 
     checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0], 
     nights: 1, 
@@ -433,11 +432,12 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
           </div>
 
           <div className="space-y-4">
-            <div className="flex justify-between items-center"><h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Stay Logistics</h3><button onClick={()=>setRooms([...rooms, { id: uuid(), roomType: RoomType.SOJOURN_ROOM, checkIn: '', checkOut: '', nights: 1, ratePerNight: ROOM_RATES[RoomType.SOJOURN_ROOM], quantity: 1 }])} className="text-[10px] bg-[#c4a66a]/10 text-[#c4a66a] px-5 py-2.5 rounded-xl font-bold border border-[#c4a66a]/20">Add Room Unit</button></div>
+            <div className="flex justify-between items-center"><h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Stay Logistics</h3><button onClick={()=>setRooms([...rooms, { id: uuid(), roomType: RoomType.SOJOURN_ROOM, description: '', checkIn: '', checkOut: '', nights: 1, ratePerNight: ROOM_RATES[RoomType.SOJOURN_ROOM], quantity: 1 }])} className="text-[10px] bg-[#c4a66a]/10 text-[#c4a66a] px-5 py-2.5 rounded-xl font-bold border border-[#c4a66a]/20">Add Room Unit</button></div>
             {rooms.map(r=>(
               <div key={r.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-[#0f172a] p-5 rounded-2xl border border-white/5 items-end">
-                <div className="md:col-span-3"><SelectField label="Category" value={r.roomType} options={Object.values(RoomType)} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, roomType: e.target.value as any, ratePerNight: ROOM_RATES[e.target.value as RoomType]}:rx))} /></div>
-                <div className="md:col-span-2"><InputField label="Rate (Incl SC/VAT)" type="number" value={r.ratePerNight} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, ratePerNight: parseFloat(e.target.value)||0}:rx))} /></div>
+                <div className="md:col-span-2"><SelectField label="Category" value={r.roomType} options={Object.values(RoomType)} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, roomType: e.target.value as any, ratePerNight: ROOM_RATES[e.target.value as RoomType]}:rx))} /></div>
+                <div className="md:col-span-2"><InputField label="Plan (e.g. Breakfast)" value={r.description || ''} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, description: e.target.value}:rx))} /></div>
+                <div className="md:col-span-1"><InputField label="Rate" type="number" value={r.ratePerNight} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, ratePerNight: parseFloat(e.target.value)||0}:rx))} /></div>
                 <div className="md:col-span-1"><InputField label="Qty" type="number" value={r.quantity} onChange={(e:any)=>setRooms(rooms.map(rx=>rx.id===r.id?{...rx, quantity: parseInt(e.target.value)||1}:rx))} /></div>
                 <div className="md:col-span-2"><InputField label="Check-In" type="date" value={r.checkIn} onChange={(e:any)=>updateDates(r.id, e.target.value, r.checkOut)} /></div>
                 <div className="md:col-span-2"><InputField label="Check-Out" type="date" value={r.checkOut} onChange={(e:any)=>updateDates(r.id, r.checkIn, e.target.value)} /></div>
@@ -601,7 +601,6 @@ const App = () => {
   const [filterEnd, setFilterEnd] = useState<string>('');
 
   useEffect(() => {
-    // Initial session check and data load
     const savedSession = localStorage.getItem('tide_user_session');
     if (savedSession) {
       setUser(savedSession);
