@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, ReactNode, useMemo } from 'react';
+import React, { useState, useEffect, ReactNode, useMemo, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
@@ -10,9 +10,9 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Use React.Component specifically to ensure standard React component property resolution for props and state.
-// This fixes the "Property 'props' does not exist" error by explicitly inheriting from the React namespace.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Directly extending Component<P, S> from the 'react' package ensures that 
+// properties like 'this.props' are correctly typed and recognized by the compiler.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   constructor(props: ErrorBoundaryProps) {
@@ -384,11 +384,20 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
   const balance = totalPaid - totalDue;
 
   const updateDates = (rid: string, cin: string, cout: string) => {
-    if (!cin || !cout) return;
-    const start = new Date(cin);
-    const end = new Date(cout);
-    const diff = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
-    setRooms(rooms.map(r => r.id === rid ? { ...r, checkIn: cin, checkOut: cout, nights: diff } : r));
+    setRooms(rooms.map(r => {
+      if (r.id === rid) {
+        let nights = r.nights;
+        if (cin && cout) {
+          const start = new Date(cin);
+          const end = new Date(cout);
+          if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+            nights = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
+          }
+        }
+        return { ...r, checkIn: cin, checkOut: cout, nights };
+      }
+      return r;
+    }));
   };
 
   const handleSave = () => {
