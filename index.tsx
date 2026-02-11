@@ -10,8 +10,9 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Use React.Component to ensure props and state are properly recognized in the class context
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Use named import Component to ensure props and state are properly recognized in the class context
+// Fixed: Changed React.Component to Component to resolve TypeScript property 'props' error
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   constructor(props: ErrorBoundaryProps) {
@@ -39,7 +40,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Fixed: return this.props.children; now correctly refers to props from React.Component
+    // Fixed: return this.props.children; correctly refers to props from Component
     return this.props.children;
   }
 }
@@ -289,6 +290,7 @@ const printReceipt = (transaction: Transaction) => {
           <div class="divider"></div>
           <div class="row"><span>Docket:</span><span class="bold">#${transaction.id}</span></div>
           <div class="row"><span>Date:</span><span>${new Date(transaction.date).toLocaleDateString()}</span></div>
+          <div class="row"><span>Time:</span><span>${new Date(transaction.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
           <p class="bold">Guest: ${transaction.guestName}</p>
           ${transaction.team ? `<p class="bold">Team: ${transaction.team}</p>` : ''}
           <div class="divider"></div>
