@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, ReactNode, useMemo, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,7 +10,7 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Fixed: Use React.Component to ensure 'props' is correctly inherited and typed
+// Use React.Component to ensure props and state are properly recognized in the class context
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
@@ -38,7 +39,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Fixed: return the children through this.props
+    // Fixed: return this.props.children; now correctly refers to props from React.Component
     return this.props.children;
   }
 }
@@ -133,6 +134,7 @@ export interface Transaction {
   cashier: string;
   scPerc?: number;
   vatPerc?: number;
+  team?: string;
 }
 
 const ROOM_RATES: Record<RoomType, number> = {
@@ -218,6 +220,7 @@ const printReceipt = (transaction: Transaction) => {
               Date: ${new Date(transaction.date).toLocaleDateString()}<br/>
               Room Ref: ${transaction.roomNumber || 'N/A'}<br/>
               Cashier: ${transaction.cashier}
+              ${transaction.team ? `<br/>Team: ${transaction.team}` : ''}
             </div>
           </div>
           <table>
@@ -287,6 +290,7 @@ const printReceipt = (transaction: Transaction) => {
           <div class="row"><span>Docket:</span><span class="bold">#${transaction.id}</span></div>
           <div class="row"><span>Date:</span><span>${new Date(transaction.date).toLocaleDateString()}</span></div>
           <p class="bold">Guest: ${transaction.guestName}</p>
+          ${transaction.team ? `<p class="bold">Team: ${transaction.team}</p>` : ''}
           <div class="divider"></div>
           ${transaction.items?.map(i => `<div class="row"><span>${i.description} (x${i.quantity})</span><span>${formatNaira(i.amount * i.quantity)}</span></div>`).join('')}
           <div class="divider"></div>
@@ -344,7 +348,7 @@ const InputField = ({ label, type = 'text', ...props }: any) => {
 const SelectField = ({ label, options, ...props }: any) => (
   <div className="space-y-1 w-full overflow-hidden">
     <label className="text-[10px] font-black uppercase text-[#c4a66a] tracking-widest pl-1 block truncate">{label}</label>
-    <select {...props} className="w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm appearance-none cursor-pointer">
+    <select {...props} className={`w-full bg-[#0f172a] border border-white/10 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm appearance-none cursor-pointer ${props.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
       {options.map((o: any) => <option key={o.value || o} value={o.value || o} className="bg-[#1a252f] text-white">{o.label || o}</option>)}
     </select>
   </div>
@@ -483,6 +487,7 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
   const [payments, setPayments] = useState<PaymentEntry[]>(initial?.payments || [{ id: uuid(), amount: 0, method: PaymentMethod.POS }]);
   const [scPerc, setScPerc] = useState(initial?.scPerc || 10);
   const [vatPerc, setVatPerc] = useState(initial?.vatPerc || 7.5);
+  const [team, setTeam] = useState(initial?.team || '');
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + (i.amount * i.quantity), 0), [items]);
   const totalPaid = useMemo(() => payments.reduce((s, p) => s + p.amount, 0), [payments]);
@@ -491,7 +496,7 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
   const handleSave = () => {
     if (!guest.trim()) return alert("Customer Name is required.");
     onSave({ 
-      id: initial?.id || `POS-${uuid()}`, type: 'WALK-IN', date: initial?.date || new Date().toISOString(), account: "F&B Operations", guestName: guest, items, subtotal, serviceCharge: 0, vat: 0, discount: 0, totalDue: subtotal, payments, totalPaid, balance, cashier: user, scPerc, vatPerc
+      id: initial?.id || `POS-${uuid()}`, type: 'WALK-IN', date: initial?.date || new Date().toISOString(), account: "F&B Operations", guestName: guest, items, subtotal, serviceCharge: 0, vat: 0, discount: 0, totalDue: subtotal, payments, totalPaid, balance, cashier: user, scPerc, vatPerc, team
     });
   };
 
@@ -504,7 +509,20 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
         </div>
         
         <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar flex-1">
-          <InputField label="Customer Identity" value={guest} onChange={(e:any)=>setGuest(e.target.value)} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <InputField label="Customer Identity" value={guest} onChange={(e:any)=>setGuest(e.target.value)} />
+             <SelectField 
+                label="Printing Team" 
+                value={team} 
+                options={[
+                   { value: '', label: 'Select Team' },
+                   { value: 'Zenza', label: 'Zenza' },
+                   { value: 'Whispers', label: 'Whispers' }
+                ]} 
+                onChange={(e:any)=>setTeam(e.target.value)} 
+                disabled={team !== ''}
+             />
+          </div>
           
           <div className="space-y-4">
              <div className="flex justify-between items-center"><h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Billable Items</h3><button onClick={()=>setItems([...items, {description: '', amount: 0, quantity: 1}])} className="text-[#c4a66a] text-2xl font-black">+</button></div>
@@ -578,7 +596,8 @@ const exportToExcel = (data: Transaction[]) => {
     TotalDue: t.totalDue,
     TotalPaid: t.totalPaid,
     Balance: t.balance,
-    Cashier: t.cashier
+    Cashier: t.cashier,
+    Team: t.team || 'N/A'
   }));
   const worksheet = XLSX.utils.json_to_sheet(flatData);
   const workbook = XLSX.utils.book_new();
@@ -744,4 +763,4 @@ const App = () => {
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Failed to find the root element');
 const root = createRoot(rootElement);
-root.render(<ErrorBoundary><App /></ErrorBoundary>);
+root.render(<ErrorBoundary><App /></ErrorBoundary>)
