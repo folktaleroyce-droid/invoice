@@ -10,14 +10,9 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Use named import Component to ensure props and state are properly recognized in the class context
-// Fixed: Changed React.Component to Component to resolve TypeScript property 'props' error
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+/* Fixed: Use React.Component explicitly to ensure correct property inheritance for 'props' which was previously missing in the class type definition */
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -40,7 +35,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Fixed: return this.props.children; correctly refers to props from Component
     return this.props.children;
   }
 }
@@ -108,7 +102,7 @@ export interface ExtraCharge {
 }
 
 export interface PaymentEntry { id: string; amount: number; method: PaymentMethod; reference?: string; }
-export interface POSItem { description: string; amount: number; quantity: number; }
+export interface POSItem { description: string; amount: number; quantity: number; category?: string; }
 
 export interface Transaction {
   id: string;
@@ -137,6 +131,98 @@ export interface Transaction {
   vatPerc?: number;
   team?: string;
 }
+
+const MENU_DATA: Record<string, { name: string; price: number }[]> = {
+  "Food - Breakfast": [
+    { name: "English Breakfast", price: 14000 },
+    { name: "Fluffy Pancakes with Eggs & Sausages", price: 13000 },
+    { name: "Custard & Akara", price: 9000 },
+    { name: "Nigerian Breakfast", price: 10000 },
+    { name: "Waffles with Eggs & Grilled Sausages", price: 14000 },
+    { name: "Steamed or Baked Potatoes with Egg Sauce", price: 11500 },
+    { name: "Breakfast Quesadillas", price: 14500 },
+    { name: "Omelette & Toast", price: 10000 },
+    { name: "Liver & Kidney Sauce with roasted potatoes", price: 11500 },
+    { name: "Porridge Oats with Milk & Fruit Topping", price: 9500 }
+  ],
+  "Food - Lunch & Dinner": [
+    { name: "Chicken Jambalaya", price: 23500 },
+    { name: "Orange-Glazed Grilled Chicken & Rice", price: 13000 },
+    { name: "Grilled Nile Perch Fillet", price: 27500 },
+    { name: "Penne in Arrabbiata Sauce", price: 28000 },
+    { name: "Penne Alfredo (Chicken or Shrimp)", price: 29000 },
+    { name: "Seafood Stir-Fry with Rice", price: 29500 },
+    { name: "Fried rice", price: 18000 },
+    { name: "Jollof Rice", price: 16000 },
+    { name: "Coconut Rice", price: 18000 },
+    { name: "Spaghetti Bolognese", price: 11000 },
+    { name: "Beef or Chicken Stroganoff", price: 29000 },
+    { name: "Goat Ragu & Fried Yam", price: 20000 }
+  ],
+  "Food - Salads & Soups": [
+    { name: "Greek Salad", price: 10000 },
+    { name: "Garden salad", price: 12000 },
+    { name: "Grilled chicken salad", price: 15000 },
+    { name: "Coleslaw", price: 3000 },
+    { name: "Egusi with Fish or Chicken", price: 16500 },
+    { name: "Okra Soup (Beef or Goatmeat)", price: 15500 },
+    { name: "Afang Soup (Beef or Goat Meat)", price: 16000 },
+    { name: "Bitter leaf (Goat or Beef)", price: 17000 },
+    { name: "Seafood okro", price: 23000 },
+    { name: "Fisherman soup", price: 25000 },
+    { name: "Goat Meat Pepper Soup", price: 10500 },
+    { name: "Fish Pepper Soup", price: 15000 },
+    { name: "Cream of Chicken Soup", price: 16000 }
+  ],
+  "Food - Small Bites & Extras": [
+    { name: "Chicken Wings in Buffalo Sauce", price: 10000 },
+    { name: "Fish & Chips", price: 13500 },
+    { name: "Shrimp Tempura", price: 12000 },
+    { name: "Chicken tenders", price: 12000 },
+    { name: "Club Sandwich", price: 10500 },
+    { name: "French fries", price: 3000 },
+    { name: "Plantain", price: 6000 },
+    { name: "Peppered braised goatmeat", price: 6000 }
+  ],
+  "Drinks - Cocktails & Signatures": [
+    { name: "Long Island Ice Tea", price: 8199 },
+    { name: "Margarita", price: 8199 },
+    { name: "Martini", price: 8199 },
+    { name: "Negroni", price: 8199 },
+    { name: "Old Fashioned", price: 8199 },
+    { name: "Whiskey Sour", price: 8199 },
+    { name: "Mojito", price: 8199 },
+    { name: "Tide Ignite", price: 9999 },
+    { name: "Tide Rush", price: 9999 }
+  ],
+  "Drinks - Non-Alcoholic": [
+    { name: "Virgin Pina Colada", price: 6199 },
+    { name: "Virgin Mojito", price: 6199 },
+    { name: "Chapman", price: 6199 },
+    { name: "Milk Shake (Oreo/Vanilla/Strawberry)", price: 8250 },
+    { name: "Zenza Dream Smoothie", price: 4000 },
+    { name: "Freshly Squeezed Juice", price: 4000 },
+    { name: "Water (60cl)", price: 600 },
+    { name: "Fizzy Drinks", price: 1000 },
+    { name: "Cranberry Juice", price: 12500 }
+  ],
+  "Drinks - Beer & Spirit": [
+    { name: "Heineken", price: 2000 },
+    { name: "Budweiser", price: 2700 },
+    { name: "Medium Stout", price: 2700 },
+    { name: "Desperados", price: 1500 },
+    { name: "Legend", price: 2500 }
+  ],
+  "Drinks - Wine & Whiskey": [
+    { name: "Carlo Rossi Red/White", price: 19000 },
+    { name: "Four Cousins", price: 15000 },
+    { name: "Nederburg", price: 40000 },
+    { name: "Jameson Green Irish", price: 48000 },
+    { name: "Jack Daniels", price: 56000 },
+    { name: "Black Label", price: 79000 },
+    { name: "Glen 12 Yrs", price: 120000 }
+  ]
+};
 
 const ROOM_RATES: Record<RoomType, number> = {
   [RoomType.SOJOURN_ROOM]: 94050,
@@ -483,6 +569,86 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
   );
 };
 
+const MenuSelectionOverlay = ({ onSelect, onClose }: { onSelect: (item: { name: string; price: number }) => void; onClose: () => void }) => {
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const filteredItems = useMemo(() => {
+    let result: { name: string; price: number; category: string }[] = [];
+    Object.entries(MENU_DATA).forEach(([cat, items]) => {
+      items.forEach(i => result.push({ ...i, category: cat }));
+    });
+    
+    if (selectedCategory) {
+      result = result.filter(i => i.category === selectedCategory);
+    }
+    
+    if (search) {
+      result = result.filter(i => i.name.toLowerCase().includes(search.toLowerCase()) || i.category.toLowerCase().includes(search.toLowerCase()));
+    }
+    
+    return result;
+  }, [search, selectedCategory]);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <GlassCard className="max-w-3xl w-full h-[80vh] flex flex-col !p-0 overflow-hidden">
+        <div className="p-6 bg-[#1a252f] border-b border-white/10 flex justify-between items-center">
+          <h3 className="text-lg font-black text-[#c4a66a] uppercase tracking-widest">Menu Explorer</h3>
+          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl transition-all">&times;</button>
+        </div>
+        
+        <div className="p-6 space-y-4">
+          <input 
+            autoFocus
+            type="text" 
+            placeholder="Search food, drinks, cocktails..." 
+            className="w-full bg-[#0f172a] border border-[#c4a66a]/30 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+            <button 
+              onClick={() => setSelectedCategory(null)}
+              className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${!selectedCategory ? 'bg-[#c4a66a] text-black border-[#c4a66a]' : 'bg-white/5 text-white/40 border-white/10 hover:border-white/20'}`}
+            >
+              All Items
+            </button>
+            {Object.keys(MENU_DATA).map(cat => (
+              <button 
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${selectedCategory === cat ? 'bg-[#c4a66a] text-black border-[#c4a66a]' : 'bg-white/5 text-white/40 border-white/10 hover:border-white/20'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-6 pt-0 space-y-2 custom-scrollbar">
+          {filteredItems.map((item, idx) => (
+            <button 
+              key={idx}
+              onClick={() => onSelect(item)}
+              className="w-full flex justify-between items-center p-4 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 transition-all group"
+            >
+              <div className="text-left">
+                <p className="font-bold text-white group-hover:text-[#c4a66a] transition-all">{item.name}</p>
+                <p className="text-[10px] text-white/30 uppercase font-black">{item.category}</p>
+              </div>
+              <p className="font-black text-[#c4a66a]">{formatNaira(item.price)}</p>
+            </button>
+          ))}
+          {filteredItems.length === 0 && (
+            <div className="text-center py-20 text-white/20 font-black uppercase tracking-widest">No matching items found</div>
+          )}
+        </div>
+      </GlassCard>
+    </motion.div>
+  );
+};
+
 const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
   const [guest, setGuest] = useState(initial?.guestName || 'Walk-In Customer');
   const [items, setItems] = useState<POSItem[]>(initial?.items || [{ description: 'F&B/General Service', amount: 0, quantity: 1 }]);
@@ -490,6 +656,7 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
   const [scPerc, setScPerc] = useState(initial?.scPerc || 10);
   const [vatPerc, setVatPerc] = useState(initial?.vatPerc || 7.5);
   const [team, setTeam] = useState(initial?.team || '');
+  const [activePickerIdx, setActivePickerIdx] = useState<number | null>(null);
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + (i.amount * i.quantity), 0), [items]);
   const totalPaid = useMemo(() => payments.reduce((s, p) => s + p.amount, 0), [payments]);
@@ -497,9 +664,16 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
   
   const handleSave = () => {
     if (!guest.trim()) return alert("Customer Name is required.");
+    /* Added mandatory team check per strict instruction */
+    if (!team) return alert("Please select a Printing Team (Zenza or Whispers) before proceeding.");
+    
     onSave({ 
       id: initial?.id || `POS-${uuid()}`, type: 'WALK-IN', date: initial?.date || new Date().toISOString(), account: "F&B Operations", guestName: guest, items, subtotal, serviceCharge: 0, vat: 0, discount: 0, totalDue: subtotal, payments, totalPaid, balance, cashier: user, scPerc, vatPerc, team
     });
+  };
+
+  const updateItem = (idx: number, updates: Partial<POSItem>) => {
+    setItems(items.map((it, i) => i === idx ? { ...it, ...updates } : it));
   };
 
   return (
@@ -527,13 +701,50 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
           </div>
           
           <div className="space-y-4">
-             <div className="flex justify-between items-center"><h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Billable Items</h3><button onClick={()=>setItems([...items, {description: '', amount: 0, quantity: 1}])} className="text-[#c4a66a] text-2xl font-black">+</button></div>
+             <div className="flex justify-between items-center">
+               <h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Billable Items</h3>
+               <button onClick={()=>setItems([...items, {description: '', amount: 0, quantity: 1}])} className="text-[#c4a66a] text-2xl font-black hover:scale-110 transition-all">+</button>
+             </div>
              {items.map((it, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-3 bg-white/5 p-4 rounded-3xl border border-white/5 items-end shadow-inner">
-                   <div className="col-span-6"><InputField label="Item Description" value={it.description} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, description: e.target.value}:x))} /></div>
-                   <div className="col-span-3"><InputField label="Price (Gross)" type="number" value={it.amount || ''} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, amount: parseFloat(e.target.value)||0}:x))} /></div>
-                   <div className="col-span-2"><InputField label="Qty" type="number" value={it.quantity} onChange={e=>setItems(items.map((x,i)=>i===idx?{...x, quantity: parseInt(e.target.value)||1}:x))} /></div>
-                   <button onClick={()=>setItems(items.filter((_,i)=>i!==idx))} className="col-span-1 text-red-500 font-bold text-xl pb-3 transition-colors hover:text-red-300">&times;</button>
+                <div key={idx} className="flex flex-col gap-3 bg-white/5 p-5 rounded-3xl border border-white/5 shadow-inner">
+                   <div className="flex gap-2 items-end">
+                     <div className="flex-1">
+                        <InputField 
+                          label="Item Description" 
+                          placeholder="Select from menu or type..."
+                          value={it.description} 
+                          onChange={(e:any)=>updateItem(idx, { description: e.target.value })} 
+                        />
+                     </div>
+                     <button 
+                      onClick={() => setActivePickerIdx(idx)}
+                      className="h-14 w-14 mb-0.5 bg-[#c4a66a]/10 border border-[#c4a66a]/30 rounded-2xl flex items-center justify-center text-[#c4a66a] hover:bg-[#c4a66a] hover:text-black transition-all group"
+                      title="Search Menu"
+                     >
+                       <span className="text-xs font-black group-hover:scale-110">MENU</span>
+                     </button>
+                   </div>
+                   <div className="grid grid-cols-12 gap-3">
+                      <div className="col-span-5">
+                        <InputField 
+                          label="Unit Price" 
+                          type="number" 
+                          value={it.amount || ''} 
+                          onChange={(e:any)=>updateItem(idx, { amount: parseFloat(e.target.value)||0 })} 
+                        />
+                      </div>
+                      <div className="col-span-4">
+                        <InputField 
+                          label="Qty" 
+                          type="number" 
+                          value={it.quantity} 
+                          onChange={(e:any)=>updateItem(idx, { quantity: parseInt(e.target.value)||1 })} 
+                        />
+                      </div>
+                      <div className="col-span-3 flex items-end justify-center">
+                        <button onClick={()=>setItems(items.filter((_,i)=>i!==idx))} className="text-red-500 font-bold text-xs uppercase tracking-widest transition-all hover:text-red-300 pb-5">Remove</button>
+                      </div>
+                   </div>
                 </div>
              ))}
           </div>
@@ -577,6 +788,18 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
           <p className="text-[9px] text-center text-white/20 uppercase tracking-[0.5em]">Payment directed to settlement accounts only</p>
         </div>
       </GlassCard>
+
+      <AnimatePresence>
+        {activePickerIdx !== null && (
+          <MenuSelectionOverlay 
+            onClose={() => setActivePickerIdx(null)}
+            onSelect={(item) => {
+              updateItem(activePickerIdx, { description: item.name, amount: item.price });
+              setActivePickerIdx(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
@@ -594,7 +817,7 @@ const exportToExcel = (data: Transaction[]) => {
     Account: t.account,
     Guest: t.guestName,
     Email: t.guestEmail || '',
-    Phone: t.guestPhone || '',
+    Phone: t.guestEmail || '',
     TotalDue: t.totalDue,
     TotalPaid: t.totalPaid,
     Balance: t.balance,
