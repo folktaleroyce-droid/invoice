@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, ReactNode, useMemo, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,9 +10,12 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-/* Fixed: Use React.Component explicitly to ensure correct property inheritance for 'props' which was previously missing in the class type definition */
+// Fixed: Explicitly use React.Component and a constructor to resolve the typing issue where 'props' was not recognized on the class instance.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false, error: null };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -202,8 +206,15 @@ const MENU_DATA: Record<string, { name: string; price: number }[]> = {
     { name: "Virgin Mojito", price: 6199 },
     { name: "Chapman", price: 6199 },
     { name: "Milk Shake (Oreo/Vanilla/Strawberry)", price: 8250 },
-    { name: "Zenza Dream Smoothie", price: 4000 },
-    { name: "Freshly Squeezed Juice", price: 4000 },
+    { name: "Zenza Dream Smoothie (Small)", price: 4000 },
+    { name: "Banana, pineapple. Fuse with whipping cream (Large)", price: 7699 },
+    { name: "Minty Zenza Smoothie (Small)", price: 4000 },
+    { name: "Apple, orange, pineapple and mint leaf(Large).", price: 7699 },
+    { name: "Freshly Squeezed Juice (Small)", price: 4000 },
+    { name: "Express choice of: orange, Watermelon, pineapple, Apple, Bitroot (Large).", price: 7699 },
+    { name: "Fruit Punch (Small)", price: 4000 },
+    { name: "Cranberry juice, pineapple juice, Orange, juice Lime or Lemon juice and Ginger(Large)", price: 7699 },
+    { name: "Crème de Tide (Banana, Milk, Nut, Honey)", price: 9200 },
     { name: "Water (60cl)", price: 600 },
     { name: "Fizzy Drinks", price: 1000 },
     { name: "Cranberry Juice", price: 12500 }
@@ -823,7 +834,7 @@ const exportToExcel = (data: Transaction[]) => {
     Account: t.account,
     Guest: t.guestName,
     Email: t.guestEmail || '',
-    Phone: t.guestEmail || '',
+    Phone: t.guestPhone || '',
     TotalDue: t.totalDue,
     TotalPaid: t.totalPaid,
     Balance: t.balance,
