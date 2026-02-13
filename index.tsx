@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, ReactNode, useMemo, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -157,7 +156,10 @@ const MENU_DATA: Record<string, { name: string; price: number }[]> = {
     { name: "Coconut Rice", price: 18000 },
     { name: "Spaghetti Bolognese", price: 11000 },
     { name: "Beef or Chicken Stroganoff", price: 29000 },
-    { name: "Goat Ragu & Fried Yam", price: 20000 }
+    { name: "Goat Ragu & Fried Yam", price: 20000 },
+    { name: "Chicken Stir-Fry with Rice", price: 22000 },
+    { name: "Beef Stir-fry with Rice", price: 22900 },
+    { name: "Mixed (Chicken and beef) stir-Fry Rice", price: 25500 }
   ],
   "Food - Salads & Soups": [
     { name: "Greek Salad", price: 10000 },
@@ -382,6 +384,7 @@ const printReceipt = (transaction: Transaction) => {
           <div class="divider"></div>
           ${transaction.items?.map(i => `<div class="row"><span>${i.description} (x${i.quantity})</span><span>${formatNaira(i.amount * i.quantity)}</span></div>`).join('')}
           <div class="divider"></div>
+          ${transaction.discount ? `<div class="row"><span>DISCOUNT</span><span style="color:red;">-${formatNaira(transaction.discount)}</span></div>` : ''}
           <div class="row bold" style="font-size:13px;"><span>TOTAL DUE</span><span>${formatNaira(transaction.totalDue)}</span></div>
           <div style="font-size:8px; text-align:right; opacity:0.6;">(Rates inclusive of SC/VAT)</div>
           <div class="divider"></div>
@@ -656,11 +659,13 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
   const [scPerc, setScPerc] = useState(initial?.scPerc || 10);
   const [vatPerc, setVatPerc] = useState(initial?.vatPerc || 7.5);
   const [team, setTeam] = useState(initial?.team || '');
+  const [discount, setDiscount] = useState(initial?.discount || 0);
   const [activePickerIdx, setActivePickerIdx] = useState<number | null>(null);
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + (i.amount * i.quantity), 0), [items]);
+  const totalDue = useMemo(() => Math.max(0, subtotal - discount), [subtotal, discount]);
   const totalPaid = useMemo(() => payments.reduce((s, p) => s + p.amount, 0), [payments]);
-  const balance = totalPaid - subtotal;
+  const balance = totalPaid - totalDue;
   
   const handleSave = () => {
     if (!guest.trim()) return alert("Customer Name is required.");
@@ -668,7 +673,7 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
     if (!team) return alert("Please select a Printing Team (Zenza or Whispers) before proceeding.");
     
     onSave({ 
-      id: initial?.id || `POS-${uuid()}`, type: 'WALK-IN', date: initial?.date || new Date().toISOString(), account: "F&B Operations", guestName: guest, items, subtotal, serviceCharge: 0, vat: 0, discount: 0, totalDue: subtotal, payments, totalPaid, balance, cashier: user, scPerc, vatPerc, team
+      id: initial?.id || `POS-${uuid()}`, type: 'WALK-IN', date: initial?.date || new Date().toISOString(), account: "F&B Operations", guestName: guest, items, subtotal, serviceCharge: 0, vat: 0, discount, totalDue, payments, totalPaid, balance, cashier: user, scPerc, vatPerc, team
     });
   };
 
@@ -751,16 +756,17 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-white/5 rounded-3xl border border-white/5 shadow-lg">
              <div className="space-y-4">
-                <h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Inclusive Tax Config</h3>
+                <h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Pricing Configuration</h3>
                 <div className="grid grid-cols-2 gap-4">
                    <InputField label="SC % (Incl)" type="number" value={scPerc} onChange={(e:any)=>setScPerc(parseFloat(e.target.value)||0)} />
                    <InputField label="VAT % (Incl)" type="number" value={vatPerc} onChange={(e:any)=>setVatPerc(parseFloat(e.target.value)||0)} />
                 </div>
+                <InputField label="Docket Discount" type="number" value={discount || ''} onChange={(e:any)=>setDiscount(parseFloat(e.target.value)||0)} />
              </div>
              <div className="flex flex-col justify-end">
                 <div className="p-5 bg-black/40 rounded-2xl border border-[#c4a66a]/30 flex justify-between items-center">
-                   <span className="text-[10px] font-black uppercase text-[#c4a66a]">Valuation</span>
-                   <span className="text-2xl font-black text-white tracking-tighter">{formatNaira(subtotal)}</span>
+                   <span className="text-[10px] font-black uppercase text-[#c4a66a]">Final Total</span>
+                   <span className="text-2xl font-black text-white tracking-tighter">{formatNaira(totalDue)}</span>
                 </div>
              </div>
           </div>
