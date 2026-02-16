@@ -10,11 +10,13 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Fixed: Explicitly use React.Component and a constructor to resolve the typing issue where 'props' was not recognized on the class instance.
+// Fix: Explicitly use React.Component to ensure props and state are correctly inherited and recognized by TypeScript
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Initialize state as a public property with proper typing
+  public override state: ErrorBoundaryState = { hasError: false, error: null };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -22,6 +24,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
+    // Fix: Access state via this.state which is now correctly inherited
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
@@ -38,6 +41,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // Fix: Access children through this.props, which is correctly available on React.Component
     return this.props.children;
   }
 }
@@ -680,7 +684,6 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
   
   const handleSave = () => {
     if (!guest.trim()) return alert("Customer Name is required.");
-    /* Added mandatory team check per strict instruction */
     if (!team) return alert("Please select a Printing Team (Zenza or Whispers) before proceeding.");
     
     onSave({ 
@@ -827,23 +830,52 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
 
 const exportToExcel = (data: Transaction[]) => {
   if (data.length === 0) return alert("No data to export.");
-  const flatData = data.map(t => ({
-    Reference: t.id,
-    Type: t.type,
-    Date: new Date(t.date).toLocaleDateString(),
-    Account: t.account,
-    Guest: t.guestName,
-    Email: t.guestEmail || '',
-    Phone: t.guestPhone || '',
-    TotalDue: t.totalDue,
-    TotalPaid: t.totalPaid,
-    Balance: t.balance,
-    Cashier: t.cashier,
-    Team: t.team || 'N/A'
-  }));
+  const flatData = data.map(t => {
+    let itemsSold = '';
+    if (t.type === 'RESERVATION' && t.rooms) {
+      itemsSold = t.rooms.map(r => `${r.roomType}${r.description ? ` [${r.description}]` : ''} (x${r.quantity})`).join(', ');
+    } else if (t.type === 'WALK-IN' && t.items) {
+      itemsSold = t.items.map(i => `${i.description} (x${i.quantity})`).join(', ');
+    }
+
+    // Join payment methods accurately from the settlement log
+    const paymentMethodsSummary = t.payments
+      .filter(p => p.amount > 0)
+      .map(p => p.method)
+      .filter((v, i, a) => a.indexOf(v) === i) // Unique methods
+      .join(', ') || 'N/A';
+
+    return {
+      'Reference #': t.id,
+      'Date': new Date(t.date).toLocaleDateString(),
+      'Type': t.type,
+      'Guest/Customer': t.guestName,
+      'Items Sold': itemsSold,
+      'Payment Method': paymentMethodsSummary, // Dynamically pulled from settlement data
+      'Ledger': t.account,
+      'Email': t.guestEmail || '',
+      'Phone': t.guestPhone || '',
+      'Subtotal': t.subtotal,
+      'Discount': t.discount,
+      'Total Due': t.totalDue,
+      'Total Paid': t.totalPaid,
+      'Balance': t.balance,
+      'Cashier': t.cashier,
+      'Team': t.team || 'N/A'
+    };
+  });
+  
   const worksheet = XLSX.utils.json_to_sheet(flatData);
+  
+  // Set column widths for better readability
+  const wscols = [
+    {wch: 15}, {wch: 12}, {wch: 15}, {wch: 25}, {wch: 60}, {wch: 20}, {wch: 20},
+    {wch: 25}, {wch: 15}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 15}, {wch: 15}
+  ];
+  worksheet['!cols'] = wscols;
+
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Revenue_Ledger");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Daily_Revenue_Ledger");
   XLSX.writeFile(workbook, `Tide_Hotels_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
@@ -954,7 +986,7 @@ const App = () => {
         <button onClick={handleLogout} className="text-[10px] font-black uppercase text-red-400 bg-red-400/10 px-6 py-2.5 rounded-xl border border-red-400/20 hover:bg-red-400 hover:text-white transition-all">Sign Out</button>
       </nav>
 
-      <main className="p-10 md:p-16 max-w-7xl mx-auto space-y-14">
+      <main className="p-10 md:p-16 mx-auto space-y-14">
         <div className="flex flex-col md:flex-row justify-between items-end gap-10 border-b border-white/5 pb-16">
           <div><h2 className="text-7xl font-black uppercase tracking-tighter leading-none">Ledger</h2><p className="text-[#c4a66a] text-sm font-black uppercase tracking-[0.3em] opacity-40 mt-4">Revenue Authority Terminal</p></div>
           <div className="flex flex-wrap gap-4">
