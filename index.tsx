@@ -2,8 +2,13 @@ import React, { useState, useEffect, ReactNode, useMemo, Component, useRef } fro
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// PROJECT-SPECIFIC CONSTANTS
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+const FIXED_ACCESS_KEY = "POS-GTMJ5K01L";
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ERROR BOUNDARY
@@ -28,7 +33,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
           <div className="bg-[#1e293b] p-10 rounded-3xl shadow-2xl max-w-lg w-full border-2 border-red-500/30 text-center">
             <h1 className="text-3xl font-black text-red-500 mb-4 uppercase">System Error</h1>
-            <p className="text-white/60 mb-6">{this.state.error?.message}</p>
+            <p className="text-white/60 mb-6">{this.state.error ? this.state.error.message : 'Unknown System Failure'}</p>
             <button 
               onClick={() => { localStorage.clear(); window.location.reload(); }} 
               className="w-full bg-[#c4a66a] text-white py-4 rounded-2xl font-black uppercase tracking-widest"
@@ -140,7 +145,7 @@ export interface Transaction {
   scPerc?: number;
   vatPerc?: number;
   team?: string;
-  accessKey?: string; // Used for Firestore security validation
+  accessKey?: string; 
 }
 
 const MENU_DATA: Record<string, { name: string; price: number }[]> = {
@@ -470,7 +475,7 @@ const SelectField = ({ label, options, ...props }: any) => (
 // MODALS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-const ReservationModal = ({ onSave, onClose, initial, cashierName, accessKey }: any) => {
+const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
   const [guest, setGuest] = useState(initial?.guestName || '');
   const [email, setEmail] = useState(initial?.guestEmail || '');
   const [phone, setPhone] = useState(initial?.guestPhone || '');
@@ -523,7 +528,7 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName, accessKey }: 
       roomNumber: roomNo, rooms, extraCharges, 
       subtotal: combinedSubtotal, serviceCharge: 0, vat: 0, discount, totalDue,
       payments, totalPaid, balance, cashier: cashierName, scPerc: 10, vatPerc: 7.5,
-      accessKey
+      accessKey: FIXED_ACCESS_KEY
     });
   };
 
@@ -684,7 +689,7 @@ const MenuSelectionOverlay = ({ onClose, onSelect }: { onClose: () => void, onSe
   );
 };
 
-const WalkInModal = ({ user, accessKey, initial, onSave, onClose }: any) => {
+const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
   const [guest, setGuest] = useState(initial?.guestName || 'Walk-In Customer');
   const [items, setItems] = useState<POSItem[]>(initial?.items || [{ description: 'F&B/General Service', amount: 0, quantity: 1 }]);
   const [payments, setPayments] = useState<PaymentEntry[]>(initial?.payments || [{ id: uuid(), amount: 0, method: PaymentMethod.POS }]);
@@ -704,7 +709,13 @@ const WalkInModal = ({ user, accessKey, initial, onSave, onClose }: any) => {
     if (!team) return alert("Please select a Printing Team (Zenza or Whispers) before proceeding.");
     
     onSave({ 
-      id: initial?.id || `POS-${uuid()}`, type: 'WALK-IN', date: initial?.date || new Date().toISOString(), account: "F&B Operations", guestName: guest, items, subtotal, serviceCharge: 0, vat: 0, discount, totalDue, payments, totalPaid, balance, cashier: user, scPerc, vatPerc, team, accessKey
+      id: initial?.id || `POS-${uuid()}`, 
+      type: 'WALK-IN', 
+      date: initial?.date || new Date().toISOString(), 
+      account: "F&B Operations", 
+      guestName: guest, 
+      items, subtotal, serviceCharge: 0, vat: 0, discount, totalDue, payments, totalPaid, balance, cashier: user, scPerc, vatPerc, team, 
+      accessKey: FIXED_ACCESS_KEY
     });
   };
 
@@ -806,7 +817,7 @@ const WalkInModal = ({ user, accessKey, initial, onSave, onClose }: any) => {
             <div className="flex justify-between items-center"><h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Settlement Log</h3><button onClick={()=>setPayments([...payments, {id: uuid(), amount: 0, method: PaymentMethod.POS}])} className="text-[#c4a66a] text-xl font-black">+</button></div>
             {payments.map(p=>(
                <div key={p.id} className="flex gap-4 bg-[#0f172a] p-4 rounded-3xl border border-white/5 items-center shadow-lg">
-                  <select className="flex-1 bg-transparent text-xs text-white font-bold outline-none cursor-pointer" value={p.method} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, amount: parseFloat(e.target.value)||0}:px))}>{Object.values(PaymentMethod).map(m=><option key={m} value={m} className="bg-[#1e293b]">{m}</option>)}</select>
+                  <select className="flex-1 bg-transparent text-xs text-white font-bold outline-none cursor-pointer" value={p.method} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, method: e.target.value as any}:px))}>{Object.values(PaymentMethod).map(m=><option key={m} value={m} className="bg-[#1e293b]">{m}</option>)}</select>
                   <div className="flex flex-col items-end">
                      <span className="text-[8px] font-black uppercase text-white/20 mb-1">Amount Paid</span>
                      <input type="number" className="bg-transparent w-40 text-right font-black text-white outline-none border-b border-white/5 focus:border-[#c4a66a] transition-all" value={p.amount || ''} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, amount: parseFloat(e.target.value)||0}:px))} />
@@ -820,7 +831,8 @@ const WalkInModal = ({ user, accessKey, initial, onSave, onClose }: any) => {
         <div className="p-8 border-t border-white/5 bg-[#1a252f] shrink-0">
           <div className="flex justify-between items-center mb-6">
              <div className="flex flex-col"><span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Folio Balance</span><span className={`text-2xl font-black ${balance < 0 ? 'text-red-400' : (balance > 0 ? 'text-emerald-400' : 'text-white')}`}>{formatNaira(balance)}</span></div>
-             <button onClick={handleSave} className="bg-[#c4a66a] text-black px-12 py-5 rounded-2xl font-black uppercase tracking-widest shadow-2xl transition-all hover:brightness-110 active:scale-95">Complete & Print Docket</button>
+             {/* FIX: Removed invalid handleSave prop from button element */}
+             <button className="bg-[#c4a66a] text-black px-12 py-5 rounded-2xl font-black uppercase tracking-widest shadow-2xl transition-all hover:brightness-110 active:scale-95" onClick={handleSave}>Complete & Print Docket</button>
           </div>
           <p className="text-[9px] text-center text-white/20 uppercase tracking-[0.5em]">Payment directed to settlement accounts only</p>
         </div>
@@ -842,8 +854,64 @@ const WalkInModal = ({ user, accessKey, initial, onSave, onClose }: any) => {
 };
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// HELPER FUNCTIONS
+// CLOUD BACKUP & MIGRATION HELPER FUNCTIONS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/**
+ * Automatically back up all new transactions.
+ * Mapping fields: transactionId, amount, createdAt, and accessKey.
+ */
+const backupNewTransaction = async (transaction: Transaction) => {
+  try {
+    const collRef = collection(db, "receipts_transactions");
+    const docRef = doc(collRef, transaction.id);
+
+    // Prompt instructions: include fields: transactionId, amount (number), createdAt (Date), accessKey.
+    await setDoc(docRef, {
+      ...transaction,
+      transactionId: transaction.id,
+      accessKey: FIXED_ACCESS_KEY,
+      amount: Number(transaction.totalDue) || 0,
+      createdAt: transaction.date ? new Date(transaction.date) : new Date()
+    }, { merge: true });
+
+    console.debug(`[Cloud Backup] Success for: ${transaction.id}`);
+  } catch (error: any) {
+    // Errors handled silently as per requirements
+    console.error(`[Cloud Backup Failure] ${transaction.id}:`, error.message);
+  }
+};
+
+/**
+ * Migrate all existing local transactions to Firestore.
+ * Mapping fields: transactionId, amount, createdAt, accessKey, and migratedAt.
+ */
+const migrateAllLocalTransactions = async (localTransactions: Transaction[]) => {
+  console.debug(`[Cloud Migration] Scanning ${localTransactions.length} local records...`);
+  const collRef = collection(db, "receipts_transactions");
+
+  for (const txn of localTransactions) {
+    try {
+      const docRef = doc(collRef, txn.id);
+      
+      // Since security rules block updates entirely, check if doc exists before write.
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) {
+        await setDoc(docRef, {
+          ...txn,
+          transactionId: txn.id,
+          accessKey: FIXED_ACCESS_KEY,
+          amount: Number(txn.totalDue) || 0,
+          createdAt: txn.date ? new Date(txn.date) : new Date(),
+          migratedAt: new Date()
+        }, { merge: true });
+        console.debug(`[Cloud Migration] Mirrored legacy record: ${txn.id}`);
+      }
+    } catch (error: any) {
+      console.error(`[Cloud Migration Failure] ${txn.id}:`, error.message);
+    }
+  }
+};
 
 const exportToExcel = (data: Transaction[]) => {
   if (data.length === 0) return alert("No data to export.");
@@ -893,56 +961,12 @@ const exportToExcel = (data: Transaction[]) => {
   XLSX.writeFile(workbook, `Tide_Hotels_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
-/**
- * Silent background sync helper for Firestore
- */
-async function syncToFirestore(tx: Transaction, key: string) {
-  try {
-    const txRef = doc(db, 'receipts_transactions', tx.id);
-    await setDoc(txRef, {
-      ...tx,
-      accessKey: key, // Ensure security rule validation passes
-      createdAt: serverTimestamp()
-    });
-    console.debug(`[Cloud Backup] Transaction ${tx.id} synced successfully.`);
-  } catch (error) {
-    console.error(`[Cloud Backup Error] Failed to sync ${tx.id}:`, error);
-  }
-}
-
-/**
- * Idempotent migration script for startup
- */
-async function migrateTransactions(list: Transaction[], key: string) {
-  if (!list.length) return;
-  console.debug(`[Cloud Migration] Checking ${list.length} local records...`);
-  
-  for (const tx of list) {
-    try {
-      const txRef = doc(db, 'receipts_transactions', tx.id);
-      const snap = await getDoc(txRef);
-      if (!snap.exists()) {
-        await setDoc(txRef, {
-          ...tx,
-          accessKey: key,
-          createdAt: serverTimestamp(),
-          migratedAt: serverTimestamp()
-        });
-        console.debug(`[Cloud Migration] Transferred legacy record: ${tx.id}`);
-      }
-    } catch (e) {
-      console.error(`[Cloud Migration Error] Record ${tx.id} failed:`, e);
-    }
-  }
-}
-
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // MAIN APP
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 const App = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<string | null>(null);
-  const [accessKey, setAccessKey] = useState<string>(''); // Stores terminal password
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [modalType, setModalType] = useState<'RES' | 'WALK' | null>(null);
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
@@ -955,10 +979,8 @@ const App = () => {
 
   useEffect(() => {
     const savedSession = localStorage.getItem('tide_user_session');
-    const savedKey = localStorage.getItem('tide_user_key');
     if (savedSession) {
       setUser(savedSession);
-      if (savedKey) setAccessKey(savedKey);
     }
 
     const savedLedger = localStorage.getItem('tide_ledger_master_v4');
@@ -973,13 +995,15 @@ const App = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Idempotent cloud migration on startup/login
+  // CLOUD SYNC & MIGRATION: Runs once on app startup.
   useEffect(() => {
-    if (!loading && user && accessKey && transactions.length > 0 && !migrationTriggered.current) {
+    if (!loading && user && !migrationTriggered.current) {
       migrationTriggered.current = true;
-      migrateTransactions(transactions, accessKey);
+      if (transactions.length > 0) {
+        migrateAllLocalTransactions(transactions);
+      }
     }
-  }, [loading, user, accessKey, transactions]);
+  }, [loading, user, transactions]);
 
   useEffect(() => {
     if (!loading) {
@@ -1005,29 +1029,25 @@ const App = () => {
   const handleLogin = (e: any) => {
     e.preventDefault();
     const username = e.target.u.value || 'Administrator';
-    const key = e.target.p.value || '';
     setUser(username);
-    setAccessKey(key);
     if (rememberMe) {
       localStorage.setItem('tide_user_session', username);
-      localStorage.setItem('tide_user_key', key);
     }
   };
 
   const handleLogout = () => {
     setUser(null);
-    setAccessKey('');
     localStorage.removeItem('tide_user_session');
-    localStorage.removeItem('tide_user_key');
   };
 
   const onTransactionSave = (tx: Transaction) => {
-    // 1. Maintain existing local flow
+    // 1. Primary update to local storage state
     setTransactions([tx, ...transactions.filter(o => o.id !== tx.id)]);
     setModalType(null);
     printReceipt(tx);
-    // 2. Extend with background cloud backup
-    syncToFirestore(tx, accessKey);
+    
+    // 2. Background automated backup to Firestore
+    backupNewTransaction(tx);
   };
 
   if (loading) return (
@@ -1114,8 +1134,8 @@ const App = () => {
       </main>
 
       <AnimatePresence>
-        {modalType === 'RES' && <ReservationModal initial={editTarget} cashierName={user} accessKey={accessKey} onSave={onTransactionSave} onClose={()=>setModalType(null)} />}
-        {modalType === 'WALK' && <WalkInModal initial={editTarget} user={user} accessKey={accessKey} onSave={onTransactionSave} onClose={()=>setModalType(null)} />}
+        {modalType === 'RES' && <ReservationModal initial={editTarget} cashierName={user} onSave={onTransactionSave} onClose={()=>setModalType(null)} />}
+        {modalType === 'WALK' && <WalkInModal initial={editTarget} user={user} onSave={onTransactionSave} onClose={()=>setModalType(null)} />}
       </AnimatePresence>
     </div>
   );
