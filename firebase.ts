@@ -1,17 +1,13 @@
-
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
-// Note: In a production environment, these values should be retrieved from environment variables.
-// For this implementation, placeholders are provided which you should replace with your 
-// actual Firebase Project settings from the Firebase Console.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyA_wJJuBXj9Y-2EynoPmGe21oBF3RYM1M8",
+  authDomain: "invoice-generator-fc18e.firebaseapp.com",
+  projectId: "invoice-generator-fc18e",
+  storageBucket: "invoice-generator-fc18e.firebasestorage.app",
+  messagingSenderId: "664316490136",
+  appId: "1:664316490136:web:cfad7a83b66bf24b05bbed"
 };
 
 const app = initializeApp(firebaseConfig);

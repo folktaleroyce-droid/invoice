@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, ReactNode, useMemo, Component, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -141,7 +140,7 @@ export interface Transaction {
   scPerc?: number;
   vatPerc?: number;
   team?: string;
-  accessKey?: string; // Captured from terminal login
+  accessKey?: string; // Captures password for Firestore security validation
 }
 
 const MENU_DATA: Record<string, { name: string; price: number }[]> = {
@@ -1027,7 +1026,7 @@ const App = () => {
     setTransactions([updatedTx, ...transactions.filter(o => o.id !== tx.id)]);
     setModalType(null);
     printReceipt(updatedTx);
-    // Auto-sync extension logic
+    // Silent background sync
     syncToFirestore(updatedTx);
   };
 
