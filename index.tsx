@@ -1,7 +1,10 @@
-import React, { useState, useEffect, ReactNode, useMemo, Component } from 'react';
+
+import React, { useState, useEffect, ReactNode, useMemo, Component, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from './firebase';
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ERROR BOUNDARY
@@ -9,9 +12,7 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Fix: Use the imported Component class directly and remove the invalid override modifier on state
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Removed 'override' which was causing issues and ensured correct inheritance from Component
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   constructor(props: ErrorBoundaryProps) {
@@ -23,7 +24,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   render() {
-    // Access state via this.state which is now correctly recognized from Component inheritance
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
@@ -40,7 +40,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         </div>
       );
     }
-    // Access children through this.props, which is available on Component
     return this.props.children;
   }
 }
@@ -142,6 +141,7 @@ export interface Transaction {
   scPerc?: number;
   vatPerc?: number;
   team?: string;
+  accessKey?: string; // Captured from terminal login
 }
 
 const MENU_DATA: Record<string, { name: string; price: number }[]> = {
@@ -471,7 +471,7 @@ const SelectField = ({ label, options, ...props }: any) => (
 // MODALS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
+const ReservationModal = ({ onSave, onClose, initial, cashierName, accessKey }: any) => {
   const [guest, setGuest] = useState(initial?.guestName || '');
   const [email, setEmail] = useState(initial?.guestEmail || '');
   const [phone, setPhone] = useState(initial?.guestPhone || '');
@@ -523,7 +523,8 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
       account, guestName: guest, guestEmail: email, guestPhone: phone, guestIDType: idType, guestIDNumber: idNumber,
       roomNumber: roomNo, rooms, extraCharges, 
       subtotal: combinedSubtotal, serviceCharge: 0, vat: 0, discount, totalDue,
-      payments, totalPaid, balance, cashier: cashierName, scPerc: 10, vatPerc: 7.5
+      payments, totalPaid, balance, cashier: cashierName, scPerc: 10, vatPerc: 7.5,
+      accessKey
     });
   };
 
@@ -594,87 +595,97 @@ const ReservationModal = ({ onSave, onClose, initial, cashierName }: any) => {
   );
 };
 
-const MenuSelectionOverlay = ({ onSelect, onClose }: { onSelect: (item: { name: string; price: number }) => void; onClose: () => void }) => {
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// MENU SELECTION OVERLAY
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+const MenuSelectionOverlay = ({ onClose, onSelect }: { onClose: () => void, onSelect: (item: { name: string, price: number }) => void }) => {
+  const [activeCategory, setActiveCategory] = useState<string>(Object.keys(MENU_DATA)[0]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const filteredItems = useMemo(() => {
-    let result: { name: string; price: number; category: string } [] = [];
-    Object.entries(MENU_DATA).forEach(([cat, items]) => {
-      items.forEach(i => result.push({ ...i, category: cat }));
-    });
-    
-    if (selectedCategory) {
-      result = result.filter(i => i.category === selectedCategory);
-    }
-    
-    if (search) {
-      result = result.filter(i => i.name.toLowerCase().includes(search.toLowerCase()) || i.category.toLowerCase().includes(search.toLowerCase()));
-    }
-    
-    return result;
-  }, [search, selectedCategory]);
+    const items = MENU_DATA[activeCategory] || [];
+    if (!searchTerm) return items;
+    return items.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [activeCategory, searchTerm]);
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-      <GlassCard className="max-w-3xl w-full h-[80vh] flex flex-col !p-0 overflow-hidden">
-        <div className="p-6 bg-[#1a252f] border-b border-white/10 flex justify-between items-center">
-          <h3 className="text-lg font-black text-[#c4a66a] uppercase tracking-widest">Menu Explorer</h3>
-          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl transition-all">&times;</button>
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] flex items-center justify-center p-4"
+    >
+      <motion.div 
+        initial={{ scale: 0.9, y: 20 }} 
+        animate={{ scale: 1, y: 0 }} 
+        exit={{ scale: 0.9, y: 20 }}
+        className="bg-[#1e293b] w-full max-w-4xl max-h-[85vh] rounded-[3rem] border border-white/10 shadow-2xl flex flex-col overflow-hidden"
+      >
+        <div className="p-8 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h2 className="text-2xl font-black uppercase text-[#c4a66a] tracking-tighter">Culinary Registry</h2>
+            <p className="text-[10px] font-black uppercase text-white/20 tracking-[0.3em]">Select items for docket</p>
+          </div>
+          <div className="relative w-full md:w-72">
+            <input 
+              autoFocus
+              type="text" 
+              placeholder="Search items..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-[#0f172a] border border-white/10 text-white p-4 pl-12 rounded-2xl outline-none focus:border-[#c4a66a] transition-all text-sm"
+            />
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-20">🔍</span>
+          </div>
+          <button onClick={onClose} className="hidden md:block text-white/20 hover:text-white text-3xl">&times;</button>
         </div>
-        
-        <div className="p-6 space-y-4">
-          <input 
-            autoFocus
-            type="text" 
-            placeholder="Search food, drinks, cocktails..." 
-            className="w-full bg-[#0f172a] border border-[#c4a66a]/30 text-white p-4 rounded-2xl outline-none focus:border-[#c4a66a] transition-all font-medium text-sm"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-            <button 
-              onClick={() => setSelectedCategory(null)}
-              className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${!selectedCategory ? 'bg-[#c4a66a] text-black border-[#c4a66a]' : 'bg-white/5 text-white/40 border-white/10 hover:border-white/20'}`}
-            >
-              All Items
-            </button>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Categories Sidebar */}
+          <div className="w-1/3 border-r border-white/5 overflow-y-auto custom-scrollbar bg-[#16202e]/50">
             {Object.keys(MENU_DATA).map(cat => (
-              <button 
+              <button
                 key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${selectedCategory === cat ? 'bg-[#c4a66a] text-black border-[#c4a66a]' : 'bg-white/5 text-white/40 border-white/10 hover:border-white/20'}`}
+                onClick={() => { setActiveCategory(cat); setSearchTerm(''); }}
+                className={`w-full text-left p-6 text-[10px] font-black uppercase tracking-widest transition-all border-l-4 ${activeCategory === cat ? 'bg-[#c4a66a]/10 text-[#c4a66a] border-[#c4a66a]' : 'text-white/40 border-transparent hover:bg-white/5'}`}
               >
                 {cat}
               </button>
             ))}
           </div>
+
+          {/* Items Grid */}
+          <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[#0f172a]/30">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredItems.map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => onSelect(item)}
+                  className="bg-[#1e293b] border border-white/5 p-5 rounded-2xl text-left hover:border-[#c4a66a]/50 hover:bg-[#c4a66a]/5 transition-all group flex justify-between items-center"
+                >
+                  <div>
+                    <p className="font-bold text-white group-hover:text-[#c4a66a] transition-all">{item.name}</p>
+                    <p className="text-[10px] font-black text-white/30 uppercase mt-1 tracking-widest">{formatNaira(item.price)}</p>
+                  </div>
+                  <span className="text-[#c4a66a] opacity-0 group-hover:opacity-100 transition-all font-black text-xl">+</span>
+                </button>
+              ))}
+              {filteredItems.length === 0 && (
+                <div className="col-span-full py-20 text-center opacity-20 font-black uppercase tracking-[0.5em]">No items match search</div>
+              )}
+            </div>
+          </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6 pt-0 space-y-2 custom-scrollbar">
-          {filteredItems.map((item, idx) => (
-            <button 
-              key={idx}
-              onClick={() => onSelect(item)}
-              className="w-full flex justify-between items-center p-4 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 transition-all group"
-            >
-              <div className="text-left">
-                <p className="font-bold text-white group-hover:text-[#c4a66a] transition-all">{item.name}</p>
-                <p className="text-[10px] text-white/30 uppercase font-black">{item.category}</p>
-              </div>
-              <p className="font-black text-[#c4a66a]">{formatNaira(item.price)}</p>
-            </button>
-          ))}
-          {filteredItems.length === 0 && (
-            <div className="text-center py-20 text-white/20 font-black uppercase tracking-widest">No matching items found</div>
-          )}
+        <div className="p-6 bg-[#1a252f] border-t border-white/5 flex justify-center md:hidden">
+          <button onClick={onClose} className="bg-white/5 text-white/40 px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-xs">Close Menu</button>
         </div>
-      </GlassCard>
+      </motion.div>
     </motion.div>
   );
 };
 
-const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
+const WalkInModal = ({ user, accessKey, initial, onSave, onClose }: any) => {
   const [guest, setGuest] = useState(initial?.guestName || 'Walk-In Customer');
   const [items, setItems] = useState<POSItem[]>(initial?.items || [{ description: 'F&B/General Service', amount: 0, quantity: 1 }]);
   const [payments, setPayments] = useState<PaymentEntry[]>(initial?.payments || [{ id: uuid(), amount: 0, method: PaymentMethod.POS }]);
@@ -694,7 +705,7 @@ const WalkInModal = ({ user, initial, onSave, onClose }: any) => {
     if (!team) return alert("Please select a Printing Team (Zenza or Whispers) before proceeding.");
     
     onSave({ 
-      id: initial?.id || `POS-${uuid()}`, type: 'WALK-IN', date: initial?.date || new Date().toISOString(), account: "F&B Operations", guestName: guest, items, subtotal, serviceCharge: 0, vat: 0, discount, totalDue, payments, totalPaid, balance, cashier: user, scPerc, vatPerc, team
+      id: initial?.id || `POS-${uuid()}`, type: 'WALK-IN', date: initial?.date || new Date().toISOString(), account: "F&B Operations", guestName: guest, items, subtotal, serviceCharge: 0, vat: 0, discount, totalDue, payments, totalPaid, balance, cashier: user, scPerc, vatPerc, team, accessKey
     });
   };
 
@@ -845,11 +856,10 @@ const exportToExcel = (data: Transaction[]) => {
       itemsSold = t.items.map(i => `${i.description} (x${i.quantity})`).join(', ');
     }
 
-    // Join payment methods accurately from the settlement log
     const paymentMethodsSummary = t.payments
       .filter(p => p.amount > 0)
       .map(p => p.method)
-      .filter((v, i, a) => a.indexOf(v) === i) // Unique methods
+      .filter((v, i, a) => a.indexOf(v) === i) 
       .join(', ') || 'N/A';
 
     return {
@@ -858,7 +868,7 @@ const exportToExcel = (data: Transaction[]) => {
       'Type': t.type,
       'Guest/Customer': t.guestName,
       'Items Sold': itemsSold,
-      'Payment Method': paymentMethodsSummary, // Dynamically pulled from settlement data
+      'Payment Method': paymentMethodsSummary,
       'Ledger': t.account,
       'Email': t.guestEmail || '',
       'Phone': t.guestPhone || '',
@@ -873,8 +883,6 @@ const exportToExcel = (data: Transaction[]) => {
   });
   
   const worksheet = XLSX.utils.json_to_sheet(flatData);
-  
-  // Set column widths for better readability
   const wscols = [
     {wch: 15}, {wch: 12}, {wch: 15}, {wch: 25}, {wch: 60}, {wch: 20}, {wch: 20},
     {wch: 25}, {wch: 15}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 15}, {wch: 15}
@@ -886,12 +894,56 @@ const exportToExcel = (data: Transaction[]) => {
   XLSX.writeFile(workbook, `Tide_Hotels_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
+/**
+ * Background helper to sync a single transaction to Firestore
+ */
+async function syncToFirestore(tx: Transaction) {
+  try {
+    const txRef = doc(db, 'receipts_transactions', tx.id);
+    await setDoc(txRef, {
+      ...tx,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    console.debug(`[Sync] Transaction ${tx.id} backed up successfully.`);
+  } catch (error) {
+    console.error(`[Sync Error] Failed to backup ${tx.id}:`, error);
+  }
+}
+
+/**
+ * Idempotent migration of all local transactions to Firestore
+ */
+async function migrateTransactions(list: Transaction[]) {
+  if (!list.length) return;
+  console.debug(`[Migration] Starting migration for ${list.length} records...`);
+  
+  for (const tx of list) {
+    try {
+      const txRef = doc(db, 'receipts_transactions', tx.id);
+      const snap = await getDoc(txRef);
+      if (!snap.exists()) {
+        await setDoc(txRef, {
+          ...tx,
+          createdAt: serverTimestamp(),
+          migratedAt: serverTimestamp()
+        });
+        console.debug(`[Migration] Migrated ${tx.id}`);
+      }
+    } catch (e) {
+      console.error(`[Migration Error] Record ${tx.id} failed:`, e);
+    }
+  }
+  console.debug(`[Migration] Process complete.`);
+}
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // MAIN APP
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 const App = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<string | null>(null);
+  const [accessKey, setAccessKey] = useState<string>(''); // Capture access key for security
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [modalType, setModalType] = useState<'RES' | 'WALK' | null>(null);
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
@@ -899,21 +951,36 @@ const App = () => {
 
   const [filterStart, setFilterStart] = useState<string>('');
   const [filterEnd, setFilterEnd] = useState<string>('');
+  
+  const migrationTriggered = useRef(false);
 
   useEffect(() => {
     const savedSession = localStorage.getItem('tide_user_session');
+    const savedKey = localStorage.getItem('tide_user_key');
     if (savedSession) {
       setUser(savedSession);
+      if (savedKey) setAccessKey(savedKey);
     }
 
     const savedLedger = localStorage.getItem('tide_ledger_master_v4');
     if (savedLedger) {
-      try { setTransactions(JSON.parse(savedLedger)); } catch(e) { console.error(e); }
+      try { 
+        const parsed = JSON.parse(savedLedger);
+        setTransactions(parsed);
+      } catch(e) { console.error(e); }
     }
 
     const timer = setTimeout(() => setLoading(false), 1500);
     return () => clearTimeout(timer);
   }, []);
+
+  // Trigger one-time migration after initial load
+  useEffect(() => {
+    if (!loading && transactions.length > 0 && !migrationTriggered.current) {
+      migrationTriggered.current = true;
+      migrateTransactions(transactions);
+    }
+  }, [loading, transactions]);
 
   useEffect(() => {
     if (!loading) {
@@ -939,15 +1006,29 @@ const App = () => {
   const handleLogin = (e: any) => {
     e.preventDefault();
     const username = e.target.u.value || 'Administrator';
+    const key = e.target.p.value || '';
     setUser(username);
+    setAccessKey(key);
     if (rememberMe) {
       localStorage.setItem('tide_user_session', username);
+      localStorage.setItem('tide_user_key', key);
     }
   };
 
   const handleLogout = () => {
     setUser(null);
+    setAccessKey('');
     localStorage.removeItem('tide_user_session');
+    localStorage.removeItem('tide_user_key');
+  };
+
+  const onTransactionSave = (tx: Transaction) => {
+    const updatedTx = { ...tx, accessKey }; // Ensure access key is attached
+    setTransactions([updatedTx, ...transactions.filter(o => o.id !== tx.id)]);
+    setModalType(null);
+    printReceipt(updatedTx);
+    // Auto-sync extension logic
+    syncToFirestore(updatedTx);
   };
 
   if (loading) return (
@@ -964,7 +1045,7 @@ const App = () => {
         <h2 className="text-center text-4xl font-black uppercase mb-10 tracking-tighter text-[#c4a66a]">Terminal Login</h2>
         <form onSubmit={handleLogin} className="space-y-6">
           <InputField label="Operator Identifier" name="u" placeholder="Your Full Name" required />
-          <InputField label="Access Key" type="password" placeholder="••••••••" required />
+          <InputField label="Access Key" name="p" type="password" placeholder="••••••••" required />
           
           <div className="flex items-center gap-3 pl-1">
             <input 
@@ -1034,8 +1115,8 @@ const App = () => {
       </main>
 
       <AnimatePresence>
-        {modalType === 'RES' && <ReservationModal initial={editTarget} cashierName={user} onSave={(tx:any)=>{setTransactions([tx,...transactions.filter(o=>o.id!==tx.id)]); setModalType(null); printReceipt(tx);}} onClose={()=>setModalType(null)} />}
-        {modalType === 'WALK' && <WalkInModal initial={editTarget} user={user} onSave={(tx:any)=>{setTransactions([tx,...transactions.filter(o=>o.id!==tx.id)]); setModalType(null); printReceipt(tx);}} onClose={()=>setModalType(null)} />}
+        {modalType === 'RES' && <ReservationModal initial={editTarget} cashierName={user} accessKey={accessKey} onSave={onTransactionSave} onClose={()=>setModalType(null)} />}
+        {modalType === 'WALK' && <WalkInModal initial={editTarget} user={user} accessKey={accessKey} onSave={onTransactionSave} onClose={()=>setModalType(null)} />}
       </AnimatePresence>
     </div>
   );
