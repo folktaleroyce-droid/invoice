@@ -140,7 +140,7 @@ export interface Transaction {
   scPerc?: number;
   vatPerc?: number;
   team?: string;
-  accessKey?: string; // Captures password for Firestore security validation
+  accessKey?: string; // Used for Firestore security validation
 }
 
 const MENU_DATA: Record<string, { name: string; price: number }[]> = {
@@ -806,7 +806,7 @@ const WalkInModal = ({ user, accessKey, initial, onSave, onClose }: any) => {
             <div className="flex justify-between items-center"><h3 className="text-[10px] font-black text-[#c4a66a] uppercase tracking-widest">Settlement Log</h3><button onClick={()=>setPayments([...payments, {id: uuid(), amount: 0, method: PaymentMethod.POS}])} className="text-[#c4a66a] text-xl font-black">+</button></div>
             {payments.map(p=>(
                <div key={p.id} className="flex gap-4 bg-[#0f172a] p-4 rounded-3xl border border-white/5 items-center shadow-lg">
-                  <select className="flex-1 bg-transparent text-xs text-white font-bold outline-none cursor-pointer" value={p.method} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, method: e.target.value as any}:px))}>{Object.values(PaymentMethod).map(m=><option key={m} value={m} className="bg-[#1e293b]">{m}</option>)}</select>
+                  <select className="flex-1 bg-transparent text-xs text-white font-bold outline-none cursor-pointer" value={p.method} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, amount: parseFloat(e.target.value)||0}:px))}>{Object.values(PaymentMethod).map(m=><option key={m} value={m} className="bg-[#1e293b]">{m}</option>)}</select>
                   <div className="flex flex-col items-end">
                      <span className="text-[8px] font-black uppercase text-white/20 mb-1">Amount Paid</span>
                      <input type="number" className="bg-transparent w-40 text-right font-black text-white outline-none border-b border-white/5 focus:border-[#c4a66a] transition-all" value={p.amount || ''} onChange={e=>setPayments(payments.map(px=>px.id===p.id?{...px, amount: parseFloat(e.target.value)||0}:px))} />
@@ -894,28 +894,28 @@ const exportToExcel = (data: Transaction[]) => {
 };
 
 /**
- * Background helper to sync a single transaction to Firestore
+ * Silent background sync helper for Firestore
  */
-async function syncToFirestore(tx: Transaction) {
+async function syncToFirestore(tx: Transaction, key: string) {
   try {
     const txRef = doc(db, 'receipts_transactions', tx.id);
     await setDoc(txRef, {
       ...tx,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-    console.debug(`[Sync] Transaction ${tx.id} backed up successfully.`);
+      accessKey: key, // Ensure security rule validation passes
+      createdAt: serverTimestamp()
+    });
+    console.debug(`[Cloud Backup] Transaction ${tx.id} synced successfully.`);
   } catch (error) {
-    console.error(`[Sync Error] Failed to backup ${tx.id}:`, error);
+    console.error(`[Cloud Backup Error] Failed to sync ${tx.id}:`, error);
   }
 }
 
 /**
- * Idempotent migration of all local transactions to Firestore
+ * Idempotent migration script for startup
  */
-async function migrateTransactions(list: Transaction[]) {
+async function migrateTransactions(list: Transaction[], key: string) {
   if (!list.length) return;
-  console.debug(`[Migration] Starting migration for ${list.length} records...`);
+  console.debug(`[Cloud Migration] Checking ${list.length} local records...`);
   
   for (const tx of list) {
     try {
@@ -924,16 +924,16 @@ async function migrateTransactions(list: Transaction[]) {
       if (!snap.exists()) {
         await setDoc(txRef, {
           ...tx,
+          accessKey: key,
           createdAt: serverTimestamp(),
           migratedAt: serverTimestamp()
         });
-        console.debug(`[Migration] Migrated ${tx.id}`);
+        console.debug(`[Cloud Migration] Transferred legacy record: ${tx.id}`);
       }
     } catch (e) {
-      console.error(`[Migration Error] Record ${tx.id} failed:`, e);
+      console.error(`[Cloud Migration Error] Record ${tx.id} failed:`, e);
     }
   }
-  console.debug(`[Migration] Process complete.`);
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -942,7 +942,7 @@ async function migrateTransactions(list: Transaction[]) {
 const App = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<string | null>(null);
-  const [accessKey, setAccessKey] = useState<string>(''); // Capture access key for security
+  const [accessKey, setAccessKey] = useState<string>(''); // Stores terminal password
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [modalType, setModalType] = useState<'RES' | 'WALK' | null>(null);
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
@@ -973,13 +973,13 @@ const App = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Trigger one-time migration after initial load
+  // Idempotent cloud migration on startup/login
   useEffect(() => {
-    if (!loading && transactions.length > 0 && !migrationTriggered.current) {
+    if (!loading && user && accessKey && transactions.length > 0 && !migrationTriggered.current) {
       migrationTriggered.current = true;
-      migrateTransactions(transactions);
+      migrateTransactions(transactions, accessKey);
     }
-  }, [loading, transactions]);
+  }, [loading, user, accessKey, transactions]);
 
   useEffect(() => {
     if (!loading) {
@@ -1022,12 +1022,12 @@ const App = () => {
   };
 
   const onTransactionSave = (tx: Transaction) => {
-    const updatedTx = { ...tx, accessKey }; // Ensure access key is attached
-    setTransactions([updatedTx, ...transactions.filter(o => o.id !== tx.id)]);
+    // 1. Maintain existing local flow
+    setTransactions([tx, ...transactions.filter(o => o.id !== tx.id)]);
     setModalType(null);
-    printReceipt(updatedTx);
-    // Silent background sync
-    syncToFirestore(updatedTx);
+    printReceipt(tx);
+    // 2. Extend with background cloud backup
+    syncToFirestore(tx, accessKey);
   };
 
   if (loading) return (
