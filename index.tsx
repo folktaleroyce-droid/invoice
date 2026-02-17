@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, ReactNode, useMemo, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,10 +9,10 @@ import * as XLSX from 'xlsx';
 interface ErrorBoundaryProps { children?: ReactNode; }
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-// Fix: Explicitly use React.Component to ensure props and state are correctly inherited and recognized by TypeScript
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Initialize state as a public property with proper typing
-  public override state: ErrorBoundaryState = { hasError: false, error: null };
+// Fix: Use the imported Component class directly and remove the invalid override modifier on state
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Removed 'override' which was causing issues and ensured correct inheritance from Component
+  public state: ErrorBoundaryState = { hasError: false, error: null };
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
@@ -24,7 +23,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   render() {
-    // Fix: Access state via this.state which is now correctly inherited
+    // Access state via this.state which is now correctly recognized from Component inheritance
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 text-white">
@@ -41,7 +40,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // Fix: Access children through this.props, which is correctly available on React.Component
+    // Access children through this.props, which is available on Component
     return this.props.children;
   }
 }
@@ -64,10 +63,16 @@ const MONIEPOINT_ACCOUNT = {
   accountName: "Tidé Hotels and Resorts"
 };
 
-const DOCKET_ACCOUNT_DETAILS_2 = {
+const DOCKET_ACCOUNT_WHISPERS = {
   bank: "Suntrust Bank",
   accountNumber: "9990000647",
   accountName: "Tidé Hotels and Resorts"
+};
+
+const DOCKET_ACCOUNT_ZENZA = {
+  bank: "Moniepoint",
+  accountNumber: "5226968546",
+  accountName: "Tide` Hotels and Resorts LTD - Zenza"
 };
 
 export enum RoomType {
@@ -283,6 +288,8 @@ const printReceipt = (transaction: Transaction) => {
     ? 'BALANCE DUE' 
     : (isOverpaid ? 'CREDIT BALANCE' : 'BALANCE');
 
+  const activeDocketAccount = transaction.team === 'Zenza' ? DOCKET_ACCOUNT_ZENZA : DOCKET_ACCOUNT_WHISPERS;
+
   const a4Template = `
     <html>
       <head>
@@ -411,9 +418,9 @@ const printReceipt = (transaction: Transaction) => {
           ${isOwing ? `
             <div class="bank-area">
               <div class="bank-title">SETTLEMENT ACCOUNTS</div>
-              <div class="row"><span>Bank:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.bank}</span></div>
-              <div class="row"><span>Acc:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.accountNumber}</span></div>
-              <div class="row"><span>Name:</span><span class="bold">${DOCKET_ACCOUNT_DETAILS_2.accountName}</span></div>
+              <div class="row"><span>Bank:</span><span class="bold">${activeDocketAccount.bank}</span></div>
+              <div class="row"><span>Acc:</span><span class="bold">${activeDocketAccount.accountNumber}</span></div>
+              <div class="row"><span>Name:</span><span class="bold">${activeDocketAccount.accountName}</span></div>
             </div>
           ` : ''}
         </div>
@@ -592,7 +599,7 @@ const MenuSelectionOverlay = ({ onSelect, onClose }: { onSelect: (item: { name: 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const filteredItems = useMemo(() => {
-    let result: { name: string; price: number; category: string }[] = [];
+    let result: { name: string; price: number; category: string } [] = [];
     Object.entries(MENU_DATA).forEach(([cat, items]) => {
       items.forEach(i => result.push({ ...i, category: cat }));
     });
@@ -1037,4 +1044,4 @@ const App = () => {
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Failed to find the root element');
 const root = createRoot(rootElement);
-root.render(<ErrorBoundary><App /></ErrorBoundary>)
+root.render(<ErrorBoundary><App /></ErrorBoundary>);
